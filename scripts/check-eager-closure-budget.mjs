@@ -1309,6 +1309,17 @@ export const EXHAUSTED_HEADROOM_FLOOR_MULTIPLE = 0.1;
  * {@link EXHAUSTED_HEADROOM_ALLOWANCE_GRANULARITY_MULTIPLE}, which is the unit
  * the comparison is made in and the reason a red here is a red a reader can see.
  */
+/**
+ * ⚠️ Annotated rather than inferred, and objectui#9204 is why. While this table
+ * carried a row, `Object.values` of it was `number[]`; the moment the last row
+ * was paid off, `Object.freeze({})` inferred `Readonly<{}>` and that same call
+ * became `unknown[]` — so a reader doing arithmetic on an allowance stopped
+ * compiling because the table was EMPTY, not because anything about it was
+ * wrong. The element type is a property of what this table holds, not of how
+ * many rows it holds today.
+ *
+ * @type {Readonly<Record<string, number>>}
+ */
 export const EXHAUSTED_HEADROOM_ALLOWANCES = Object.freeze({
   // ⭐ EMPTY, and both rows that stood here left the same way — REMOVED, never
   // lowered. The rule above forbids lowering a figure because a lowered figure

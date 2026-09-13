@@ -353,6 +353,15 @@ export const isDynamicEntrySpecifier = (specifier) => specifier.startsWith('luci
  * total. This list is where the two meet — a static import here is named on the
  * commit that adds it, rather than a kilobyte reading on a ceiling weeks later.
  */
+/**
+ * ⚠️ Annotated rather than inferred. An empty array literal infers `never[]`,
+ * so the element type of this census would be erased by the very emptiness that
+ * IS its assertion — and the next reader of it would get `never` instead of a
+ * path. The declared type is the one this list carries when a row has to be
+ * added, not the one it happens to have while it is empty.
+ *
+ * @type {readonly string[]}
+ */
 export const DECLARED_EAGER_DYNAMIC_IMPORTERS = [];
 
 /**
@@ -1108,10 +1117,19 @@ function judgeAnchoredMaps(root, anchors) {
  *
  * @typedef {{ paths: string[], resolver: string, descendants?: boolean, min?: number }} RecordReadingType
  *
+ * ⚠️ EVERY census this function reads has to appear here, and objectui#9204
+ * proved that the hard way: `declaredEagerDynamicImporters` was implemented,
+ * defaulted and used below while this typedef did not list it, so the unit
+ * test's fixture census was a type error at the CALL SITE and the declaration
+ * that was actually wrong sat in a `.mjs` that `tsconfig.scripts.json` does not
+ * check (`checkJs: false`). The error therefore lands on the caller, which is
+ * the one place the omission is not.
+ *
  * @typedef {{
  *   anchors?: readonly any[],
  *   declaredRecordReaders?: readonly string[],
  *   declaredDynamicReaders?: readonly string[],
+ *   declaredEagerDynamicImporters?: readonly string[],
  *   negativeControl?: string,
  *   recordReadingTypes?: Record<string, RecordReadingType>,
  * }} AnalyzeOptions
