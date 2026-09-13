@@ -1182,7 +1182,26 @@ export const PER_CHUNK_BASELINE = Object.freeze({
   // BASELINE's. Moved with the ceiling in the same commit, per the maintainer
   // ruling of 2026-09-08 and the rule stated under "Raising one".
   framework: 72_245,
-  'ui-components': 391_095,
+  // ⭐ RE-MEASURED by objectui#9204 on its own console build at `69aa9c017`, and
+  // moved in the same commit as the `EXHAUSTED_HEADROOM_ALLOWANCES` row it
+  // retired — the pair is what makes that retirement legible rather than a
+  // number that drifted. It used to read `391_095`.
+  //
+  //     ui-components  397,090 -> 353,658 gz   -43,432   (ablation-restored
+  //                                                       baseline reproduced
+  //                                                       397,090 to the byte)
+  //
+  // The bytes are `lucide-react/dynamic.mjs`: a 120,683-byte import map, eager
+  // for four modules that wanted only the NAMES it is keyed by, beside an
+  // `icons` record carrying the same catalogue. ⛔ The CEILING above did not
+  // move. Headroom against it is now 45,342 = 0.50x REGRESSION_THIS_GATE_MUST_
+  // CATCH_BYTES — inside this file's [0.10x, 1.00x] convention and beside
+  // `framework`'s 0.61x, so the row is neither exhausted nor blind. Tightening
+  // the ceiling onto this measurement the way objectui#7479 tightened
+  // `i18n-locales` is a defensible NEXT act and a deliberate one; it would put
+  // this chunk back to being the tightest line on the board, which is the
+  // condition this card was filed about, so it is ⛔ not taken here.
+  'ui-components': 353_658,
 });
 
 /**
@@ -1299,7 +1318,25 @@ export const EXHAUSTED_HEADROOM_ALLOWANCES = Object.freeze({
   // ABOVE the floor and needing no allowance at all. That is the debt PAID, in
   // the only currency this table takes: the row cleared the floor on its own.
   // ⛔ Re-adding a locale row here would mean the catalogues came back.
-  'ui-components': 4_289,
+  //
+  // ⭐ `ui-components: 4_289` stood here until objectui#9204 and left the SAME
+  // way — REMOVED, not lowered. Its chunk still exists; what left it is
+  // `lucide-react/dynamic.mjs`. That module's 120,683-byte import map was eager
+  // for four modules that wanted only the NAMES it is keyed by, and the `icons`
+  // record those names index was eager beside it the whole time, so the map was
+  // a second copy of a catalogue already paid for. The vocabulary is now rebuilt
+  // from the record's own keys (`components/src/lib/lazy-icon.tsx`, with the 264
+  // names no key can produce generated into `lucide-dynamic-name-aliases.ts` and
+  // re-derived from the installed lucide by a drift test). Measured across one
+  // pair of console builds on `69aa9c017`:
+  //
+  //     ui-components  397,090 -> 353,658 gz   -43,432
+  //     headroom         1,910 ->  45,342      0.02x -> 0.50x
+  //
+  // ⇒ the row cleared the floor on its own, by 36,228 bytes, which is the only
+  // currency this table takes. ⛔ The ceiling did NOT move: the maintainer's
+  // 2026-09-13 authorisation to raise it for this card went unused, and an empty
+  // table is ⛔ not a licence to re-add a row that cannot clear the floor.
 });
 
 /**

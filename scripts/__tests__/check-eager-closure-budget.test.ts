@@ -854,7 +854,19 @@ describe('ceiling sensitivity, judged live (objectui#5924)', () => {
      */
     describe('a declared row', () => {
       const CEILING = PER_CHUNK_GZIP_CEILINGS['ui-components'];
-      const ALLOWANCE = EXHAUSTED_HEADROOM_ALLOWANCES['ui-components'];
+      /**
+       * ⚠️ A FIXTURE, deliberately, and no longer a read of
+       * {@link EXHAUSTED_HEADROOM_ALLOWANCES}. 4,289 is the figure
+       * `ui-components` carried until objectui#9204 paid it off, and the
+       * mechanics below — held open at the pin, blind to one byte, red at one
+       * grain, the DEBT remedy rather than the find-the-bytes one — are about
+       * the RATCHET, not about which rows happen to owe today. Reading the live
+       * table here is what turned this block vacuous the moment the last row
+       * cleared the floor; injecting the pin keeps every assertion firing while
+       * the table below stays empty.
+       */
+      const ALLOWANCE = 4_289;
+      const DECLARED = { 'ui-components': ALLOWANCE };
       const GRAIN =
         REGRESSION_THIS_GATE_MUST_CATCH_BYTES * EXHAUSTED_HEADROOM_ALLOWANCE_GRANULARITY_MULTIPLE;
 
@@ -862,6 +874,7 @@ describe('ceiling sensitivity, judged live (objectui#5924)', () => {
       const atHeadroom = (headroom: number) =>
         evaluateHeadroomSensitivity({
           report: sensitivityReport(BASELINE.gzipBytes, { 'ui-components': CEILING - headroom }),
+          allowances: DECLARED,
         });
 
       it('is held open at its pinned figure', () => {
@@ -930,7 +943,7 @@ describe('ceiling sensitivity, judged live (objectui#5924)', () => {
         const at = (headroom: number, allowance: number) =>
           evaluateHeadroomSensitivity({
             report: sensitivityReport(BASELINE.gzipBytes, { 'ui-components': CEILING - headroom }),
-            allowances: { ...EXHAUSTED_HEADROOM_ALLOWANCES, 'ui-components': allowance },
+            allowances: { ...DECLARED, 'ui-components': allowance },
           }).status;
 
         expect(at(Math.floor(paidDown - GRAIN), paidDown)).toBe('error');
@@ -942,14 +955,31 @@ describe('ceiling sensitivity, judged live (objectui#5924)', () => {
     it('names every declared row in the PASSING verdict, not only when one fires', () => {
       // A debt list that is only legible on the run that reds is the parenthetical
       // this card is about: noticing stays manual, and it already failed twice.
+      //
+      // ⚠️ Injected rather than read off {@link EXHAUSTED_HEADROOM_ALLOWANCES}:
+      // that table is EMPTY since objectui#9204, and a loop over it would assert
+      // nothing while reading exactly like a test. What is under test is the
+      // RENDERER — that a declared row is named on a green run — so the row it
+      // renders is supplied here.
+      const declared = { 'ui-components': 4_289 };
       const result = evaluateHeadroomSensitivity({
         report: sensitivityReport(BASELINE.gzipBytes),
+        allowances: declared,
       });
       expect(result.status).toBe('pass');
-      for (const [name, allowance] of Object.entries(EXHAUSTED_HEADROOM_ALLOWANCES)) {
+      for (const [name, allowance] of Object.entries(declared)) {
         expect(result.message).toContain(`chunk \`${name}\``);
         expect(result.message).toContain(`declared ${allowance}-byte allowance`);
       }
+
+      // The firing control for the line above: with no declared row there is no
+      // allowance clause to render, so a green board says nothing about debt.
+      const none = evaluateHeadroomSensitivity({
+        report: sensitivityReport(BASELINE.gzipBytes),
+        allowances: {},
+      });
+      expect(none.status).toBe('pass');
+      expect(none.message).not.toContain('-byte allowance');
     });
 
     /**
@@ -965,9 +995,20 @@ describe('ceiling sensitivity, judged live (objectui#5924)', () => {
         // catalogues became `import()`ed, and the one that stays is budgeted
         // under `i18n-locale-en` at a headroom ABOVE the floor, needing no
         // allowance. That is the only way a row leaves this table.
-        expect(EXHAUSTED_HEADROOM_ALLOWANCES).toEqual({
-          'ui-components': 4_289,
-        });
+        //
+        // ⚠️ `ui-components: 4_289` left the same way at objectui#9204, and the
+        // distinction matters exactly as much the second time: it is REMOVED,
+        // not lowered. `lucide-react/dynamic.mjs`'s 120,683-byte import map came
+        // off the eager path — its vocabulary is rebuilt from the `icons` record
+        // the chunk already carried — and the row went from 1,910 bytes of
+        // headroom (0.02x) to 45,342 (0.50x) in one console build. The row
+        // cleared the floor on its own, which is the only currency this table
+        // takes.
+        //
+        // ⛔ An EMPTY table is not a licence to re-add a row. The rule above is
+        // unchanged: a ceiling that cannot clear the floor is a ceiling set at
+        // the wrong number, and the answer is the bytes or an authorised re-pin.
+        expect(EXHAUSTED_HEADROOM_ALLOWANCES).toEqual({});
       });
 
       it('every entry is real debt — strictly under the floor it excuses', () => {
@@ -976,6 +1017,11 @@ describe('ceiling sensitivity, judged live (objectui#5924)', () => {
         for (const allowance of Object.values(EXHAUSTED_HEADROOM_ALLOWANCES)) {
           expect(allowance).toBeLessThan(FLOOR);
         }
+        // The control, because the loop above is vacuous while the table is
+        // empty: the predicate it applies must still reject a row that is not
+        // debt, or this test would go on passing after it stopped checking.
+        expect(FLOOR).toBeGreaterThan(0);
+        expect(FLOOR).not.toBeLessThan(FLOOR);
       });
 
       it('is compared at the coarser of the two grids this gate renders on', () => {
@@ -1003,6 +1049,10 @@ describe('ceiling sensitivity, judged live (objectui#5924)', () => {
         for (const allowance of Object.values(EXHAUSTED_HEADROOM_ALLOWANCES)) {
           expect(allowance - grain).toBeGreaterThan(0);
         }
+        // Control for the empty table: the figure this rule was written about
+        // still has a reachable trip point, so the rule is about the numbers and
+        // not about there happening to be none.
+        expect(4_289 - grain).toBeGreaterThan(0);
       });
 
       it('every entry names a ceiling that exists', () => {
@@ -1012,6 +1062,10 @@ describe('ceiling sensitivity, judged live (objectui#5924)', () => {
         for (const key of Object.keys(EXHAUSTED_HEADROOM_ALLOWANCES)) {
           expect(judged).toContain(key);
         }
+        // Control for the empty table, in both directions: the membership test
+        // this loop applies accepts a budgeted chunk and rejects one that is not.
+        expect(judged).toContain('ui-components');
+        expect(judged).not.toContain('vendor-markdown');
       });
     });
   });

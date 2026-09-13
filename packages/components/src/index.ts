@@ -39,7 +39,7 @@ import './renderers';
 export { cn } from './lib/utils';
 export { renderChildren, renderNodeSlot, isEmptyNodeSlot } from './lib/utils';
 export { cva } from 'class-variance-authority';
-export { getLazyIcon, isLucideIconName, LazyIcon, toKebabIconName } from './lib/lazy-icon';
+export { getLazyIcon, isLucideIconName, LazyIcon, lucideIconNames, toKebabIconName } from './lib/lazy-icon';
 
 // The member-action visibility gate — "did this action DECLARE a `visible` gate
 // at all?", the single definition objectui#3492 established and PR #3816 /

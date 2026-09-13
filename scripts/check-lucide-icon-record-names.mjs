@@ -32,14 +32,33 @@
  * ── The two surfaces, and why picking the wrong one is worse than no gate ──
  * This repo resolves icon names against TWO different lucide vocabularies:
  *
- *   RECORD  — `icons` from 'lucide-react'            (1767 keys, measured)
- *   DYNAMIC — `iconNames` from 'lucide-react/dynamic.mjs' (2025 names)
+ *   RECORD  — `icons` from 'lucide-react'                  (1781 keys, measured)
+ *   DYNAMIC — the vocabulary `lucide-react/dynamic.mjs` publishes (2039 names)
+ *
+ * ⚠️ Both counts are read from the INSTALLED lucide on every run and printed in
+ * the verdict; the figures above are lucide-react@1.35.0 and are prose, not the
+ * judgement. ⛔ Do not compare one across a version bump with the other across
+ * it — they are two vocabularies, and the gap between them (258) dwarfs the gap
+ * between releases. Measured across the bump this repo actually took, 1.31.0 ->
+ * 1.35.0: RECORD 1767 -> 1781 and DYNAMIC 2025 -> 2039, fourteen icons added and
+ * none retired. Reading 1767 (RECORD, 1.31.0) against 2039 (DYNAMIC, 1.35.0)
+ * gives "+272 icons" and is the confusion this very paragraph exists to stop.
  *
  * DYNAMIC is a strict superset: it still carries `edit`, `smile`, `filter`,
  * `alert-triangle`. So a gate that checked the dynamic list would BLESS every
  * name this class is about. Only names reaching a RECORD-reading resolver are
  * judged here; the dynamic sites are censused (below) precisely so that the
  * split stays declared and a site cannot move between surfaces unnoticed.
+ *
+ * ⭐ Since objectui#9204 the DYNAMIC surface is no longer BACKED by
+ * `lucide-react/dynamic.mjs` — that module's 120,683-byte import map was eager
+ * on every page load for a list of names, and is now rebuilt from the RECORD's
+ * own keys plus a generated table of the 264 names no key can produce
+ * (`components/src/lib/lucide-dynamic-name-aliases.ts`). The vocabulary is
+ * unchanged at the name; only where it comes from moved. Discovery therefore
+ * matches BOTH spellings, and this gate still loads lucide's own map — as the
+ * independent judge, exactly so a mirror that drifts cannot also move the
+ * judgement it is checked against.
  *
  * ── What it checks (three parts, each self-verifying) ───────────────────────
  * 1. SURFACE CENSUS — rediscovers, from source, every module that reads either
@@ -297,10 +316,16 @@ export const DECLARED_RECORD_READERS = [
   'packages/components/src/renderers/action/resolve-icon.ts',
 ];
 
+// objectui#9204 took this list from four modules to one, and the three that left
+// did not stop resolving names — they stopped having their OWN resolver.
+// `app-shell`'s and `apps/console`'s `utils/getIcon.ts` were transcriptions of
+// `lazy-icon.tsx` (each with its own tokeniser, its own `Set` over lucide's
+// import map and its own memo) and are now re-exports of it;
+// `metadata-admin/widgets.tsx` wanted the name LIST alone and takes it from this
+// package's published `lucideIconNames()`. Consuming the one resolver is the
+// conforming shape and is deliberately NOT censused — every other `LazyIcon`
+// call site in the repo does the same and none is listed here.
 export const DECLARED_DYNAMIC_READERS = [
-  'apps/console/src/utils/getIcon.ts',
-  'packages/app-shell/src/utils/getIcon.ts',
-  'packages/app-shell/src/views/metadata-admin/widgets.tsx',
   'packages/components/src/lib/lazy-icon.tsx',
 ];
 
@@ -798,6 +823,12 @@ export function discoverResolvers(root, files) {
       if (!ts.isImportDeclaration(node) || !ts.isStringLiteral(node.moduleSpecifier)) return;
       const specifier = node.moduleSpecifier.text;
       if (specifier.startsWith('lucide-react/dynamic')) readsDynamic = true;
+      // The same surface, reached through the generated mirror instead of
+      // lucide's import map (objectui#9204). Without this line, moving the
+      // vocabulary off `dynamic.mjs` would read as "this module stopped
+      // resolving names" and would quietly retire the census entry that keeps
+      // the two surfaces declared.
+      if (specifier.includes('lucide-dynamic-name-aliases')) readsDynamic = true;
       if (specifier !== 'lucide-react') return;
       const bindings = node.importClause?.namedBindings;
       if (!bindings || !ts.isNamedImports(bindings)) return;
@@ -1073,7 +1104,7 @@ export function analyze(root, {
   censusDiff('record-reading resolver', discovered.record, declaredRecordReaders,
     'It resolves an icon NAME through lucide\'s runtime `icons` record, where a retired spelling resolves to nothing and NOTHING goes red.');
   censusDiff('dynamic-surface resolver', discovered.dynamic, declaredDynamicReaders,
-    'It resolves names through `lucide-react/dynamic.mjs`, which still carries retired spellings — a second, more forgiving vocabulary.');
+    'It resolves names through the DYNAMIC vocabulary — lucide\'s `dynamic.mjs` import map, or the generated mirror of it in `components/src/lib/lucide-dynamic-name-aliases.ts` — which still carries retired spellings, a second and more forgiving surface.');
 
   if (discovered.record.length === 0) {
     errors.push('discovery found NO record-reading resolver at all — it is not matching imports any more, and every "no violations" below is vacuous.');

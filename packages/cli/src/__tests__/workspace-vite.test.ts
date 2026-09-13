@@ -194,18 +194,65 @@ describe('lucide-react alias (objectui#3890)', () => {
     expect(manifest.name).toBe('lucide-react');
   });
 
-  it('keeps the subpath the component library imports resolvable', () => {
-    // The specifier is read out of the importer instead of being written here,
-    // so this pins the real consumer rather than a copy of it. With the entry
-    // file as the alias target, this rewrite produced `<entry>/<subpath>` and
-    // `packages/components/src/lib/lazy-icon.tsx` answered 500 once the
-    // platform aliases made it reachable at all.
-    const importer = readFileSync(join(REPO_ROOT, 'packages/components/src/lib/lazy-icon.tsx'), 'utf-8');
-    const match = /['"]lucide-react\/([^'"]+)['"]/.exec(importer);
-    expect(match, 'lazy-icon.tsx no longer imports a lucide-react subpath').not.toBeNull();
+  /**
+   * Every first-party bundled source file that imports a `lucide-react/<subpath>`
+   * specifier, rediscovered rather than remembered. The subpath this test
+   * rewrites is taken from here when the repo has a consumer, so it goes on
+   * pinning the real one rather than a copy of it.
+   */
+  function firstPartySubpathImporters(): { file: string; subpath: string }[] {
+    const found: { file: string; subpath: string }[] = [];
+    const walk = (dir: string) => {
+      for (const entry of readdirSync(dir, { withFileTypes: true })) {
+        const full = join(dir, entry.name);
+        if (entry.isDirectory()) {
+          if (entry.name === 'node_modules' || entry.name === '__tests__' || entry.name === 'dist') continue;
+          walk(full);
+        } else if (/\.tsx?$/.test(entry.name) && !/\.test\.tsx?$/.test(entry.name)) {
+          const match = /from ['"]lucide-react\/([^'"]+)['"]/.exec(readFileSync(full, 'utf-8'));
+          if (match) found.push({ file: full, subpath: match[1] });
+        }
+      }
+    };
+    for (const pkg of ['packages', 'apps']) {
+      const root = join(REPO_ROOT, pkg);
+      if (existsSync(root)) walk(root);
+    }
+    return found;
+  }
 
-    const rewritten = join(lucide as string, (match as RegExpExecArray)[1]);
+  it('keeps a lucide subpath resolvable through the rewrite', () => {
+    // With the entry file as the alias target this rewrite produced
+    // `<entry>/<subpath>`, and `packages/components/src/lib/lazy-icon.tsx`
+    // answered 500 once the platform aliases made it reachable at all. The
+    // property is about the alias TARGET being a directory, and it holds for any
+    // subpath the package publishes.
+    //
+    // ⚠️ objectui#9204 removed the last first-party BUNDLED importer of one:
+    // `lazy-icon.tsx` read `lucide-react/dynamic.mjs` for a list of icon names
+    // and dragged its 120,683-byte import map onto every page load with it. The
+    // specifier used to be read out of that file, "so this pins the real
+    // consumer rather than a copy of it" — so the discovery above still looks
+    // for a consumer first, and only falls back to a subpath lucide's own
+    // manifest publishes when the repo has none. An app built on `@object-ui/*`
+    // may still import one, which is why the alias itself is not retired.
+    const importers = firstPartySubpathImporters();
+    const subpath = importers[0]?.subpath ?? 'dynamic.mjs';
+
+    const rewritten = join(lucide as string, subpath);
     expect(existsSync(rewritten), `${rewritten} must exist for the aliased subpath to resolve`).toBe(true);
+
+    // The control that keeps the line above from passing on anything: the same
+    // rewrite against the package's RESOLVED ENTRY — the shape objectui#3890
+    // fixed — must NOT resolve. The entry is read off the manifest, so the
+    // contrast survives lucide moving its build output.
+    const manifest = JSON.parse(readFileSync(join(lucide as string, 'package.json'), 'utf-8')) as {
+      module?: string;
+      main?: string;
+    };
+    const entry = join(lucide as string, (manifest.module ?? manifest.main) as string);
+    expect(existsSync(entry), 'the entry file this test contrasts with must exist').toBe(true);
+    expect(existsSync(join(entry, subpath))).toBe(false);
   });
 });
 

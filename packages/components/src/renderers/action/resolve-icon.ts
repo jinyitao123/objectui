@@ -120,6 +120,29 @@ export function describeIconLookup(name: string): { pascal: string; key: string 
 }
 
 /**
+ * The record's live keys, for the ONE caller that must enumerate them.
+ *
+ * ⛔ Not a second lookup and not a widening of this seam's contract: it returns
+ * names, never components, and answers nothing about what a given authored
+ * string resolves to. It exists so the forgiving DYNAMIC surface
+ * (`lib/lazy-icon.tsx`) can rebuild lucide's kebab-spelled vocabulary from the
+ * record this bundle already carries, instead of importing
+ * `lucide-react/dynamic.mjs` for a list of names and dragging its 120,683-byte
+ * import map onto every page load (objectui#9204).
+ *
+ * Keeping that read HERE is the point. The 2026-08-31 ruling (objectui#5935,
+ * point 4) is that no new container brings its own resolver, and
+ * `scripts/check-lucide-icon-record-names.mjs` enforces it by failing when a
+ * second module named-imports `icons` and indexes it. A `lazy-icon.tsx` that
+ * reached for the record directly would turn that gate red on the commit that
+ * added it, and rightly: there would then be two modules holding the record.
+ * There is still one.
+ */
+export function listIconRecordKeys(): string[] {
+  return Object.keys(icons);
+}
+
+/**
  * Resolve an authored Lucide icon name to its component.
  *
  * Accepts kebab-case, snake_case, space-separated and PascalCase spellings.
