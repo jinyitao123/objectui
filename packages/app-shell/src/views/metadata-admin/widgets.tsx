@@ -1582,8 +1582,15 @@ const EMPTY_CATALOGUE: readonly string[] = [];
  * plain text (LazyIcon degrades to a fallback glyph) and is offered as the first
  * "keep" option so re-opening the picker never silently drops it.
  *
- * Built inline (no Radix portal) so the search + grid render eagerly — the same
- * jsdom-friendly choice the other pickers' tests rely on.
+ * Built inline (no Radix portal) so the search + grid render without a portal —
+ * the same jsdom-friendly choice the other pickers' tests rely on.
+ *
+ * ⚠️ The GRID is asynchronous since objectui#9204: the icon vocabulary arrives
+ * from `loadLucideIconNames()` when the dialog opens, because the only list of
+ * renderable spellings lucide publishes is the dynamic-import map, and holding
+ * that eagerly is what put 8,253 gzipped bytes on the console's first payload.
+ * The trigger stays synchronous — `isLucideIconName` reads the `icons` record,
+ * which needs nothing loaded.
  */
 export function IconPickerWidget({ id, value, onChange, readOnly }: WidgetProps) {
   const locale = useMetadataLocale();
@@ -1713,9 +1720,20 @@ export function IconPickerWidget({ id, value, onChange, readOnly }: WidgetProps)
                 </button>
               );
             })}
-            {results.length === 0 && (
+            {results.length === 0 && catalogue.length > 0 && (
               <p className="col-span-full px-2 py-6 text-center text-sm text-muted-foreground">
                 {t('engine.form.noMatchingIcons', locale)}
+              </p>
+            )}
+            {/* ⚠️ The two empty states are NOT the same sentence. An empty grid
+                while the catalogue is still in flight is not "no matching
+                icons" — that reading would tell an author their query found
+                nothing when nothing had been searched yet. Literal keys on both
+                arms, because the i18n call-site gate reads the key, not the
+                expression that chose it. */}
+            {results.length === 0 && catalogue.length === 0 && (
+              <p className="col-span-full px-2 py-6 text-center text-sm text-muted-foreground">
+                {t('engine.form.loadingOptions', locale)}
               </p>
             )}
           </div>
