@@ -1182,7 +1182,7 @@ export const PER_CHUNK_BASELINE = Object.freeze({
   // BASELINE's. Moved with the ceiling in the same commit, per the maintainer
   // ruling of 2026-09-08 and the rule stated under "Raising one".
   framework: 72_245,
-  // ⭐ RE-PINNED DOWN by objectui#9204, on its OWN console build at `0ebb1bf1c`
+  // ⭐ RE-PINNED DOWN by objectui#9204, on its OWN console build at `d43f51ee1`
   // — ⛔ not with a ceiling move, and that exception is the whole reason this
   // line has a comment. It supersedes `2c8474c04`'s 391,095 (objectui#5490).
   //
@@ -1190,8 +1190,8 @@ export const PER_CHUNK_BASELINE = Object.freeze({
   // unchanged since #5490. What moved is the PAYLOAD — lucide's dynamic-import
   // map left the eager path when icon-name membership moved onto the `icons`
   // record this chunk already carries (maintainer ruling of 2026-09-13). The
-  // row went 397,090 -> 388,494 gzipped, measured on two console builds in one
-  // container, and the aggregate fell 8,637 against the row's 8,596, which is
+  // row went 397,090 -> 388,575 gzipped, measured on two console builds in one
+  // container, and the aggregate fell 8,520 against the row's 8,515, which is
   // what makes it bytes LEAVING the page load rather than moving between
   // columns.
   //
@@ -1199,10 +1199,10 @@ export const PER_CHUNK_BASELINE = Object.freeze({
   // what the unit test builds its sensitivity reports from, so leaving it at
   // 391,095 while `ui-components` left {@link EXHAUSTED_HEADROOM_ALLOWANCES}
   // would have made the gate's own fixtures assert a row 1,209 bytes UNDER the
-  // floor that the live build clears — the allowance and this figure are the
+  // floor that the live build clears by 1,311 — the allowance and this figure are the
   // pair that has to move in one commit, exactly as a ceiling and its baseline
   // do under "Raising one".
-  'ui-components': 388_494,
+  'ui-components': 388_575,
 });
 
 /**
@@ -1326,8 +1326,8 @@ export const EXHAUSTED_HEADROOM_ALLOWANCES = Object.freeze({
   // table takes. lucide's dynamic-import map left the console's eager path when
   // icon-name membership moved onto the `icons` record that chunk already
   // carries (maintainer ruling of 2026-09-13), taking the row from 397,090 to
-  // 388,494 gzipped and its headroom from 1,910 B (0.02x) to 10,506 B (0.12x),
-  // measured on two console builds in one container at `0ebb1bf1c`.
+  // 388,575 gzipped and its headroom from 1,910 B (0.02x) to 10,425 B (0.11x),
+  // measured on two console builds in one container at `d43f51ee1`.
   //
   // ⚠️ ⭐ Removal was the ONLY legal move once that landed, and the unit test
   // says so rather than this comment: "every entry is real debt — strictly
@@ -1340,7 +1340,7 @@ export const EXHAUSTED_HEADROOM_ALLOWANCES = Object.freeze({
   //
   // ⛔ Nothing here was raised, ⛔ no ceiling moved, and ⛔ the table is not a
   // supply of headroom now that it is empty: an undeclared row reds at 0.10x,
-  // which is what `ui-components` is judged at from here on — with 1,392 B of
+  // which is what `ui-components` is judged at from here on — with 1,311 B of
   // margin over the floor, a figure this card reports rather than pads.
 });
 

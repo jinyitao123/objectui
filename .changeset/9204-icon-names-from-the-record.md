@@ -33,7 +33,7 @@ read. Measured against the installed lucide, that retires **254 spellings** —
 because lucide derives the names as that map's keys. Four modules did, and the
 map sat in the console's eager `ui-components` chunk on every page load. Sourcing
 membership from the record — which the same chunk already carries — takes
-**8,596 gzipped bytes** off that chunk and **8,637** off the whole eager closure,
+**8,515 gzipped bytes** off that chunk and **8,520** off the whole eager closure,
 measured on two console builds in one container. The `ui-components` row goes
-from 1,910 B of headroom (0.02x, red) to 10,506 B (0.12x, green), which pays off
+from 1,910 B of headroom (0.02x, red) to 10,425 B (0.11x, green), which pays off
 the declared allowance that row has been carrying.

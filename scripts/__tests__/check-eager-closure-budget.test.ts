@@ -995,8 +995,8 @@ describe('ceiling sensitivity, judged live (objectui#5924)', () => {
         // when nine of its ten catalogues became `import()`ed and the one that
         // stays cleared the floor under `i18n-locale-en`. `ui-components: 4_289`
         // left in objectui#9204 when lucide's dynamic-import map left the eager
-        // path and the row went 397,090 -> 388,494 gzipped, headroom 0.02x ->
-        // 0.12x. Neither figure was LOWERED — a lowered figure is headroom
+        // path and the row went 397,090 -> 388,575 gzipped, headroom 0.02x ->
+        // 0.11x. Neither figure was LOWERED — a lowered figure is headroom
         // supplied to a row that still needs it, which is the one edit this
         // table forbids. Clearing the floor on its own is the only way out.
         expect(EXHAUSTED_HEADROOM_ALLOWANCES).toEqual({});
