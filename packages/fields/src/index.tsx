@@ -8,7 +8,7 @@
 
 import React from 'react';
 import type { DateFieldMetadata, DateTimeFieldMetadata, FieldMetadata, SelectOptionMetadata } from '@object-ui/types';
-import { ComponentRegistry, percentDisplayValue, getRecordDisplayName, humanizeLabel, isEmptyValue, isMissingForRequired, formatDate, formatDateTime, formatDateTimeCompactParts, formatRelativeDate, extractRecords, type ComponentMeta, type DateDisplayOptions } from '@object-ui/core';
+import { ComponentRegistry, percentDisplayValue, getRecordDisplayName, isDatabaseKeyDisplay, humanizeLabel, isEmptyValue, isMissingForRequired, formatDate, formatDateTime, formatDateTimeCompactParts, formatRelativeDate, extractRecords, type ComponentMeta, type DateDisplayOptions } from '@object-ui/core';
 // The platform's own value-shape contract, asked rather than restated
 // (objectui#6744). See `locationStoredValueSchemaFor` below for why this is a
 // runtime import in the barrel and not a hand-written coordinate range.
@@ -182,10 +182,12 @@ function resolveLookupRecordName(
     // cell keeps its own id-placeholder handling for nameless records.
     const id = (record as any).id ?? (record as any)._id;
     const isFloor =
-      resolved === 'Untitled' || (id != null && resolved === `Record #${id}`);
+      resolved === 'Untitled' || isDatabaseKeyDisplay(resolved, id);
     if (!isFloor && resolved) return resolved;
   }
-  return pickRecordDisplayName(record, displayField);
+  const picked = pickRecordDisplayName(record, displayField);
+  const id = (record as any).id ?? (record as any)._id;
+  return isDatabaseKeyDisplay(picked, id) ? undefined : picked;
 }
 
 /**
@@ -2347,9 +2349,9 @@ const MAX_LOOKUP_CELL_CHIPS = 3;
  * 3. Fetch-on-demand: when the value is a primitive ID and `field.reference_to`
  *    is known, resolve via dataSource and show the related record's display name.
  * 4. Nothing named it → the unresolved-reference affordance (objectui#8695):
- *    the raw value, kept visible, beside a stated epistemic marker. This arm
- *    used to be two — a muted `—` for opaque-LOOKING strings and confident
- *    bare text for everything else — which answered one state two ways.
+ *    a translated marker that says resolution did not succeed without showing
+ *    a database key. This arm used to answer unresolved values differently
+ *    based on string shape, which answered one state two ways.
  *
  * Record → name resolution (1 and 3) goes through the referenced object's
  * schema when the data source exposes it (`displayField` → nameField/titleFormat
@@ -2357,6 +2359,7 @@ const MAX_LOOKUP_CELL_CHIPS = 3;
  * picker agree (issue #2357).
  */
 export function LookupCellRenderer({ value, field }: CellRendererProps): React.ReactElement {
+  const t = useFieldTranslate();
   // ObjectStack object metadata uses `reference` for the lookup target while the
   // objectui types call it `reference_to`. Every other reader (LookupField,
   // UserField, DetailSection, RelatedList, …) accepts both; this read cell must
@@ -2400,6 +2403,7 @@ export function LookupCellRenderer({ value, field }: CellRendererProps): React.R
 
   // Always call the hook (rules of hooks). It safely no-ops when inputs are missing.
   const resolvedName = useLookupName(referenceTo, primaryPrimitiveId, displayField);
+  const moreReferencesLabel = t?.('detail.moreReferences');
 
   // THE FLOOR by name and nothing more (objectui#8496). Same childless-container
   // defect as `SelectCellRenderer` above: the array branch further down opens a
@@ -2421,7 +2425,7 @@ export function LookupCellRenderer({ value, field }: CellRendererProps): React.R
         if (parsed && typeof parsed === 'object') {
           parsedDisplay =
             resolveLookupRecordName(parsed, refSchema, displayField) ||
-            String(parsed.externalId ?? parsed.id ?? parsed._id ?? '');
+            String(parsed.externalId ?? '');
           // An external-id reference has no record id yet — stays unlinked.
           parsedId = referencedRecordId(parsed);
         }
@@ -2440,8 +2444,7 @@ export function LookupCellRenderer({ value, field }: CellRendererProps): React.R
   // (e.g. { id, name }). Render its display name directly — no fetch needed.
   if (!Array.isArray(value) && typeof value === 'object') {
     const obj = value as Record<string, unknown>;
-    const display =
-      resolveLookupRecordName(obj, refSchema, displayField) || String(obj.id || obj._id || '');
+    const display = resolveLookupRecordName(obj, refSchema, displayField);
     if (display) {
       return (
         <ReferencedRecordLink objectName={referenceTo} recordId={referencedRecordId(obj)}>
@@ -2449,6 +2452,11 @@ export function LookupCellRenderer({ value, field }: CellRendererProps): React.R
         </ReferencedRecordLink>
       );
     }
+    return (
+      <ReferencedRecordLink objectName={referenceTo} recordId={referencedRecordId(obj)}>
+        <UnresolvedLookupReference />
+      </ReferencedRecordLink>
+    );
   }
 
   const options: Array<{ value: unknown; label: string }> =
@@ -2472,13 +2480,12 @@ export function LookupCellRenderer({ value, field }: CellRendererProps): React.R
   //
   // The first is BYTE-IDENTICAL to what a `text` cell prints for the same
   // string: the screen states a confident fact it does not have, and a dirty
-  // row reads exactly like a clean one. The second destroys the raw id, which
-  // objectui#8434's triage named as "the only clue for diagnosing existing
-  // dirty rows". Opposite failures, one state.
+  // row reads exactly like a clean one. The second exposes an internal key,
+  // contrary to the product's UI rule. Opposite failures, one state.
   //
   // Both are now the SAME answer — the one objectui#8434 settled for `user`:
   // additive (a stated marker, never the absence of one), epistemic (this
-  // screen did not resolve it, never "not found"), raw value kept visible.
+  // screen did not resolve it, never "not found"), with database keys omitted.
   // See `UnresolvedLookupReference` for why this renderer is entitled to say
   // nothing stronger.
   const resolveLabel = (val: unknown): { text: string; unresolved: boolean } => {
@@ -2495,11 +2502,10 @@ export function LookupCellRenderer({ value, field }: CellRendererProps): React.R
   if (Array.isArray(value)) {
     const itemDisplay = (item: unknown): { label: string; unresolved: boolean } => {
       if (item != null && typeof item === 'object') {
+        const name = resolveLookupRecordName(item as Record<string, unknown>, refSchema, displayField);
         return {
-          label:
-            resolveLookupRecordName(item as Record<string, unknown>, refSchema, displayField) ||
-            String((item as any).id || (item as any)._id || '[Object]'),
-          unresolved: false,
+          label: name || '',
+          unresolved: !name,
         };
       }
       const r = resolveLabel(item);
@@ -2536,12 +2542,10 @@ export function LookupCellRenderer({ value, field }: CellRendererProps): React.R
                 )}
               >
                 {/* The multi-value shape gets the same ruling as the scalar
-                    one, one input-shape over (objectui#8695): a chip must not
-                    be honest about an unresolved reference on one shape and
-                    silent about it on the other. The chip's muted background
-                    is unchanged — what changes is that the raw value survives
-                    inside it instead of being replaced by `—`. */}
-                {unresolved ? <UnresolvedLookupReference value={label} /> : label}
+                    one, one input-shape over (objectui#8695): unresolved values
+                    stay marked across single and multi-value fields. The
+                    marker does not expose the database key. */}
+                {unresolved ? <UnresolvedLookupReference /> : label}
               </span>
             </ReferencedRecordLink>
           );
@@ -2549,7 +2553,11 @@ export function LookupCellRenderer({ value, field }: CellRendererProps): React.R
         {overflow.length > 0 && (
           <span
             className="inline-flex items-center px-2 py-0.5 rounded text-xs font-medium bg-muted/40 text-muted-foreground"
-            title={overflow.map((item) => itemDisplay(item).label).join(', ')}
+            title={
+              moreReferencesLabel && moreReferencesLabel !== 'detail.moreReferences'
+                ? moreReferencesLabel
+                : 'More related records'
+            }
           >
             +{overflow.length}
           </span>
@@ -2559,9 +2567,14 @@ export function LookupCellRenderer({ value, field }: CellRendererProps): React.R
   }
 
   if (typeof value === 'object' && value !== null) {
-    const label =
-      resolveLookupRecordName(value as Record<string, unknown>, refSchema, displayField) ||
-      String((value as any).id || (value as any)._id || '[Object]');
+    const label = resolveLookupRecordName(value as Record<string, unknown>, refSchema, displayField);
+    if (!label) {
+      return (
+        <ReferencedRecordLink objectName={referenceTo} recordId={referencedRecordId(value)}>
+          <UnresolvedLookupReference />
+        </ReferencedRecordLink>
+      );
+    }
     return (
       <ReferencedRecordLink objectName={referenceTo} recordId={referencedRecordId(value)}>
         <TruncatedText text={label} />
@@ -2578,7 +2591,7 @@ export function LookupCellRenderer({ value, field }: CellRendererProps): React.R
   return (
     <ReferencedRecordLink objectName={referenceTo} recordId={referencedRecordId(value)}>
       {unresolved ? (
-        <UnresolvedLookupReference value={text} />
+        <UnresolvedLookupReference />
       ) : (
         <TruncatedText text={text} />
       )}
@@ -2639,41 +2652,30 @@ export function FormulaCellRenderer({ value }: CellRendererProps): React.ReactEl
  * is true of both is epistemic: this screen did not resolve it. The affordance
  * says that and nothing more.
  *
- * ⛔ The raw value stays VISIBLE and un-elided. It is the only clue for
- * diagnosing an existing dirty row, so this is deliberately NOT
- * `LookupCellRenderer`'s muted em-dash for opaque ids — that treatment buys
- * tidiness by destroying the evidence.
+ * Database keys are not shown in this user-facing marker or its tooltip. The
+ * indicator remains separate from an empty value and says only that the
+ * current screen could not resolve the user.
  *
  * ⚠️ No `pointer-events-none` here, unlike `EmptyValue`: that utility stops the
  * span being a hit target, so a `title` on it never renders a tooltip
  * (objectui#8506). The stated sentence has to be reachable by hovering.
  */
 function UnresolvedUserReference({
-  value,
   className,
 }: {
-  value: unknown;
   className?: string;
 }): React.ReactElement {
   const t = useFieldTranslate();
-  const raw = String(value);
-  // The key is written as a LITERAL at every site on purpose:
-  // `check:i18n-keys` judges a literal key against the `en` pack and checks
-  // that the arguments here are exactly the holes that value has, and it
-  // downgrades a key read from a constant to report-only. A shared constant
-  // would have bought tidiness at the cost of the gate — which is also why
-  // `UnresolvedLookupReference` below spells its own key out rather than
-  // taking one as a prop.
-  const translated = t?.('detail.unresolvedReference', { value: raw });
+  const translated = t?.('detail.unresolvedReference');
   // Same provider-less rule `useFieldLabel` documents: i18next echoes the key
   // when nothing resolves it, and the English fallback applies then. That
   // fallback is held byte-equal to the `en` pack's value by a pin, since this
   // shape is invisible to the inline-`defaultValue` half of `check:i18n-keys`.
   const hint =
     !translated || translated === 'detail.unresolvedReference'
-      ? `Unresolved reference: ${raw} was not resolved to a user`
+      ? 'User not resolved on this screen'
       : translated;
-  return <UnresolvedReferenceMark raw={raw} hint={hint} className={className} />;
+  return <UnresolvedReferenceMark label={hint} hint={hint} className={className} />;
 }
 
 /**
@@ -2707,39 +2709,29 @@ function UnresolvedUserReference({
  * (objectui#8631). What is true of all six is epistemic, and it is all this
  * affordance says: this screen did not resolve it.
  *
- * ## Why the raw value stays, and the `—` does not
+ * ## Why the message names the unresolved state without showing the key
  *
- * ⛔ This deliberately does NOT keep the muted em-dash this arm used to draw
- * for `isLikelyOpaqueId` strings. objectui#8434's triage named that treatment
- * by name and ruled against it — the raw string "is the only clue for
- * diagnosing existing dirty rows" — and the mother fix's own docblock says it
- * again: that treatment buys tidiness by destroying the evidence. The tidiness
- * it bought is real and it is the trade-off objectui#8695 flagged against
- * itself; it is bought back by TRUNCATION, which hides the id without deleting
- * it. The `—` also collided with `EmptyValue`'s glyph, so a cell with no value
- * and a cell whose value failed to resolve read identically to a person.
+ * A record this screen cannot resolve might exist but be unreadable, so the
+ * visible copy stays epistemic and never claims "not found". Database keys are
+ * not rendered in the text or tooltip; the marker remains distinct from an
+ * empty value and the reference link can still target the record.
  *
  * ⚠️ The sentence is a SIBLING key, not the `user` one: that pack value ends
  * "was not resolved to a user", which is false on a `lookup` pointing at any
  * other object, and it is pinned byte-for-byte by two existing tests.
  */
 function UnresolvedLookupReference({
-  value,
   className,
 }: {
-  value: unknown;
   className?: string;
 }): React.ReactElement {
   const t = useFieldTranslate();
-  const raw = String(value);
-  // Literal key — see `UnresolvedUserReference` above for what reading it
-  // from a constant would cost at `check:i18n-keys`.
-  const translated = t?.('detail.unresolvedLookupReference', { value: raw });
+  const translated = t?.('detail.unresolvedLookupReference');
   const hint =
     !translated || translated === 'detail.unresolvedLookupReference'
-      ? `Unresolved reference: ${raw} was not resolved to a record on this screen`
+      ? 'Record not resolved on this screen'
       : translated;
-  return <UnresolvedReferenceMark raw={raw} hint={hint} className={className} />;
+  return <UnresolvedReferenceMark label={hint} hint={hint} className={className} />;
 }
 
 /**
@@ -2757,20 +2749,15 @@ function UnresolvedLookupReference({
  * span being a hit target, so a `title` on it never renders a tooltip
  * (objectui#8506). The stated sentence has to be reachable by hovering.
  *
- * ⚠️ `truncate` on the inner span rather than the outer one, and the outer is
- * `inline-flex`: `overflow: hidden` gives a flex item an automatic minimum
- * size of zero, so the text shrinks and ellipsises instead of forcing the row
- * wider. The full value stays reachable through the `title` sentence, which
- * names it — that is how this shape meets objectui#3466's truncation contract
- * (a single-line value must never expand its column and must expose its full
- * text) with an icon in front of the text.
+ * `truncate` on the inner span keeps the marker within the cell width. The
+ * tooltip repeats the neutral explanation and never exposes the database key.
  */
 function UnresolvedReferenceMark({
-  raw,
+  label,
   hint,
   className,
 }: {
-  raw: string;
+  label: string;
   hint: string;
   className?: string;
 }): React.ReactElement {
@@ -2784,7 +2771,7 @@ function UnresolvedReferenceMark({
       title={hint}
     >
       <CircleQuestionMark className="size-3.5 shrink-0" aria-hidden="true" />
-      <span className="truncate">{raw}</span>
+      <span className="truncate">{label}</span>
     </span>
   );
 }
@@ -2806,7 +2793,7 @@ export function UserCellRenderer({ value }: CellRendererProps): React.ReactEleme
   // failed" as "resolution succeeded". See `UnresolvedUserReference` for the two
   // populations that reach here and why the sentence is epistemic.
   if (typeof value !== 'object') {
-    return <UnresolvedUserReference value={value} />;
+    return <UnresolvedUserReference />;
   }
   
   if (Array.isArray(value)) {
@@ -2819,7 +2806,7 @@ export function UserCellRenderer({ value }: CellRendererProps): React.ReactEleme
           // nothing. A multi-value `user` field must not be honest on its
           // single-value shape and silent on this one.
           if (typeof user !== 'object' || user === null) {
-            return <UnresolvedUserReference key={idx} value={user} className="text-sm" />;
+            return <UnresolvedUserReference key={idx} className="text-sm" />;
           }
           // An entry carrying nothing names no person (objectui#8596) — the
           // same ruling as the scalar branch below, one input-shape over.

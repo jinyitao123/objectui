@@ -30,7 +30,7 @@ import { detectStatusField } from '@object-ui/types';
 // re-exports the same function; this module reads it from `@object-ui/core`
 // because that is the dependency this package's synth layer already carries
 // at this depth, and both spellings resolve to one table and one dedupe set.
-import { isRetiredFieldType, reportRetiredFieldType, resolveNameField } from '@object-ui/core';
+import { isDatabaseKeyField, isRetiredFieldType, reportRetiredFieldType, resolveNameField } from '@object-ui/core';
 import { inferDetailColumns } from '../autoLayout';
 
 /** Minimal shape of an object definition we read here. We deliberately
@@ -459,7 +459,7 @@ export function deriveHighlightFields(
     // Filtering before the slice means the title never wastes a strip slot.
     const titleField = resolveTitleField(def);
     return declared
-      .filter((n): n is string => typeof n === 'string' && n.length > 0 && n !== titleField)
+      .filter((n): n is string => typeof n === 'string' && n.length > 0 && n !== titleField && !isDatabaseKeyField(n))
       .slice(0, max);
   }
   // System fields and tenancy metadata never make useful highlights —

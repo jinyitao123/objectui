@@ -223,6 +223,11 @@ export const RecordChatterRenderer: React.FC<RecordChatterRendererProps> = ({
       ),
     [discussionItems, feed?.types, feed?.showCompleted, feed?.unifiedTimeline, pageSize],
   );
+  // The discussion stream is a reader-facing comment history, so put the
+  // newest item first after `applyFeedConfig` has kept the latest page in
+  // chronological order. An explicitly unified activity timeline retains its
+  // chronological narrative order.
+  const orderedItems = feed?.unifiedTimeline ? applied.items : [...applied.items].reverse();
 
   // `record-activity.tsx` writes its own `handleLoadMore` with an empty
   // dependency list. The setter is named here instead — it is stable, so the
@@ -244,7 +249,7 @@ export const RecordChatterRenderer: React.FC<RecordChatterRendererProps> = ({
   return (
     <div className={className} {...designer} {...ariaProps}>
       <RecordChatterPanel
-        items={applied.items}
+        items={orderedItems}
         config={config}
         // "Load more" grows the window by `limit`. Without this pair an
         // authored `limit` would be a silent truncation of the feed instead of

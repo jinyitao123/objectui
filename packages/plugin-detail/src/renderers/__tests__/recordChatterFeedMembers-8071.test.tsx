@@ -164,7 +164,7 @@ describe.each(BLOCK_NAMES)('%s `feed` members reach the timeline (objectui#8071)
 
     cleanup();
     mount({ showCommentInput: false, enableReactions: false, enableThreading: false });
-    expect(rootBodies()).toEqual(['Root comment', 'A threaded reply']);
+    expect(rootBodies()).toEqual(['A threaded reply', 'Root comment']);
   });
 });
 
@@ -177,7 +177,7 @@ describe('an authored `feed` REPLACES the defaults rather than merging (objectui
     // …and the two they did not are NOT inherited from the renderer's default
     // `feed`, because the whole object was displaced.
     expect(screen.queryAllByRole('button', { name: ADD_REACTION })).toHaveLength(0);
-    expect(rootBodies()).toEqual(['Root comment', 'A threaded reply']);
+    expect(rootBodies()).toEqual(['A threaded reply', 'Root comment']);
   });
 
   it.each(BLOCK_NAMES)('%s: CONTROL — the SAME three affordances are on when `feed` is absent', (_blockName) => {
@@ -207,7 +207,7 @@ describe('an authored `feed` REPLACES the defaults rather than merging (objectui
     mount({});
     expect(screen.getByPlaceholderText(COMPOSER)).toBeTruthy();
     expect(screen.queryAllByRole('button', { name: ADD_REACTION })).toHaveLength(0);
-    expect(rootBodies()).toEqual(['Root comment', 'A threaded reply']);
+    expect(rootBodies()).toEqual(['A threaded reply', 'Root comment']);
   });
 
   it.each(BLOCK_NAMES)('%s: only an EXPLICIT `false` withholds the composer', (_blockName) => {

@@ -44,7 +44,7 @@ import { ActivityTimeline } from './ActivityTimeline';
 import { HistoryTimeline } from './HistoryTimeline';
 import { RecordMetaFooter } from './RecordMetaFooter';
 import { SchemaRenderer, SchemaErrorBoundary, toRenderableSchema, useSafeFieldLabel, useDataInvalidation, useInlineEdit, useRowPredicate } from '@object-ui/react';
-import { buildExpandFields, getRecordDisplayName, formatTitleTemplate, userActionPredicates } from '@object-ui/core';
+import { buildExpandFields, getRecordDisplayName, isDatabaseKeyDisplay, formatTitleTemplate, userActionPredicates } from '@object-ui/core';
 import { usePermissions } from '@object-ui/permissions';
 import { useLocalization, useDisplayLocale, resolveFieldCurrency } from '@object-ui/i18n';
 import type { DetailViewSchema, DataSource, ActionSchema, SchemaNode } from '@object-ui/types';
@@ -75,7 +75,7 @@ const EMPTY_DRAFT: Record<string, any> = {};
  *      floor, for records whose name lives in a field the type-aware derivation
  *      skips (e.g. an `autonumber` `name`) and whose caller set no title
  *      (objectui#2688).
- *   5. `Record #<id>` floor, else the translated "Details" fallback.
+ *   5. The translated "Details" fallback — never the database key.
  */
 function resolveDisplayTitle(
   data: any,
@@ -83,17 +83,21 @@ function resolveDisplayTitle(
   objectSchema: any,
   fallback: string,
 ): string {
+  const recordId = data && typeof data === 'object' ? ((data as any).id ?? (data as any)._id) : undefined;
+  const isDatabaseTitle = (value: unknown): boolean =>
+    typeof value === 'string' && isDatabaseKeyDisplay(value, recordId);
+
   if (data && typeof data === 'object') {
     // 1. Explicit primary field wins (author's chosen header field).
     if (schema.primaryField) {
       const v = (data as any)[schema.primaryField];
-      if (v !== null && v !== undefined && v !== '') return String(v);
+      if (v !== null && v !== undefined && v !== '' && !isDatabaseTitle(String(v))) return String(v);
     }
     // 2. titleFormat (kept first to preserve existing header behavior). The
     //    shared renderer walks dotted paths + embedded lookup objects and
     //    strips orphan separators around empty placeholders.
     const formatted = formatTitleTemplate(objectSchema?.titleFormat, data);
-    if (formatted) return formatted;
+    if (formatted && !isDatabaseTitle(formatted)) return formatted;
   }
   // 3. Unified resolver (ADR-0079): displayNameField → type-aware field
   //    derivation, so an object whose name lives in e.g. `activity_name`
@@ -102,39 +106,29 @@ function resolveDisplayTitle(
   //    the resolver's `Record #<id>` floor because the detail header prefers
   //    the object label (`schema.title`) over a bare id; detect & skip it.
   if (data && typeof data === 'object') {
-    const id = (data as any).id ?? (data as any)._id;
     // `deriveFromRecordKeys: false` → only the object-DECLARED identity
     // (displayNameField + type-aware field derivation) contributes here; a bare
     // record-key guess does NOT outrank the caller's `schema.title` object
-    // label below. We also detect & skip the resolver's `Record #<id>` floor.
+    // label below. Database-key-shaped candidates are skipped as well.
     const unified = getRecordDisplayName(objectSchema, data, { deriveFromRecordKeys: false });
-    const isFloor =
-      unified === 'Untitled' ||
-      (id !== null && id !== undefined && unified === `Record #${id}`);
+    const isFloor = unified === 'Untitled' || isDatabaseTitle(unified);
     if (!isFloor) return unified;
   }
   // 4. Caller-provided title override (object label).
-  if (schema.title) return schema.title;
+  if (schema.title && !isDatabaseTitle(schema.title)) return schema.title;
   // 4b. Record-key probe as the LAST resort before the id floor (objectui#2688).
   //     Only reached when the caller provided no title, so the "guessed key must
   //     not outrank schema.title" rule above still holds — but a name-ish value
   //     sitting right on the record (e.g. `name` typed `autonumber`, which the
   //     type-aware derivation deliberately skips) beats a bare `Record #<id>`.
   if (data && typeof data === 'object') {
-    const id = (data as any).id ?? (data as any)._id;
     const guessed = getRecordDisplayName(objectSchema, data);
-    const guessedIsFloor =
-      guessed === 'Untitled' ||
-      (id !== null && id !== undefined && guessed === `Record #${id}`);
+    const guessedIsFloor = guessed === 'Untitled' || isDatabaseTitle(guessed);
     if (!guessedIsFloor) return guessed;
   }
-  // 5. `Record #<id>` floor, else the translated "Details" fallback.
-  if (data && typeof data === 'object') {
-    const id = (data as any).id ?? (data as any)._id;
-    if (id !== null && id !== undefined && String(id).trim() !== '') {
-      return `Record #${id}`;
-    }
-  }
+  // 5. Do not expose the database key as a title. The caller's object label
+  // (or this localized fallback) is the readable identity when no record name
+  // resolves.
   return fallback;
 }
 
@@ -1829,7 +1823,7 @@ export const DetailView: React.FC<DetailViewProps> = ({
 
         return (
           <Tabs defaultValue={initialTab} onValueChange={onTabChange} className="w-full">
-            <TabsList className="w-full justify-start border-b rounded-none bg-transparent p-0">
+            <TabsList className="sticky top-0 z-20 w-full justify-start border-b rounded-none bg-background/95 p-0 backdrop-blur supports-[backdrop-filter]:bg-background/60">
               <TabsTrigger
                 value="details"
                 className="relative rounded-none border-b-2 border-transparent data-[state=active]:border-primary data-[state=active]:bg-transparent"

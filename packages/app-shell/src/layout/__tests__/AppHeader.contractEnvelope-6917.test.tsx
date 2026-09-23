@@ -46,8 +46,13 @@ import '@testing-library/jest-dom/vitest';
 import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
 import { render, screen, cleanup, waitFor } from '@testing-library/react';
 
+const headerState = vi.hoisted(() => ({
+  pathname: '/apps/crm/home',
+  recordTitle: undefined as string | undefined,
+}));
+
 vi.mock('react-router-dom', () => ({
-  useLocation: () => ({ pathname: '/apps/crm/home', search: '', hash: '', state: null, key: 't' }),
+  useLocation: () => ({ pathname: headerState.pathname, search: '', hash: '', state: null, key: 't' }),
   useParams: () => ({ appName: 'crm' }),
   useNavigate: () => vi.fn(),
   useSearchParams: () => [new URLSearchParams(), vi.fn()] as const,
@@ -61,7 +66,8 @@ vi.mock('@object-ui/i18n', async (importOriginal) => ({
     t: (key: string, options?: Record<string, unknown>) => String(options?.defaultValue ?? key),
   }),
   useObjectLabel: () => ({
-    objectLabel: (n: string) => n,
+    objectLabel: (value: string | { name?: string; label?: string }) =>
+      typeof value === 'string' ? value : value.label ?? value.name ?? 'Object',
     dashboardLabel: (n: string) => n,
     pageLabel: (n: string) => n,
     reportLabel: (n: string) => n,
@@ -176,10 +182,11 @@ vi.mock('../../providers/MetadataProvider', () => ({
     apps: [{ name: 'crm', label: 'CRM', _packageId: PACKAGE_ID }],
     dashboards: [], pages: [], reports: [],
   }),
+  useMetadataItem: () => ({ item: null, loading: false, error: null }),
 }));
 
 vi.mock('../../context/NavigationContext.js', () => ({
-  useNavigationContext: () => ({ currentAppName: 'crm', recordTitle: undefined }),
+  useNavigationContext: () => ({ currentAppName: 'crm', recordTitle: headerState.recordTitle }),
 }));
 
 vi.mock('@object-ui/auth', async (importOriginal) => {
@@ -221,8 +228,16 @@ import { AppHeader } from '../AppHeader';
 /** One `doc` row owned by the current app — the only rows the menu surfaces. */
 const DOC = { name: 'getting-started', label: 'Getting Started', _packageId: PACKAGE_ID };
 
-beforeEach(() => { state.answer = []; });
-afterEach(cleanup);
+beforeEach(() => {
+  state.answer = [];
+  headerState.pathname = '/apps/crm/home';
+  headerState.recordTitle = undefined;
+});
+afterEach(() => {
+  cleanup();
+  headerState.pathname = '/apps/crm/home';
+  headerState.recordTitle = undefined;
+});
 
 /** True once the header has decided whether the app owns any docs. */
 async function appDocsEntryAppears(answer: unknown): Promise<boolean> {
@@ -257,5 +272,21 @@ describe('AppHeader help docs — meta.getItems envelope (objectui#6917)', () =>
     // The caricature guard: a reader returning the first array it found under
     // any key would surface the entry here.
     expect(await appDocsEntryAppears({ data: [DOC] })).toBe(false);
+  });
+
+  it('uses the object label instead of an unresolved record key in the breadcrumb', async () => {
+    headerState.pathname = '/apps/crm/customer/record/B2';
+    headerState.recordTitle = 'Record #B2';
+    render(
+      <AppHeader
+        variant="app"
+        appName="crm"
+        activeAppName="crm"
+        objects={[{ name: 'customer', label: 'Customer' }]}
+      />,
+    );
+
+    expect((await screen.findAllByText('Customer')).length).toBeGreaterThan(0);
+    expect(document.body.textContent).not.toContain('B2');
   });
 });

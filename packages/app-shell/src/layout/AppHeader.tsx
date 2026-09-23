@@ -53,6 +53,7 @@ import {
 
 import { useState, useEffect, useCallback } from 'react';
 import { useOffline } from '@object-ui/react';
+import { isDatabaseKeyDisplay } from '@object-ui/core';
 import { PresenceAvatars, useTenantPresence, type PresenceUser } from '@object-ui/collaboration';
 import { ModeToggle } from './ModeToggle.js';
 import { WorkspaceSwitcher } from './WorkspaceSwitcher.js';
@@ -387,9 +388,12 @@ export function AppHeader({
               label: ancObj ? objectLabel(ancObj) : humanizeSlug(entry.o),
               href: `${baseHref}/${entry.o}`,
             });
-            const ancShortId = entry.i.length > 12 ? `${entry.i.slice(0, 8)}…` : entry.i;
             extraSegments.push({
-              label: entry.t || `#${ancShortId}`,
+              label: entry.t && !isDatabaseKeyDisplay(entry.t, entry.i)
+                ? entry.t
+                : ancObj
+                  ? objectLabel(ancObj)
+                  : humanizeSlug(entry.o),
               href: buildRecordTrailHref(baseHref, entry, trail.slice(0, k)),
             });
           });
@@ -400,12 +404,12 @@ export function AppHeader({
           siblings: objectSiblings,
         });
         if (pathParts[3] === 'record' && pathParts[4]) {
-          const shortId = pathParts[4].length > 12 ? `${pathParts[4].slice(0, 8)}…` : pathParts[4];
           const trimmedTitle = recordTitle?.trim();
           const displayTitle = trimmedTitle && trimmedTitle.length > 48
             ? `${trimmedTitle.slice(0, 45)}…`
             : trimmedTitle;
-          extraSegments.push({ label: displayTitle || `#${shortId}` });
+          const titleIsDatabaseKey = isDatabaseKeyDisplay(displayTitle, pathParts[4]);
+          extraSegments.push({ label: displayTitle && !titleIsDatabaseKey ? displayTitle : objectLabel(currentObject) });
         } else if (pathParts[3] === 'view' && pathParts[4]) {
           // Prefer the view's metadata label (e.g. "Lead Pipeline") over a
           // humanized slug ("Kanban By Status") so the breadcrumb matches the

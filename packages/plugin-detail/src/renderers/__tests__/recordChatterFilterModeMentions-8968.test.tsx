@@ -220,6 +220,19 @@ beforeEach(() => {
 });
 
 describe.each(BLOCK_NAMES)('%s: `feed.filterMode` decides the slice the panel opens on (objectui#8968)', (blockName) => {
+  it('shows the newest discussion item first while preserving the unified timeline order', () => {
+    mountAs(blockName, { ...AFFORDANCES, filterMode: 'comments_only' });
+    const latestComment = screen.getByText('Later comment');
+    const olderComment = screen.getByText('Root comment');
+    expect(latestComment.compareDocumentPosition(olderComment) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy();
+
+    cleanup();
+    mountAs(blockName, { ...AFFORDANCES, unifiedTimeline: true, filterMode: 'comments_only' });
+    const chronologicalLatest = screen.getByText('Later comment');
+    const chronologicalOlder = screen.getByText('Root comment');
+    expect(chronologicalOlder.compareDocumentPosition(chronologicalLatest) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy();
+  });
+
   it('`comments_only` keeps the comments and drops the field change', () => {
     mountAs(blockName, { ...AFFORDANCES, filterMode: 'comments_only' });
     expect(renderedIds()).toEqual(['c-1', 'c-2']);

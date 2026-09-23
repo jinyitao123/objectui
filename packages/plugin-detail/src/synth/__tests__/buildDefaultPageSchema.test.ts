@@ -117,7 +117,7 @@ describe('deriveStages', () => {
 
 describe('deriveHighlightFields', () => {
   it('honours explicit objectDef.highlightFields', () => {
-    expect(deriveHighlightFields({ ...leadDef, highlightFields: ['email', 'phone'] }, 'status'))
+    expect(deriveHighlightFields({ ...leadDef, highlightFields: ['email', 'id', 'phone'] }, 'status'))
       .toEqual(['email', 'phone']);
   });
 

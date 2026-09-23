@@ -13,6 +13,7 @@
 import React from 'react';
 import { useRecordContext, useRegisterHighlightFields } from '@object-ui/react';
 import { useFieldPermissions, usePermissions } from '@object-ui/permissions';
+import { isDatabaseKeyField } from '@object-ui/core';
 import type { RecordHighlightsComponentProps } from '@object-ui/types';
 import { HeaderHighlight } from '../HeaderHighlight';
 import { useRecordAriaProps } from './recordComponentAria';
@@ -131,6 +132,7 @@ export const RecordHighlightsRenderer: React.FC<RecordHighlightsRendererProps> =
     ? new Set(readableFields(normalized.map((f) => f.name)))
     : null;
   const highlightFields = normalized.filter((f) => {
+    if (isDatabaseKeyField(f.name)) return false;
     if (redact.includes(f.name)) return false;
     if (allowedNames && !allowedNames.has(f.name)) return false;
     return true;

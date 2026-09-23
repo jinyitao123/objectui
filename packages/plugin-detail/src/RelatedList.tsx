@@ -48,6 +48,8 @@ import {
   columnHeader,
   compareSortValues,
   getRecordDisplayName,
+  isDatabaseKeyDisplay,
+  isDatabaseKeyField,
   getSortValue,
   isEmptyValue,
   isExpandableFieldType,
@@ -290,17 +292,17 @@ function resolveIconComponent(name: string | undefined): LucideIcon {
  * shows — the two used to disagree, making the column flash from the display
  * name to the API name once this batch map landed (objectui#3330). Falls back
  * to the legacy hard-coded chain when no schema reached us or the resolver
- * bottoms out at its `Record #<id>` / `Untitled` floor.
+ * bottoms out at its `Record #<id>` / `Untitled` floor. Those internal-key
+ * floors are omitted from user-facing labels.
  */
 function resolveRelatedLookupLabel(record: any, refSchema: any): string | undefined {
   const id = record?.id ?? record?._id;
   if (refSchema) {
     const resolved = getRecordDisplayName(refSchema, record);
-    const isFloor =
-      resolved === 'Untitled' || (id != null && resolved === `Record #${id}`);
+    const isFloor = resolved === 'Untitled' || isDatabaseKeyDisplay(resolved, id);
     if (resolved && !isFloor) return resolved;
   }
-  return (
+  const fallback = (
     record?.full_name ||
     record?.fullname ||
     record?.display_name ||
@@ -309,9 +311,9 @@ function resolveRelatedLookupLabel(record: any, refSchema: any): string | undefi
     record?.title ||
     record?.label ||
     record?.code ||
-    record?.email ||
-    (id != null ? String(id) : undefined)
+    record?.email
   );
+  return isDatabaseKeyDisplay(fallback, id) ? undefined : fallback;
 }
 
 /**
@@ -1033,9 +1035,10 @@ export const RelatedList: React.FC<RelatedListProps> = ({
             const records: any[] = Array.isArray(res) ? res : res?.data || [];
             const map: Record<string, string> = {};
             for (const r of records) {
-              const id = r?.id || r?._id;
+              const id = r?.id ?? r?._id;
               if (!id) continue;
-              map[String(id)] = resolveRelatedLookupLabel(r, refSchema) ?? String(id);
+              const label = resolveRelatedLookupLabel(r, refSchema);
+              if (label) map[String(id)] = label;
             }
             return { fieldName, map };
           })
@@ -1249,6 +1252,11 @@ export const RelatedList: React.FC<RelatedListProps> = ({
             return key !== referenceField;
           })
         : cols;
+    const isDatabaseKeyColumn = (column: any): boolean => {
+      const key = column?.accessorKey || columnIdentity(column);
+      return typeof key === 'string' && isDatabaseKeyField(key);
+    };
+    const filterDatabaseKeyColumns = (cols: any[]): any[] => cols.filter((column) => !isDatabaseKeyColumn(column));
 
     /**
      * [objectui#9053] Redaction — the block-level authoring preference, asked
@@ -1540,6 +1548,7 @@ export const RelatedList: React.FC<RelatedListProps> = ({
      };
      if (columns && columns.length > 0) {
        const normalized = columns.map(normalizeColumn);
+       if (normalized.every(isDatabaseKeyColumn)) return [];
        // [objectui#9053] Redaction is applied to the authored candidates FIRST
        // and their emptiness judged HERE, so an array emptied by redaction
        // behaves exactly as it already does when the BLOCK empties it upstream
@@ -1551,7 +1560,7 @@ export const RelatedList: React.FC<RelatedListProps> = ({
        // deliberately answers it the way the shipping path already answers it
        // rather than inventing a second answer. Emptiness produced by FLS or by
        // `pruneEmpty` keeps its existing meaning untouched: still an empty list.
-       const candidates = filterRedacted(normalized);
+       const candidates = filterDatabaseKeyColumns(filterRedacted(normalized));
        if (candidates.length > 0) {
          return pruneEmpty(filterFLS(filterFK(candidates)));
        }
@@ -1572,7 +1581,7 @@ export const RelatedList: React.FC<RelatedListProps> = ({
       : [];
     if (declaredHighlights.length > 0) {
       const hf = pruneEmpty(
-        filterFLS(filterFK(filterRedacted(declaredHighlights.map(normalizeColumn)))),
+        filterFLS(filterFK(filterDatabaseKeyColumns(filterRedacted(declaredHighlights.map(normalizeColumn))))),
       );
       if (hf.length > 0) return hf.slice(0, Math.max(1, maxColumns));
     }
@@ -1616,7 +1625,7 @@ export const RelatedList: React.FC<RelatedListProps> = ({
     const entries = Object.entries(objectSchema.fields)
       .filter(([key, def]: [string, any]) => {
         if (key.startsWith('_')) return false;
-        if (key === 'id' || key === referenceField) return false;
+        if (isDatabaseKeyField(key) || key === referenceField) return false;
         if (def?.hidden) return false;
         if (def?.type && SKIP_TYPES.has(def.type)) return false;
         // [objectui#9053] Redaction: drop redacted fields from the walk too —

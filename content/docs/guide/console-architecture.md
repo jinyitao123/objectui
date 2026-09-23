@@ -117,6 +117,8 @@ example, `/apps/com.acme.crm/crm_home`). The active app's package ID scopes page
 lookups and is tried first for objects. A shared object is eligible only when
 the active app explicitly references it in navigation. The retired
 `/apps/:appName/page/:pageName` path has no redirect or compatibility route.
+Record detail headings and breadcrumbs use a resolved business title or the
+object label; they never use the database key as visible copy.
 
 ## Key Patterns
 

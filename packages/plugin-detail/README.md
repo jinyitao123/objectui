@@ -211,6 +211,12 @@ nothing registers):
 See **The `record:activity` block** in the plugin-detail guide for its declared
 inputs (`types`, `limit`, `filterMode`, `showCompleted`, …).
 
+In the comments-only discussion stream, comments are shown newest first. An
+explicit `unifiedTimeline: true` keeps the chronological order used for a
+combined activity narrative. Detail headings use the resolved business title
+and then the caller's title fallback; they do not display a database key.
+Detail tab strips stay pinned at the top while record sections scroll.
+
 ## Schema
 
 The DetailView component accepts a `DetailViewSchema`, declared in
@@ -249,6 +255,10 @@ const schema: DetailViewSchema = {
   footer: { type: 'text', label: 'Custom footer' },
 };
 ```
+
+When no readable record title resolves, the header uses `schema.title` (often
+the object label) or the localized “Details” fallback. It never uses the row's
+database key as visible copy.
 
 ### `summaryFields` and non-scalar values
 

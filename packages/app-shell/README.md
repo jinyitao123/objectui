@@ -108,6 +108,8 @@ function MyDashboard() {
   constrained reading width for long conversations
 - **Notification Surfaces**: `ConsoleShell` mounts `NotificationProvider` and
   every spec `displayType` presents distinctly — no per-app wiring
+- **Readable record breadcrumbs**: App record breadcrumbs use the resolved
+  business title or object label; they never fall back to the database key.
 
 ## Notifications
 

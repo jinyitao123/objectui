@@ -28,6 +28,7 @@ import {
 import { ChevronDown, ChevronRight, Copy, Check, Eye, EyeOff, Pencil } from 'lucide-react';
 import { SchemaRenderer, toRenderableSchema, useInlineEdit } from '@object-ui/react';
 import { getCellRenderer, resolveCellRendererType } from '@object-ui/fields';
+import { isDatabaseKeyField } from '@object-ui/core';
 import type { DetailViewSection as DetailViewSectionType, DetailViewField, FieldMetadata } from '@object-ui/types';
 import { applyDetailAutoLayout } from './autoLayout';
 import { useDetailTranslation } from './useDetailTranslation';
@@ -146,6 +147,10 @@ export const DetailSection: React.FC<DetailSectionProps> = ({
   const [showEmptyOverride, setShowEmptyOverride] = React.useState(false);
   const { t } = useDetailTranslation();
   const { fieldLabel, translateOptions } = useSafeFieldLabel();
+  const displayFields = React.useMemo(
+    () => section.fields.filter((field) => !isDatabaseKeyField(field.name)),
+    [section.fields],
+  );
   /**
    * The SERVER's per-field refusals from the last rejected inline save
    * (objectui#6868), read straight off the shared edit session so the reason
@@ -226,8 +231,8 @@ export const DetailSection: React.FC<DetailSectionProps> = ({
   }, [data]);
 
   const emptyCount = React.useMemo(
-    () => section.fields.filter(isEmptyValue).length,
-    [section.fields, isEmptyValue]
+    () => displayFields.filter(isEmptyValue).length,
+    [displayFields, isEmptyValue]
   );
 
   // Auto-hide-empty heuristic — the whole contract for the empty ROWS of a
@@ -250,11 +255,11 @@ export const DetailSection: React.FC<DetailSectionProps> = ({
   const isMobile = useIsMobile();
   const AUTO_HIDE_MIN_FIELDS = isMobile ? 3 : 4;
   const AUTO_HIDE_RATIO = isMobile ? 0.2 : 0.25;
-  const filledCount = section.fields.length - emptyCount;
+  const filledCount = displayFields.length - emptyCount;
   const shouldAutoHideEmpty =
     !isEditing &&
-    section.fields.length >= AUTO_HIDE_MIN_FIELDS &&
-    emptyCount / section.fields.length >= AUTO_HIDE_RATIO &&
+    displayFields.length >= AUTO_HIDE_MIN_FIELDS &&
+    emptyCount / displayFields.length >= AUTO_HIDE_RATIO &&
     filledCount > 0;
 
   // The authored `record:details` section key, restored under objectui#8603
@@ -285,7 +290,7 @@ export const DetailSection: React.FC<DetailSectionProps> = ({
   // which would be a new defect rather than a restored behaviour. What the
   // contract governs is what a READER sees, and that is what this leaves
   // unchanged.
-  const allFieldsEmpty = section.fields.length > 0 && filledCount === 0;
+  const allFieldsEmpty = displayFields.length > 0 && filledCount === 0;
   const hideAllEmptySection = section.hideEmpty === true && allFieldsEmpty && !isEditing;
 
   const hideEmptyEffective =
@@ -294,8 +299,8 @@ export const DetailSection: React.FC<DetailSectionProps> = ({
   // Filter out empty fields when the auto-hide heuristic kicked in, or when an
   // all-empty section is hiding itself (its early return is below every hook).
   const visibleFields = hideEmptyEffective
-    ? section.fields.filter((field) => !isEmptyValue(field))
-    : section.fields;
+    ? displayFields.filter((field) => !isEmptyValue(field))
+    : displayFields;
 
   // Apply auto-layout: infer columns and auto-span wide fields
   const { fields: layoutFields, columns: rawColumns } = applyDetailAutoLayout(
@@ -622,7 +627,7 @@ export const DetailSection: React.FC<DetailSectionProps> = ({
   // crash: navigating account → project reuses this DetailSection fiber, and
   // its sections flip from empty to populated. Keeping the guard below all
   // hooks makes the hook count invariant.
-  if (visibleFields.length === 0 && emptyCount === section.fields.length) return null;
+  if (visibleFields.length === 0 && emptyCount === displayFields.length) return null;
 
   const renderedFields = visibleCount !== undefined
     ? layoutFields.slice(0, visibleCount)

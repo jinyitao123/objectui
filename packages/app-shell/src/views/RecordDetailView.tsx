@@ -15,7 +15,7 @@ import { Empty, EmptyTitle, EmptyDescription } from '@object-ui/components';
 import { useAuth, createAuthenticatedFetch } from '@object-ui/auth';
 import { usePermissions } from '@object-ui/permissions';
 import { ActionProvider, useObjectTranslation, useObjectLabel, useActionTextLocalizer, usePageAssignment, RecordContextProvider, SchemaRenderer, DiscussionContextProvider, HighlightFieldsProvider, InlineEditProvider, useGlobalUndo, useDataInvalidation, notifyDataChanged, useRowPredicate } from '@object-ui/react';
-import { buildExpandFields, resolveRecordIdParamSeed, userActionPredicates } from '@object-ui/core';
+import { buildExpandFields, isDatabaseKeyDisplay, resolveRecordIdParamSeed, userActionPredicates } from '@object-ui/core';
 import { toast } from 'sonner';
 import { useRecordPresence, PresenceAvatars } from '@object-ui/collaboration';
 import { Database, ChevronLeft } from 'lucide-react';
@@ -254,6 +254,8 @@ export function RecordDetailView({ dataSource, objects, onEdit, objectNameOverri
   const [tabSearchParams, setTabSearchParams] = useSearchParams();
   const activeTabParam = tabSearchParams.get(RECORD_DETAIL_TAB_PARAM) ?? undefined;
   const location = useLocation();
+  const { t, language } = useObjectTranslation();
+  const { objectLabel, viewLabel: _vLabel, sectionLabel, actionParamText, actionParamOptionLabel, actionDescription, actionResultDialog, fieldLabel, fieldOptionLabel } = useObjectLabel();
   const handleTabChange = useCallback((value: string) => {
     const sp = new URLSearchParams(window.location.search);
     if (sp.get(RECORD_DETAIL_TAB_PARAM) === value) return;
@@ -270,19 +272,31 @@ export function RecordDetailView({ dataSource, objects, onEdit, objectNameOverri
   // affordance; the full clickable path lives in the top-bar breadcrumb.
   const originFromState = (location.state as any)?.from as { pathname?: string; label?: string } | undefined;
   const originFrom = useMemo<{ pathname?: string; label?: string } | undefined>(() => {
-    if (originFromState?.pathname && originFromState?.label) return originFromState;
+    if (originFromState?.pathname && originFromState?.label) {
+      const originRecord = originFromState.pathname.match(/\/([^/]+)\/record\/([^/]+)$/);
+      if (!originRecord || !isDatabaseKeyDisplay(originFromState.label, originRecord[2])) return originFromState;
+      const originObject = objects.find((o: any) => o.name === originRecord[1]);
+      return {
+        ...originFromState,
+        label: originObject ? objectLabel(originObject) : t('common.record', { defaultValue: 'Record' }),
+      };
+    }
     const trail = decodeRecordTrail(new URLSearchParams(location.search).get(RECORD_TRAIL_PARAM));
     const parent = trail[trail.length - 1];
     if (!parent) return undefined;
     const baseAppUrl = appName ? `/apps/${appName}` : '';
-    const shortId = parent.i.length > 12 ? `${parent.i.slice(0, 8)}…` : parent.i;
+    const parentTitle = parent.t?.trim();
+    const parentTitleIsId = isDatabaseKeyDisplay(parentTitle, parent.i);
+    const parentObject = objects.find((o: any) => o.name === parent.o);
     return {
       pathname: buildRecordTrailHref(baseAppUrl, parent, trail.slice(0, -1)),
-      label: parent.t || `#${shortId}`,
+      label: parentTitle && !parentTitleIsId
+        ? parentTitle
+        : parentObject
+          ? objectLabel(parentObject)
+          : t('common.record', { defaultValue: 'Record' }),
     };
-  }, [originFromState, location.search, appName]);
-  const { t, language } = useObjectTranslation();
-  const { objectLabel, viewLabel: _vLabel, sectionLabel, actionParamText, actionParamOptionLabel, actionDescription, actionResultDialog, fieldLabel, fieldOptionLabel } = useObjectLabel();
+  }, [originFromState, location.search, appName, objects, objectLabel, t]);
   // label + confirmText + successMessage through ONE call (objectui#4265) —
   // the three keys of an `_actions.<name>` bundle entry can no longer be
   // localized apart from one another on this surface.
@@ -355,11 +369,11 @@ export function RecordDetailView({ dataSource, objects, onEdit, objectNameOverri
     if (!objectName || !pureRecordId) return null;
     return {
       id: `record:${objectName}:${pureRecordId}`,
-      label: recordTitle || pureRecordId || '',
+      label: recordTitle || (objectDef ? objectLabel(objectDef) : t('common.record', { defaultValue: 'Record' })),
       href: `/apps/${appName}/${objectName}/record/${pureRecordId}`,
       type: 'record' as const,
     };
-  }, [appName, objectName, pureRecordId, recordTitle]);
+  }, [appName, objectDef, objectLabel, objectName, pureRecordId, recordTitle, t]);
   const isRecordFavorite = favoriteRecord ? isFavorite(favoriteRecord.id) : false;
   const handleToggleRecordFavorite = useCallback(() => {
     if (favoriteRecord) toggleFavorite(favoriteRecord);
@@ -501,7 +515,8 @@ export function RecordDetailView({ dataSource, objects, onEdit, objectNameOverri
   useEffect(() => {
     if (!pageRecord || typeof pageRecord !== 'object' || !objectDef) return;
     const resolved = getRecordDisplayName(objectDef, pageRecord);
-    if (resolved && resolved !== 'Untitled' && resolved !== recordTitle) {
+    const recordId = pageRecord.id ?? pageRecord._id;
+    if (resolved && resolved !== 'Untitled' && !isDatabaseKeyDisplay(resolved, recordId) && resolved !== recordTitle) {
       setRecordTitle(resolved);
     }
   }, [pageRecord, objectDef, recordTitle]);
@@ -515,9 +530,14 @@ export function RecordDetailView({ dataSource, objects, onEdit, objectNameOverri
     if (!recordTitle) return;
     const favId = `record:${objectName}:${pureRecordId}`;
     const href = `/apps/${appName}/${objectName}/record/${pureRecordId}`;
-    addRecentItem({ id: favId, label: recordTitle, href, type: 'record' });
+    addRecentItem({
+      id: favId,
+      label: recordTitle || (objectDef ? objectLabel(objectDef) : t('common.record', { defaultValue: 'Record' })),
+      href,
+      type: 'record',
+    });
     refreshFavoriteLabel(favId, recordTitle);
-  }, [appName, objectName, pureRecordId, recordTitle, addRecentItem, refreshFavoriteLabel]);
+  }, [appName, objectDef, objectLabel, objectName, pureRecordId, recordTitle, addRecentItem, refreshFavoriteLabel, t]);
 
   // ─── Action Provider Handlers ───────────────────────────────────────
 
