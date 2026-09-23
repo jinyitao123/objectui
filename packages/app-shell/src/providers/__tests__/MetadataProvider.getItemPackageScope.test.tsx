@@ -109,6 +109,45 @@ describe('MetadataProvider named item reads are package and identity scoped', ()
     expect(harness.listCalls).not.toContain('object');
   });
 
+  it('treats a 200 empty metadata envelope as a miss for the requested type', async () => {
+    TokenStorage.set('token-alice');
+    const harness = renderMetadata();
+    await waitFor(() => expect(harness.context).not.toBeNull());
+
+    const salesPage = 'page_sales_contract_workspace';
+    const sharedObject = 'forge_customer';
+    harness.getItem.mockImplementation(async (type: string, name: string, options?: { packageId?: string }) => {
+      if (type === 'page' && name === salesPage) {
+        return { type: 'page', name, item: { name, type: 'page', _packageId: options?.packageId } };
+      }
+      if (type === 'object' && name === salesPage) {
+        // ObjectStack 17.3 returns HTTP 200 with an incomplete envelope for a
+        // missing item; it has no `item` key, only the metadata identity and
+        // protection fields.
+        return { type: 'object', name, lock: 'none', editable: true, deletable: true, resettable: false };
+      }
+      if (type === 'page' && name === sharedObject) {
+        return { type: 'page', name, lock: 'none', editable: true, deletable: true, resettable: false };
+      }
+      if (type === 'object' && name === sharedObject) {
+        return { type: 'object', name, item: { name, type: 'object', _packageId: 'forge' } };
+      }
+      return { type, name, item: null };
+    });
+
+    const page = await harness.context!.getItem('page', salesPage, 'com.inoforge.forge.sales');
+    const pageAsObject = await harness.context!.getItem('object', salesPage, 'com.inoforge.forge.sales');
+    const objectAsPage = await harness.context!.getItem('page', sharedObject, 'com.inoforge.forge.sales');
+    const sharedCustomer = await harness.context!.getItem('object', sharedObject, 'com.inoforge.forge.sales');
+
+    expect(page).toMatchObject({ name: salesPage, type: 'page' });
+    expect(pageAsObject).toBeNull();
+    expect(objectAsPage).toBeNull();
+    expect(sharedCustomer).toMatchObject({ name: sharedObject, type: 'object', _packageId: 'forge' });
+    expect(harness.listCalls).not.toContain('page');
+    expect(harness.listCalls).not.toContain('object');
+  });
+
   it('does not reuse a page cached under another account or organization', async () => {
     TokenStorage.set('token-alice');
     ActiveOrganizationStorage.set('org-a');

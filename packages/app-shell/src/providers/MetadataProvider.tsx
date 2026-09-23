@@ -306,10 +306,33 @@ export function extractItems(res: unknown): any[] {
   return [];
 }
 
-function extractItem(res: unknown): any | null {
+const META_ITEM_ENVELOPE_MARKERS = [
+  'lock',
+  'lockReason',
+  'lockSource',
+  'lockDocsUrl',
+  'provenance',
+  'editable',
+  'deletable',
+  'resettable',
+  'sortability',
+] as const;
+
+function extractItem(res: unknown, expectedType: string, expectedName: string): any | null {
   if (res == null) return null;
-  if (typeof res === 'object' && 'item' in res) {
-    return (res as { item: any }).item ?? null;
+  if (typeof res === 'object' && !Array.isArray(res)) {
+    const candidate = res as Record<string, unknown>;
+    if ('item' in candidate) return candidate.item ?? null;
+
+    // ObjectStack 17.3 can answer a missing named metadata item with HTTP 200
+    // and the identity/protection half of GetMetaItemResponse, omitting only
+    // `item`. Treat that as a miss. Returning the partial envelope as a
+    // document makes a page lookup look like an object (and vice versa), so
+    // the app-entry resolver reports a false page/object ambiguity.
+    const isEmptyEnvelope = candidate.type === expectedType
+      && candidate.name === expectedName
+      && META_ITEM_ENVELOPE_MARKERS.some(key => Object.hasOwn(candidate, key));
+    if (isEmptyEnvelope) return null;
   }
   return res;
 }
@@ -869,7 +892,7 @@ export function MetadataProvider({ children, adapter, ttlMs = DEFAULT_TTL_MS }: 
         );
       const promise = fetchItem
         .then((res: unknown) => {
-          const item = extractItem(res);
+          const item = extractItem(res, type, name);
           // objectui#7650 — the BY-NAME serve path needs the same
           // canonicalization the LIST path applies in `ensureType` above.
           //
