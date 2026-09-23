@@ -17,9 +17,8 @@ import { FileText, Pencil } from 'lucide-react';
 import { useObjectTranslation } from '@object-ui/i18n';
 import { useWorkspaceAdminStatus } from '@object-ui/auth';
 import { MetadataPanel, useMetadataInspector } from './MetadataInspector.js';
-import { useMetadata } from '../providers/MetadataProvider.js';
+import { useMetadataItem } from '../providers/MetadataProvider.js';
 import { useExpressionContext } from '../providers/ExpressionProvider.js';
-import { preferLocal } from '../utils/preferLocal.js';
 import { ConsoleActionRuntimeProvider } from '../hooks/useConsoleActionRuntime.js';
 import { InterfaceListPage } from './InterfaceListPage.js';
 
@@ -34,29 +33,52 @@ export function PageView() {
   // is admin-only (mirrors the view/report/dashboard runtime editors).
   const { isAdmin } = useWorkspaceAdminStatus();
 
-  const { pages, objects, getTypeStatus } = useMetadata();
-  // ADR-0048 Phase 2 — prefer the page owned by the current app's package so
-  // two packages shipping `page/<same-name>` each resolve within their own
-  // container instead of by load order.
+  // ADR-0048 Phase 2 — try the current app's package first. The package-aware
+  // item endpoint avoids loading every page just to resolve this route.
   const { app: activeApp } = useExpressionContext();
+  const packageId = typeof (activeApp as any)?._packageId === 'string'
+    ? (activeApp as any)._packageId
+    : undefined;
+  const scopedPage = useMetadataItem('page', packageId ? pageName : undefined, packageId);
+  // Preserve the old fallback order when the active package does not define
+  // this page. A request failure is not a miss, so it never falls through to a
+  // different package's page.
+  const fallbackPageName = packageId && !scopedPage.loading && !scopedPage.error && !scopedPage.item
+    ? pageName
+    : (packageId ? undefined : pageName);
+  const fallbackPage = useMetadataItem('page', fallbackPageName);
+  const page = packageId ? scopedPage.item ?? fallbackPage.item : fallbackPage.item;
+  const pageLoading = packageId
+    ? scopedPage.loading || (!scopedPage.error && !scopedPage.item && fallbackPage.loading)
+    : fallbackPage.loading;
+  const pageError = scopedPage.error ?? fallbackPage.error;
   const dataSource = useAdapter();
   // Bumped after a successful page action so embedded data (lists, etc.)
   // re-fetch. Threaded into the page context AND used to remount the renderer.
   const [refreshKey, setRefreshKey] = useState(0);
-  const page = preferLocal(pages as any[], pageName, (activeApp as any)?._packageId);
 
   if (!page) {
-    // `page` metadata is lazy-loaded: on the very first access `pages` is an
-    // empty array while the fetch is in flight, which would flash a false
-    // "page not found" (or a blank body) — exactly the post-signup landing
-    // race where the app's home page is the first thing rendered. Show a
-    // loading state until the `page` type is actually resolved, then trust the
-    // not-found. (getTypeStatus absent = hand-rolled context = always ready.)
-    const pageStatus = getTypeStatus?.('page');
-    if (pageStatus === 'idle' || pageStatus === 'loading') {
+    if (pageLoading) {
       return (
         <div className="h-full flex items-center justify-center p-8" data-testid="page-loading">
           <Spinner className="h-5 w-5 text-muted-foreground" />
+        </div>
+      );
+    }
+    if (pageError) {
+      return (
+        <div className="h-full flex items-center justify-center p-8" data-testid="page-load-error">
+          <Empty>
+            <div className="mx-auto mb-4 flex h-12 w-12 items-center justify-center rounded-full bg-muted">
+              <FileText className="h-6 w-6 text-muted-foreground" />
+            </div>
+            <EmptyTitle>{t('empty.pageLoadError', { defaultValue: 'Unable to load page' })}</EmptyTitle>
+            <EmptyDescription>
+              {t('empty.pageLoadErrorDescription', {
+                defaultValue: 'The page could not be loaded. Check your connection and try again.',
+              })}
+            </EmptyDescription>
+          </Empty>
         </div>
       );
     }
@@ -87,14 +109,11 @@ export function PageView() {
   };
 
   return (
-    // Mount the shared console action runtime so page-level `action:button`s can
-    // collect params, call authenticated APIs, show confirm/result dialogs, run
-    // screen flows, navigate the SPA, and refresh embedded data — the same
-    // runtime ObjectView uses (#1605). Pages run global / action-scoped actions,
-    // so no `objectName` is bound.
+    // Mount the shared action runtime without reading the full objects list.
+    // It loads object definitions only if a user opens parameter collection
+    // that needs field-backed choices.
     <ConsoleActionRuntimeProvider
       dataSource={dataSource}
-      objects={objects}
       onRefresh={() => setRefreshKey((k) => k + 1)}
     >
       <div className="flex flex-row h-full w-full overflow-hidden relative">

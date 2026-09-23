@@ -208,6 +208,12 @@ To render an object view from a schema instead of from a route, use
 and custom pages; like `ObjectView` they resolve their target from the route
 (`dashboardName` / `pageName`) rather than from a `schema` prop.
 
+`PageView` resolves a named page from the active app's package first, then uses
+the unscoped name lookup only when that package has no matching page. It reads
+the page item directly instead of loading every page. Page-level action
+parameters load object definitions only when the user opens a parameter dialog.
+A missing item renders as not found; failed requests render as load errors.
+
 ```tsx
 import { DashboardView } from '@object-ui/app-shell';
 import type { DataSource } from '@object-ui/types';

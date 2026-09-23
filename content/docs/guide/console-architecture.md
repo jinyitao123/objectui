@@ -69,7 +69,11 @@ one build-time Vite variable:
 - **Discovery + metadata** — `AdapterProvider` (`@object-ui/app-shell`) constructs the
   `ObjectStackAdapter`, `connect()`s it (one `/api/v1/discovery` probe, cached per base URL),
   and the metadata provider pulls apps, objects and views from the server's metadata API on
-  demand.
+  demand. Route-backed custom pages use a package-scoped by-name read for the active app, so
+  opening one page does not enumerate every page. The unscoped page lookup runs only when the
+  active package returns not found; transport and authorization failures remain errors. Object
+  definitions are fetched when an action actually opens parameter collection, not when a page
+  first mounts.
 
 Apps and objects **are** authored declaratively — but in the ObjectStack **server** project
 (`objectstack.config.ts` there, or through Studio), not in this repo. The console is a pure
