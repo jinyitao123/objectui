@@ -130,6 +130,13 @@ copied as-is it produced rows with no label at all, a `NavLink` whose `to` was
 Annotating the array as `NavItem[]` is what turns that whole class of typo back into
 a compile error where it is written, instead of a blank sidebar at runtime.
 
+Console application navigation built by `NavigationRenderer.resolveHref` maps a
+page target to the bare app entry segment (`/apps/<appName>/<pageName>`), the
+same route used for object entries. The app shell resolves pages in the active
+package and only permits shared objects that the app references in navigation;
+it reports a page/object name collision instead of choosing one surface
+silently.
+
 #### `SidebarNavProps`
 
 | Prop | Type | Default | Description |

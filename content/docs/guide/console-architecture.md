@@ -105,12 +105,18 @@ current.
 | Route Pattern | Component | Purpose |
 |---------------|-----------|---------|
 | `/apps/:appName` | Home redirect | Redirects to the first object in navigation |
-| `/apps/:appName/:objectName` | `ObjectView` | Object list with view switcher |
+| `/apps/:appName/:entryName` | `AppEntryRoute` | Resolves pages in the active app package and objects in that package or an explicitly referenced shared package; same-name page/object collisions are refused as ambiguous |
 | `/apps/:appName/:objectName/view/:viewId` | `ObjectView` | Specific view for an object |
 | `/apps/:appName/:objectName/data` | `ObjectDataPage` | Bare data surface — URL `filter[<field>]=<value>` conditions, not bound to any saved view (ADR-0055) |
 | `/apps/:appName/:objectName/record/:recordId` | `RecordDetailView` | Single-record detail |
 | `/apps/:appName/create-app` | `CreateAppPage` | App creation wizard (4-step) |
 | `/apps/:appName/edit-app/:editAppName` | `EditAppPage` | Edit existing app configuration |
+
+Custom page navigation uses the same bare entry route as object navigation (for
+example, `/apps/com.acme.crm/crm_home`). The active app's package ID scopes page
+lookups and is tried first for objects. A shared object is eligible only when
+the active app explicitly references it in navigation. The retired
+`/apps/:appName/page/:pageName` path has no redirect or compatibility route.
 
 ## Key Patterns
 

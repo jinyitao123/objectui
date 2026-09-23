@@ -112,7 +112,12 @@ describe('resolveHref — non-object targets unchanged', () => {
 
   it('page', () => {
     const item: NavigationItem = { id: 'n2', type: 'page', label: 'Home', pageName: 'home' };
-    expect(resolveHref(item, BASE).href).toBe(`${BASE}/page/home`);
+    expect(resolveHref(item, BASE).href).toBe(`${BASE}/home`);
+  });
+
+  it('encodes the page name as the app entry segment', () => {
+    const item: NavigationItem = { id: 'n2', type: 'page', label: 'Home', pageName: 'sales home' };
+    expect(resolveHref(item, BASE).href).toBe(`${BASE}/sales%20home`);
   });
 
   it('url is external when target=_blank', () => {
@@ -193,7 +198,7 @@ describe('resolveActiveNavItem — single winner across the tree', () => {
 
   it('dashboard / page items match inside groups', () => {
     expect(activeId(`${BASE}/dashboard/kpis`)).toBe('nav_kpis');
-    expect(activeId(`${BASE}/page/home`)).toBe('nav_home');
+    expect(activeId(`${BASE}/home`)).toBe('nav_home');
   });
 
   it('unrelated route → no active item', () => {

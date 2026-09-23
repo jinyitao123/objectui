@@ -205,8 +205,13 @@ To render an object view from a schema instead of from a route, use
 ### DashboardView / PageView
 
 `DashboardView` and `PageView` are the route-level equivalents for dashboards
-and custom pages; like `ObjectView` they resolve their target from the route
-(`dashboardName` / `pageName`) rather than from a `schema` prop.
+and custom pages. `DashboardView` reads `dashboardName` from its typed route;
+custom pages use the bare `/apps/:appName/:entryName` route. Pages resolve in
+the active app package. Objects resolve there first, then from the shared
+metadata directory only when the app explicitly references the object in its
+navigation. A package that defines both a page and an eligible object with the
+same entry name renders an ambiguity state. The retired `/page/:pageName` route
+is not supported.
 
 `PageView` resolves a named page from the active app's package first, then uses
 the unscoped name lookup only when that package has no matching page. It reads

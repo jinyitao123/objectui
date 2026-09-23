@@ -44,7 +44,7 @@ export const NAV_TYPE_TARGETS: Record<
  *
  * Record-detail pages (`type: 'record'`) require a specific record id to
  * render, but a `type: 'page'` nav item resolves to a static
- * `/apps/{app}/page/{name}` URL with no mechanism to pass one — so linking one
+ * `/apps/{app}/{name}` URL with no mechanism to pass one — so linking one
  * from navigation is always broken at runtime (#2333). Exclude them from the
  * page picker. Mirrors usePageAssignment's record discriminator: `pageType`
  * wins over the bare `type` field. Rows missing both are kept (only a confirmed

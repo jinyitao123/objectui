@@ -620,7 +620,7 @@ export function resolveHref(
       // refer to `{current_user_id}` / `{current_org_id}` — exactly like
       // the `recordId` substitution above for object-typed nav items.
       const pageParams = item.params;
-      let url = `${basePath}/page/${item.pageName}`;
+      let url = `${basePath}/${encodeURIComponent(item.pageName)}`;
       if (pageParams && typeof pageParams === 'object') {
         const usp = new URLSearchParams();
         for (const [k, v] of Object.entries(pageParams)) {

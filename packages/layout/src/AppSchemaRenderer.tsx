@@ -297,7 +297,7 @@ function MobileBottomNav({
           if (item.viewName) href += `/view/${item.viewName}`;
         }
         else if (item.type === 'dashboard') href = item.dashboardName ? `${basePath}/dashboard/${item.dashboardName}` : '#';
-        else if (item.type === 'page') href = item.pageName ? `${basePath}/page/${item.pageName}` : '#';
+        else if (item.type === 'page') href = item.pageName ? `${basePath}/${encodeURIComponent(item.pageName)}` : '#';
         else if (item.type === 'report') href = item.reportName ? `${basePath}/report/${item.reportName}` : '#';
         else if (item.type === 'url') href = item.url ?? '#';
         else if (item.type === 'component') {

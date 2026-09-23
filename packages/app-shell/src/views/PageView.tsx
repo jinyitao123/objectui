@@ -22,9 +22,10 @@ import { useExpressionContext } from '../providers/ExpressionProvider.js';
 import { ConsoleActionRuntimeProvider } from '../hooks/useConsoleActionRuntime.js';
 import { InterfaceListPage } from './InterfaceListPage.js';
 
-export function PageView() {
+export function PageView({ pageNameOverride }: { pageNameOverride?: string } = {}) {
   const { t } = useObjectTranslation();
-  const { pageName } = useParams<{ pageName: string }>();
+  const { pageName: routePageName } = useParams<{ pageName: string }>();
+  const pageName = pageNameOverride ?? routePageName;
   const [searchParams] = useSearchParams();
   const { showDebug } = useMetadataInspector();
   const navigate = useNavigate();
@@ -99,7 +100,7 @@ export function PageView() {
 
   const params = Object.fromEntries(searchParams.entries());
 
-  // Resolve the app slug from the path (`/apps/:app/page/:name`) so the deep
+  // Resolve the app segment from the path (`/apps/:app/:pageName`) so the deep
   // link survives whatever Router basename the host mounts under.
   const appName = location.pathname.match(/\/apps\/([^/]+)/)?.[1];
   const canEditInStudio = isAdmin && !!appName && !!pageName;

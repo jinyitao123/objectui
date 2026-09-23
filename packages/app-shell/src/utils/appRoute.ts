@@ -217,9 +217,10 @@ export function appStudioObjectPath(
 
 /**
  * Route types that correspond to a designable **interface** surface in Studio's
- * Interfaces pillar. The console route type (`/apps/:pkg/<type>/<name>`) doubles
- * as the Studio surface type — the keywords match `resolveSurface` in
- * `StudioDesignSurface` (`dashboard` / `page` / `report`).
+ * Interfaces pillar. Dashboard and report console routes retain their typed
+ * path segments; page entries use the bare `/apps/:pkg/:pageName` route and
+ * pass `page` here after metadata resolution. The keywords match
+ * `resolveSurface` in `StudioDesignSurface`.
  */
 const INTERFACE_SURFACE_ROUTE_TYPES = new Set(['dashboard', 'page', 'report']);
 

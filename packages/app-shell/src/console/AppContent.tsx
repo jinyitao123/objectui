@@ -44,6 +44,7 @@ import { ErrorBoundary } from '../chrome/ErrorBoundary.js';
 import { LoadingScreen } from '../chrome/LoadingScreen.js';
 import { RedirectWithSplash } from '../chrome/RedirectWithSplash.js';
 import { ObjectView } from '../views/ObjectView.js';
+import { AppEntryRoute } from './AppEntryRoute.js';
 import { KeyboardShortcutsDialog } from '../chrome/KeyboardShortcutsDialog.js';
 import { OnboardingWalkthrough } from '../chrome/OnboardingWalkthrough.js';
 import { RouteFader } from '../chrome/RouteFader.js';
@@ -52,7 +53,6 @@ import { NavigationSyncEffect } from '../hooks/useNavigationSync.js';
 // Route-based code splitting — lazy-load less-frequently-used routes
 const RecordDetailView = lazy(() => import('../views/RecordDetailView.js').then(m => ({ default: m.RecordDetailView })));
 const DashboardView = lazy(() => import('../views/DashboardView.js').then(m => ({ default: m.DashboardView })));
-const PageView = lazy(() => import('../views/PageView.js').then(m => ({ default: m.PageView })));
 const ReportView = lazy(() => import('../views/ReportView.js').then(m => ({ default: m.ReportView })));
 const SearchResultsPage = lazy(() => import('../views/SearchResultsPage.js').then(m => ({ default: m.SearchResultsPage })));
 const RecordFormPage = lazy(() => import('../views/RecordFormPage.js').then(m => ({ default: m.RecordFormPage })));
@@ -182,9 +182,10 @@ export function AppContent({ extraRoutes, extraRoutesNoApp }: AppContentProps = 
   const { t } = useObjectTranslation();
   const { objectLabel } = useObjectLabel();
 
-  // Preload the metadata buckets that the routes under /apps/:appName/* assume
-  // are fully loaded by render time (the lazy MetadataProvider only eagerly
-  // loads `app`).
+  // Preload the metadata buckets that object and interface routes assume are
+  // available. Runtime pages resolve by name and must not enumerate every page
+  // just because a page route opened; the Studio page-management surface loads
+  // that collection on demand below.
   const [scopeMetaReady, setScopeMetaReady] = useState(!ensureType);
   useEffect(() => {
     if (!ensureType) {
@@ -196,12 +197,21 @@ export function AppContent({ extraRoutes, extraRoutesNoApp }: AppContentProps = 
       ensureType('object'),
       ensureType('dashboard'),
       ensureType('report'),
-      ensureType('page'),
     ]).finally(() => {
       if (!cancelled) setScopeMetaReady(true);
     });
     return () => { cancelled = true; };
   }, [ensureType]);
+
+  // The Studio page-management surface compares the page collection to detect
+  // navigation additions/removals. Keep that collection read on its owning
+  // surface instead of making every runtime page open fetch `/meta/page`.
+  useEffect(() => {
+    const segments = location.pathname.split('/').filter(Boolean);
+    if (segments[0] === 'apps' && segments[2] === 'metadata' && segments[3] === 'page') {
+      void ensureType?.('page');
+    }
+  }, [ensureType, location.pathname]);
 
   // Hidden apps (`App.hidden`) are excluded from app-listing surfaces
   // (sidebar switcher, home grid, app switcher). The active app for the
@@ -546,13 +556,13 @@ export function AppContent({ extraRoutes, extraRoutesNoApp }: AppContentProps = 
 
   const cleanParts = location.pathname.split('/').filter(Boolean);
   let objectNameFromPath = cleanParts[2];
-  if (
-    objectNameFromPath === 'view' ||
-    objectNameFromPath === 'record' ||
-    objectNameFromPath === 'page' ||
-    objectNameFromPath === 'dashboard' ||
-    objectNameFromPath === 'design'
-  ) {
+  const isTypedSurfaceRoute = cleanParts.length > 3 && (
+    objectNameFromPath === 'dashboard'
+    || objectNameFromPath === 'report'
+    || objectNameFromPath === 'design'
+    || objectNameFromPath === 'page'
+  );
+  if (objectNameFromPath === 'view' || objectNameFromPath === 'record' || isTypedSurfaceRoute) {
     objectNameFromPath = '';
   }
 
@@ -1060,7 +1070,7 @@ export function AppContent({ extraRoutes, extraRoutesNoApp }: AppContentProps = 
                   })()}
                 />
                 {/* Metadata admin routes — declared BEFORE the generic
-                    `:objectName/...` routes so the static `metadata` prefix
+                    `:entryName/...` routes so the static `metadata` prefix
                     wins React Router's score tiebreaker (both
                     `metadata/:type/:name` and `:objectName/view/:viewId`
                     score 16; declaration order breaks the tie). */}
@@ -1077,7 +1087,12 @@ export function AppContent({ extraRoutes, extraRoutesNoApp }: AppContentProps = 
                   <Route path=":type/:name/history" element={<MetadataResourceHistoryPage />} />
                 </Route>
                 <Route path=":objectName" element={
-                  <ObjectView dataSource={dataSource} objects={allObjects} onEdit={handleEdit} externalRefreshKey={refreshKey} />
+                  <AppEntryRoute
+                    dataSource={dataSource}
+                    objects={allObjects}
+                    onEdit={handleEdit}
+                    externalRefreshKey={refreshKey}
+                  />
                 } />
                 <Route path=":objectName/new" element={
                   <RecordFormPage mode="create" />
@@ -1100,7 +1115,6 @@ export function AppContent({ extraRoutes, extraRoutesNoApp }: AppContentProps = 
                 } />
                 <Route path="dashboard/:dashboardName" element={<DashboardView dataSource={dataSource} />} />
                 <Route path="report/:reportName" element={<ReportView dataSource={dataSource} />} />
-                <Route path="page/:pageName" element={<PageView />} />
                 <Route path="component/:ns/:name/*" element={<ComponentNavView />} />
                 {/* Legacy: old metadata routes built before the REST-style nesting
                     landed. Redirect to the new /metadata/:type/... shape. */}
@@ -1315,7 +1329,10 @@ function LegacyMetadataRedirect({ mode }: { mode: 'directory' | 'resource' }) {
 function ShorthandRecordRedirect() {
   const { objectName, maybeRecordId } = useParams();
   const location = useLocation();
-  if (objectName && looksLikeRecordId(maybeRecordId)) {
+  // `/page/:name` is retired with no compatibility redirect. Keep its static
+  // segment out of the generic object/record shorthand even when `:name` looks
+  // like a record id.
+  if (objectName && objectName !== 'page' && looksLikeRecordId(maybeRecordId)) {
     const target = `${location.pathname.replace(/\/$/, '').replace(`/${maybeRecordId}`, `/record/${maybeRecordId}`)}${location.search}${location.hash}`;
     return <Navigate to={target} replace />;
   }

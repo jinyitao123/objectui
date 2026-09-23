@@ -105,7 +105,7 @@ describe('AppPreview reads the navigation discriminated union', () => {
     expect(screen.getByText('/apps/crm/account')).toBeTruthy();
     expect(screen.getByText('/apps/crm/sales_order/view/open_orders')).toBeTruthy();
     expect(screen.getByText('/apps/crm/dashboard/sales_overview')).toBeTruthy();
-    expect(screen.getByText('/apps/crm/page/crm_welcome')).toBeTruthy();
+    expect(screen.getByText('/apps/crm/crm_welcome')).toBeTruthy();
   });
 
   it('renders a `url` entry with its own absolute URL, not an /apps/ prefix', () => {

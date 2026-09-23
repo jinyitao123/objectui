@@ -63,7 +63,7 @@ vi.mock('react-router-dom', () => ({
   useParams: () => ({ pageName: PAGE_NAME }),
   useSearchParams: () => [new URLSearchParams(), vi.fn()],
   useNavigate: () => vi.fn(),
-  useLocation: () => ({ pathname: `/apps/cloud/page/${PAGE_NAME}`, search: '' }),
+  useLocation: () => ({ pathname: `/apps/cloud/${PAGE_NAME}`, search: '' }),
 }));
 
 vi.mock('@object-ui/auth', async (importOriginal) => ({
@@ -86,6 +86,11 @@ let storedPage: Record<string, unknown> | undefined;
 
 vi.mock('../../providers/MetadataProvider', () => ({
   useMetadata: () => ({ pages: storedPage ? [storedPage] : [], objects: [] }),
+  useMetadataItem: (_type: string, name?: string) => ({
+    item: name === PAGE_NAME ? storedPage ?? null : null,
+    loading: false,
+    error: null,
+  }),
 }));
 
 vi.mock('../MetadataInspector', () => ({

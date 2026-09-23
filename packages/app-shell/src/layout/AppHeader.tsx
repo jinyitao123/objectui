@@ -68,7 +68,7 @@ import { useAdapter } from '../providers/AdapterProvider.js';
 import { useObjectTranslation, useObjectLabel } from '@object-ui/i18n';
 import type { BreadcrumbItem as BreadcrumbItemType } from '@object-ui/types';
 import { useAuth, getUserInitials, useWorkspaceAdminStatus } from '@object-ui/auth';
-import { useMetadata } from '../providers/MetadataProvider.js';
+import { useMetadata, useMetadataItem } from '../providers/MetadataProvider.js';
 import { resolveKeyedI18nLabel, preferLocal, matchAppBySegment, appRouteSegment, appStudioRoutePath } from '../utils/index.js';
 import { getIcon } from '../utils/getIcon.js';
 import { useMobileViewSwitcher } from './MobileViewSwitcherContext.js';
@@ -160,7 +160,7 @@ export function AppHeader({
   const { isAdmin: isWorkspaceAdmin } = useWorkspaceAdminStatus();
   const { t } = useObjectTranslation();
   const { objectLabel, dashboardLabel, pageLabel, reportLabel, viewLabel, appLabel } = useObjectLabel();
-  const { apps: metadataApps, dashboards: metadataDashboards, pages: metadataPages, reports: metadataReports } = useMetadata();
+  const { apps: metadataApps, dashboards: metadataDashboards, reports: metadataReports } = useMetadata();
   const { currentAppName, recordTitle } = useNavigationContext();
   const mobileSwitcher = useMobileViewSwitcher();
 
@@ -290,6 +290,14 @@ export function AppHeader({
   const appNameKey = activeAppName || currentAppName || appNameFromRoute;
   // ADR-0048 (A) — appNameKey may be a package id (route segment); match by it.
   const currentApp = matchAppBySegment(metadataApps || [], appNameKey);
+  const currentAppPackageId = typeof (currentApp as any)?._packageId === 'string'
+    ? (currentApp as any)._packageId as string
+    : undefined;
+  const bareEntryName = pathParts.length === 3 ? pathParts[2] : undefined;
+  const scopedPageEntry = useMetadataItem('page', bareEntryName, currentAppPackageId);
+  const scopedObjectEntry = useMetadataItem('object', bareEntryName, currentAppPackageId);
+  const isBarePageEntry = !!scopedPageEntry.item && !scopedObjectEntry.item;
+  const isAmbiguousBareEntry = !!scopedPageEntry.item && !!scopedObjectEntry.item;
   const appNavObjectNames = new Set<string>();
   const collectNavObjects = (items: any[]) => {
     for (const item of items || []) {
@@ -306,7 +314,6 @@ export function AppHeader({
   // Help menu — docs owned by the current app (matched by package id, the
   // precise owner link; ADR-0048). Empty when not inside an app, the app
   // ships no docs, or the lazy fetch hasn't run yet.
-  const currentAppPackageId = (currentApp as any)?._packageId as string | undefined;
   const currentAppDocs = currentAppPackageId
     ? (helpDocs ?? []).filter((d) => d._packageId === currentAppPackageId)
     : [];
@@ -314,14 +321,20 @@ export function AppHeader({
   // App → Studio reverse bridge (ADR-0080): admins jump from the running app
   // to its owning package's design surface. Null when there is nothing to open
   // (non-admin, or no owning package). When the current route names a specific
-  // interface (a dashboard, page, or report), deep-link straight to THAT surface
-  // in the Interfaces pillar instead of the package's generic Data tab — the
-  // surface's design page replaces the retired in-page inline editor. The route
-  // type doubles as the surface type and `pathParts[3]` is the surface name
-  // (absent on the interface list routes, which fall back to the Data tab); the
-  // mapping lives in `appStudioRoutePath`.
+  // interface, deep-link straight to that surface in Studio. A page is
+  // identified by a package-scoped named read on the bare entry route;
+  // dashboard/report routes keep their typed segments. The mapping lives in
+  // `appStudioRoutePath`.
   const studioDesignPath = isApp
-    ? appStudioRoutePath(currentApp, isWorkspaceAdmin, { type: routeType, name: pathParts[3] })
+    ? appStudioRoutePath(
+      currentApp,
+      isWorkspaceAdmin,
+      isBarePageEntry
+        ? { type: 'page', name: bareEntryName }
+        : isAmbiguousBareEntry
+          ? undefined
+          : { type: routeType, name: pathParts[3] },
+    )
     : null;
 
   const objectSiblings = appObjects.map((o: any) => ({
@@ -341,14 +354,12 @@ export function AppHeader({
         const fallback = dashboardDef?.label || humanizeSlug(dashboardName);
         extraSegments.push({ label: dashboardLabel({ name: dashboardName, label: fallback }) });
       }
-    } else if (routeType === 'page') {
-      extraSegments.push({ label: t('console.breadcrumb.pages'), href: baseHref });
-      if (pathParts[3]) {
-        const pageName = pathParts[3];
-        const pageDef = preferLocal(metadataPages as any[], pageName, (currentApp as any)?._packageId);
-        const fallback = pageDef?.label || humanizeSlug(pageName);
-        extraSegments.push({ label: pageLabel({ name: pageName, label: fallback }) });
-      }
+    } else if (isBarePageEntry && bareEntryName) {
+      const pageDef = scopedPageEntry.item as any;
+      const fallback = pageDef?.label || humanizeSlug(bareEntryName);
+      extraSegments.push({ label: pageLabel({ name: bareEntryName, label: fallback }) });
+    } else if (isAmbiguousBareEntry && bareEntryName) {
+      extraSegments.push({ label: humanizeSlug(bareEntryName) });
     } else if (routeType === 'report') {
       extraSegments.push({ label: t('console.breadcrumb.reports'), href: baseHref });
       if (pathParts[3]) {

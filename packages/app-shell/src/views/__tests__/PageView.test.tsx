@@ -29,7 +29,7 @@ vi.mock('react-router-dom', () => ({
   useParams: () => ({ pageName: 'home' }),
   useSearchParams: () => [new URLSearchParams(pageLookup.search), vi.fn()],
   useNavigate: () => vi.fn(),
-  useLocation: () => ({ pathname: '/apps/cloud/page/home', search: '' }),
+  useLocation: () => ({ pathname: '/apps/cloud/home', search: '' }),
 }));
 
 const authFetchSpy = vi.fn();

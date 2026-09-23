@@ -47,18 +47,13 @@ describe('useTrackRouteAsRecent', () => {
     localStorage.clear();
   });
 
-  it('records an object route', () => {
+  it('defers a bare entry route until package-scoped metadata resolves its type', () => {
     const { result } = renderHook(
       () =>
         useHarness('/apps/sales/contact', 'sales', [{ name: 'contact', label: 'Contacts' }]),
       { wrapper },
     );
-    expect(result.current[0]).toMatchObject({
-      id: 'object:contact',
-      label: 'Contacts',
-      href: '/apps/sales/contact',
-      type: 'object',
-    });
+    expect(result.current).toEqual([]);
   });
 
   it('records a dashboard route', () => {
@@ -73,12 +68,12 @@ describe('useTrackRouteAsRecent', () => {
     });
   });
 
-  it('records a page route', () => {
+  it('does not track the retired /page/ route as a page or object', () => {
     const { result } = renderHook(
-      () => useHarness('/apps/cs/page/welcome-tour', 'cs'),
+      () => useHarness('/apps/cs/page/welcome-tour', 'cs', [{ name: 'page', label: 'Page object' }]),
       { wrapper },
     );
-    expect(result.current[0]).toMatchObject({ id: 'page:welcome-tour', type: 'page' });
+    expect(result.current).toEqual([]);
   });
 
   it('records a report route', () => {
@@ -181,10 +176,10 @@ describe('useTrackRouteAsRecent', () => {
     ];
     const { result, rerender } = renderHook(
       ({ p }: { p: string }) => useHarness(p, 'sales', objects),
-      { wrapper, initialProps: { p: '/apps/sales/contact' } },
+      { wrapper, initialProps: { p: '/apps/sales/contact/record/1' } },
     );
 
-    rerender({ p: '/apps/sales/order' });
+    rerender({ p: '/apps/sales/order/record/2' });
 
     const ids = (result.current as RecentItem[]).map(r => r.id);
     expect(ids).toEqual(['object:order', 'object:contact']);

@@ -196,6 +196,10 @@ vi.mock('../../views/ObjectView', () => ({
   },
 }));
 
+vi.mock('../AppEntryRoute', () => ({
+  AppEntryRoute: () => <div data-testid="app-entry-route" />,
+}));
+
 vi.mock('@object-ui/i18n', async (importOriginal) => ({
   ...(await importOriginal<Record<string, unknown>>()),
   useObjectTranslation: () => ({
@@ -242,6 +246,7 @@ const APPS = [
 ];
 
 const refreshMetadata = vi.fn(async () => {});
+const ensureTypeSpy = vi.hoisted(() => vi.fn(async () => []));
 let metadataApps: unknown[] = APPS;
 vi.mock('../../providers/MetadataProvider', async (importOriginal) => ({
   ...(await importOriginal<Record<string, unknown>>()),
@@ -251,7 +256,7 @@ vi.mock('../../providers/MetadataProvider', async (importOriginal) => ({
     loading: false,
     // `undefined` — no bucket preloading to await, so the shell is ready on
     // first render (mirrors a host that ships metadata eagerly).
-    ensureType: undefined,
+    ensureType: ensureTypeSpy,
     error: null,
     refresh: refreshMetadata,
   }),
@@ -460,6 +465,29 @@ describe('AppContent pseudo-routes — live input surface stays special (objectu
     expect(screen.getByTestId('console-layout')).toHaveAttribute('data-active-app', 'crm');
   });
 
+  it('does not redirect the retired /page/ URL to a page or object record', async () => {
+    renderConsoleAt('/apps/crm/page/abc123');
+
+    expect(await screen.findByText('Page not found')).toBeInTheDocument();
+    expect(pathname()).toBe('/apps/crm/page/abc123');
+    expect(screen.queryByTestId('app-entry-route')).not.toBeInTheDocument();
+    expect(screen.queryByTestId('object-view')).not.toBeInTheDocument();
+  });
+
+  it('does not enumerate every page when a runtime app entry opens', async () => {
+    renderConsoleAt('/apps/crm/crm_home');
+
+    expect(await screen.findByTestId('app-entry-route')).toBeInTheDocument();
+    expect(ensureTypeSpy).not.toHaveBeenCalledWith('page');
+  });
+
+  it('loads the page collection on the Studio page-management surface', async () => {
+    renderConsoleAt('/apps/crm/metadata/page');
+
+    expect(await screen.findByTestId('metadata-resource-list-page')).toHaveTextContent('page');
+    expect(ensureTypeSpy).toHaveBeenCalledWith('page');
+  });
+
   /** A matched app resolves on its own — the flags change nothing here. */
   it.each([
     ['/apps/crm/system/marketplace', 'marketplace-page'],
@@ -539,12 +567,12 @@ describe('AppContent pseudo-routes — a near-miss segment no longer hijacks ano
 
   it('a near-miss under a REAL app still renders that app (the flags are not a filter)', async () => {
     // Guard against over-tightening: `system_log` under an app that exists is
-    // an ordinary object route and must keep working. `requestedAppMissing`
+    // an ordinary app entry and must keep working. `requestedAppMissing`
     // never applied here — `matchedApp` is set — and this pins that the change
     // did not turn the flags into a segment allow-list.
     renderConsoleAt('/apps/crm/system_log');
 
-    expect(await screen.findByTestId('object-view')).toHaveTextContent('system_log');
+    expect(await screen.findByTestId('app-entry-route')).toBeInTheDocument();
     expect(screen.getByTestId('console-layout')).toHaveAttribute('data-active-app', 'crm');
   });
 
