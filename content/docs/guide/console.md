@@ -97,9 +97,14 @@ flags (marketplace, AI Studio, SSO, custom domain), and the cloud URL. Operators
 these on the **server**, not in the SPA, which is why changing them needs no console rebuild.
 
 Apps, objects and views themselves are metadata fetched over HTTP — discovered at connect
-time and loaded on demand. To change what the console shows, change the metadata on the
-server: author it in the ObjectStack server project (`objectstack.config.ts` lives **there**,
-not here) or edit and publish it from Studio. See
+time and loaded on demand. On ordinary app routes, the console resolves Object schemas by
+the names referenced by the active app navigation and current surface; it does not fetch the
+entire Object catalog just to open an app. Studio catalog and action-parameter tools keep
+broader reads when they need that context. Record detail also loads the full Object
+directory on demand to discover reverse related lists from child schemas; a lightweight
+relationship index is not available yet. To change what the console shows, change the
+metadata on the server: author it in the ObjectStack server project (`objectstack.config.ts`
+lives **there**, not here) or edit and publish it from Studio. See
 [ObjectOS Integration](/docs/guide/objectos-integration) for the server-side configuration
 shape.
 

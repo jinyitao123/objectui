@@ -35,11 +35,12 @@ import { Button, Empty, EmptyTitle, EmptyDescription } from '@object-ui/componen
 import { ArrowLeft, Building2, Database } from 'lucide-react';
 import { toast } from 'sonner';
 import { useObjectTranslation, useObjectLabel } from '@object-ui/i18n';
-import { useMetadata } from '../providers/MetadataProvider.js';
+import { useMetadataItem } from '../providers/MetadataProvider.js';
 import { useAdapter } from '../providers/AdapterProvider.js';
 import {
   ExpressionProvider,
   createExpressionEvaluator,
+  useExpressionContext,
   isObjectFieldVisible,
 } from '../providers/ExpressionProvider.js';
 import { buildExpressionUser } from '../providers/expressionUser.js';
@@ -50,6 +51,8 @@ import { useAuth } from '@object-ui/auth';
 export interface RecordFormPageProps {
   /** Form mode — `'create'` for the `/new` route, `'edit'` for the `/edit` route. */
   mode: 'create' | 'edit';
+  /** App-scoped Object metadata already resolved by the hosting shell. */
+  objects?: any[];
 }
 
 /**
@@ -60,7 +63,7 @@ export interface RecordFormPageProps {
  * `formType: 'simple'` (i.e. a flat in-page form), wrapped in a page header
  * that mirrors the look of `RecordDetailView`.
  */
-export function RecordFormPage({ mode }: RecordFormPageProps) {
+export function RecordFormPage({ mode, objects }: RecordFormPageProps) {
   const { appName, objectName, recordId } = useParams<{
     appName: string;
     objectName: string;
@@ -69,7 +72,23 @@ export function RecordFormPage({ mode }: RecordFormPageProps) {
   const navigate = useNavigate();
   const [searchParams] = useSearchParams();
   const dataSource = useAdapter();
-  const { objects, loading: metadataLoading } = useMetadata();
+  const { app } = useExpressionContext();
+  const packageId = typeof (app as { _packageId?: unknown } | undefined)?._packageId === 'string'
+    ? (app as { _packageId: string })._packageId
+    : undefined;
+  const packageObject = useMetadataItem('object', objectName, packageId);
+  const needsSharedObject = !!packageId
+    && !packageObject.loading
+    && !packageObject.error
+    && !packageObject.item;
+  const sharedObject = useMetadataItem('object', needsSharedObject ? objectName : undefined);
+  const objectDef = objects?.find((object: any) => object?.name === objectName) ?? (
+    packageId ? packageObject.item ?? sharedObject.item : packageObject.item
+  );
+  const metadataLoading = !objectDef && (packageId
+    ? packageObject.loading || (!packageObject.error && !packageObject.item && sharedObject.loading)
+    : packageObject.loading);
+  const metadataError = packageObject.error ?? sharedObject.error;
   const { t } = useObjectTranslation();
   const { objectLabel } = useObjectLabel();
   const { user, getAuthConfig, activeOrganization } = useAuth();
@@ -101,11 +120,6 @@ export function RecordFormPage({ mode }: RecordFormPageProps) {
     return entries.length > 0 ? Object.fromEntries(entries) : undefined;
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [mode, searchParams.toString()]);
-
-  const objectDef = useMemo(
-    () => objects.find((o: any) => o.name === objectName),
-    [objects, objectName],
-  );
 
   const baseUrl = `/apps/${appName}`;
   const objectListUrl = `${baseUrl}/${objectName}`;
@@ -250,6 +264,27 @@ export function RecordFormPage({ mode }: RecordFormPageProps) {
   // the URL flash an error before the metadata resolves.
   if (metadataLoading) {
     return <SkeletonDetail />;
+  }
+
+  if (metadataError) {
+    const forbidden = (metadataError as Error & { httpStatus?: number; status?: number }).httpStatus === 403
+      || (metadataError as Error & { status?: number }).status === 403;
+    return (
+      <div className="flex h-full items-center justify-center p-4">
+        <Empty>
+          <EmptyTitle>
+            {forbidden
+              ? t('empty.appEntryAccessDenied', { defaultValue: 'You do not have permission to open this entry.' })
+              : t('empty.appEntryLoadError', { defaultValue: 'Unable to load this app entry.' })}
+          </EmptyTitle>
+          <EmptyDescription>
+            {forbidden
+              ? t('empty.appEntryAccessDeniedDescription', { defaultValue: 'Your account is not authorized to open this entry.' })
+              : t('empty.appEntryLoadErrorDescription', { defaultValue: 'The entry could not be checked. Check your connection and try again.' })}
+          </EmptyDescription>
+        </Empty>
+      </div>
+    );
   }
 
   if (!objectDef) {

@@ -13,20 +13,17 @@
  *
  * The card offered two remedies. "Handle the absence quietly" was already done
  * — four layers of it, and none of them changes here. So this is the other
- * one: consult the object registry the shell loads anyway and DON'T ASK when
- * the environment does not declare the object.
+ * one: consult the named object metadata endpoint and DON'T ASK when the
+ * environment's by-name lookup answers 404.
  *
  * The risk is entirely one-sided, so the assertions are too. A missed skip
  * costs one request that already degrades correctly; a wrong skip costs a real
- * deployment its activity feed with no error anywhere. Hence four of the six
- * cases below are "still reads" — no-provider, empty registry, still-loading,
- * present — and only one is "does not read".
+ * deployment its activity feed with no error anywhere. A 404 is the only
+ * negative answer; no-provider, still-loading, permission, and transport
+ * failures remain unknown and keep the data read.
  *
- * The empty-registry case is the one that would actually have shipped broken:
- * `useMetadata()` outside a `<MetadataProvider>` returns a frozen no-op whose
- * `getTypeStatus` says `'ready'` and whose `getItemsByType` says `[]`, which
- * reads exactly like "the registry answered and your object is not in it".
- * Every existing test in this directory mounts the hook that way.
+ * The no-provider case is load-bearing: its frozen no-op returns no item, but
+ * that is not a server 404 and must not be read as absence.
  */
 import '@testing-library/jest-dom/vitest';
 import * as React from 'react';
@@ -68,6 +65,11 @@ const settle = () => act(async () => { await vi.advanceTimersByTimeAsync(0); });
 
 /** A metadata context that answers `object` with exactly these items/status. */
 function registry(status: MetadataTypeStatus, objects: Array<{ name: string }>): MetadataContextValue {
+  const getItem = vi.fn(async (_type: string, name: string) => {
+    if (status === 'error') throw Object.assign(new Error('Forbidden'), { httpStatus: 403 });
+    if (status === 'loading' || status === 'idle') return new Promise<null>(() => {});
+    return objects.find((object) => object.name === name) ?? null;
+  });
   return {
     apps: [],
     objects,
@@ -79,8 +81,9 @@ function registry(status: MetadataTypeStatus, objects: Array<{ name: string }>):
     refresh: async () => {},
     invalidate: () => {},
     ensureType: async () => objects,
-    getItem: async () => null,
-    getItemsByType: (type: string) => (type === 'object' ? objects : []),
+    getItem,
+    getItemScope: 'test-provider',
+    getItemsByType: vi.fn((type: string) => (type === 'object' ? objects : [])),
     getTypeStatus: () => status,
   } as unknown as MetadataContextValue;
 }
@@ -110,34 +113,40 @@ afterEach(() => {
   vi.useRealTimers();
 });
 
-describe('the activity feed does not ask for an object the environment does not declare (objectui#7476)', () => {
-  it('a tenant registry without sys_activity ⇒ no request at all', async () => {
-    expect(await activityReads(registry('ready', TENANT_OBJECTS))).toEqual([]);
+describe('the activity feed skips the data read only after a named metadata 404 (objectui#7476)', () => {
+  it('a named metadata miss ⇒ no data request and no full object list', async () => {
+    const ctx = registry('ready', TENANT_OBJECTS);
+    expect(await activityReads(ctx)).toEqual([]);
+    expect(ctx.getItem).toHaveBeenCalledWith('object', 'sys_activity');
+    expect(ctx.getItemsByType).not.toHaveBeenCalled();
   });
 
-  it('the same registry WITH sys_activity ⇒ the read happens', async () => {
-    expect(await activityReads(registry('ready', WITH_AUDIT))).toEqual(['sys_activity']);
+  it('a named metadata item ⇒ the data read happens', async () => {
+    const ctx = registry('ready', WITH_AUDIT);
+    expect(await activityReads(ctx)).toEqual(['sys_activity']);
+    expect(ctx.getItemsByType).not.toHaveBeenCalled();
   });
 });
 
-describe('every uncertainty still reads — a wrong skip is the expensive mistake (objectui#7476)', () => {
+describe('every non-404 outcome remains unknown — a wrong skip is the expensive mistake (objectui#7476)', () => {
   it('no MetadataProvider at all ⇒ unchanged behaviour', async () => {
-    // The frozen no-op fallback answers `ready` + `[]`. Reading that as
-    // "absent" is the regression this case exists to refuse.
+    // The frozen no-op's null is not a server 404.
     expect(await activityReads(null)).toEqual(['sys_activity']);
   });
 
-  it('a registry that is ready but lists NOTHING ⇒ reads', async () => {
-    expect(await activityReads(registry('ready', []))).toEqual(['sys_activity']);
-  });
-
-  it('a registry that has errored ⇒ reads', async () => {
+  it('a named endpoint permission failure ⇒ reads', async () => {
     expect(await activityReads(registry('error', []))).toEqual(['sys_activity']);
   });
 
-  it('a registry still loading ⇒ asks nothing YET, and claims nothing', async () => {
-    // Not the same as "absent": no key, so the feed has asked nothing. The
-    // request arrives (or does not) when the registry answers.
+  it('a named endpoint transport failure ⇒ reads', async () => {
+    const ctx = registry('ready', []);
+    (ctx.getItem as ReturnType<typeof vi.fn>).mockRejectedValueOnce(new TypeError('Failed to fetch'));
+    expect(await activityReads(ctx)).toEqual(['sys_activity']);
+  });
+
+  it('a named lookup still loading ⇒ asks nothing YET, and claims nothing', async () => {
+    // Not the same as "absent": no item verdict yet, so the feed has asked
+    // nothing. Its own data request starts once the named read settles.
     expect(await activityReads(registry('loading', []))).toEqual([]);
   });
 });

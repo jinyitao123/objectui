@@ -22,6 +22,7 @@ import type { DatasetDrillArgs } from '@object-ui/plugin-report';
 import { DrillDownDrawer } from '@object-ui/plugin-dashboard';
 import { DrillNavigationProvider } from '@object-ui/react';
 import { useOpenRecordList } from './useOpenRecordList.js';
+import { useApplicationObjects } from '../hooks/useApplicationObjects.js';
 
 // Fallback fields when no schema is available
 const FALLBACK_FIELDS = [
@@ -50,7 +51,8 @@ export function ReportView({ dataSource }: { dataSource?: DataSource }) {
   const [configVersion, setConfigVersion] = useState(0);
   
   // Find report definition from API-driven metadata
-  const { reports, objects, loading, refresh } = useMetadata();
+  const metadata = useMetadata();
+  const { reports, loading, refresh, getItem } = metadata;
   // ADR-0048 Phase 2 — prefer the report owned by the current app's package.
   const { app: activeApp } = useExpressionContext();
   const initialReport = preferLocal(reports as any[], reportName, (activeApp as any)?._packageId);
@@ -61,6 +63,14 @@ export function ReportView({ dataSource }: { dataSource?: DataSource }) {
 
   // State for report runtime data
   const [reportRuntimeData, setReportRuntimeData] = useState<any[]>([]);
+
+  const reportObjectNames = [
+    reportData?.objectName,
+    reportData?.dataSource?.object,
+    editSchema?.objectName,
+    editSchema?.dataSource?.object,
+  ].filter((name): name is string => typeof name === 'string' && name.length > 0);
+  const { objects } = useApplicationObjects(activeApp, reportObjectNames, reportObjectNames);
 
   // Drill-through (ADR-0021 D2): clicking an aggregated row/cell opens the
   // underlying records in an in-place drawer (peek without leaving the report),
@@ -131,7 +141,11 @@ export function ReportView({ dataSource }: { dataSource?: DataSource }) {
         const dimByName = new Map(dims.filter((d) => d?.name).map((d) => [d.name as string, d]));
 
         // Field defs of the dataset's object — the option value↔label source.
-        const objDef = objects?.find((o: any) => o.name === objectName);
+        const packageId = typeof (activeApp as any)?._packageId === 'string'
+          ? (activeApp as any)._packageId
+          : undefined;
+        const localObject = packageId ? await getItem('object', objectName, packageId) : null;
+        const objDef = localObject ?? objects.find((o: any) => o.name === objectName) ?? await getItem('object', objectName);
         const rawFields = objDef?.fields;
         const fieldDef = (field: string): Record<string, any> | undefined => {
           if (Array.isArray(rawFields)) return rawFields.find((f: any) => f?.name === field);
@@ -161,7 +175,7 @@ export function ReportView({ dataSource }: { dataSource?: DataSource }) {
         console.warn('ReportView: drill failed', err);
       }
     },
-    [metadataClient, objects, reportData],
+    [activeApp, getItem, metadataClient, objects, reportData],
   );
 
   // Derive available fields from object schema for filter/sort editors

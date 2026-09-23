@@ -54,6 +54,7 @@ import {
 import { useState, useEffect, useCallback } from 'react';
 import { useOffline } from '@object-ui/react';
 import { isDatabaseKeyDisplay } from '@object-ui/core';
+import { collectAppNavigationObjectNames } from '../utils/appNavigationObjects.js';
 import { PresenceAvatars, useTenantPresence, type PresenceUser } from '@object-ui/collaboration';
 import { ModeToggle } from './ModeToggle.js';
 import { WorkspaceSwitcher } from './WorkspaceSwitcher.js';
@@ -299,15 +300,7 @@ export function AppHeader({
   const scopedObjectEntry = useMetadataItem('object', bareEntryName, currentAppPackageId);
   const isBarePageEntry = !!scopedPageEntry.item && !scopedObjectEntry.item;
   const isAmbiguousBareEntry = !!scopedPageEntry.item && !!scopedObjectEntry.item;
-  const appNavObjectNames = new Set<string>();
-  const collectNavObjects = (items: any[]) => {
-    for (const item of items || []) {
-      if (item.type === 'object' && item.objectName) appNavObjectNames.add(item.objectName);
-      if (item.children) collectNavObjects(item.children);
-    }
-  };
-  collectNavObjects(currentApp?.navigation || []);
-  for (const area of currentApp?.areas || []) collectNavObjects(area.navigation || []);
+  const appNavObjectNames = new Set(collectAppNavigationObjectNames(currentApp));
   const appObjects = appNavObjectNames.size > 0
     ? safeObjects.filter((o: any) => appNavObjectNames.has(o.name))
     : safeObjects.filter((o: any) => !o.name.startsWith('sys_') && !o.name.startsWith('auth_'));

@@ -6,6 +6,7 @@ import { useObjectTranslation } from '@object-ui/i18n';
 import { useExpressionContext } from '../providers/ExpressionProvider.js';
 import { useMetadataItem } from '../providers/MetadataProvider.js';
 import { useRecentItems } from '../context/RecentItemsProvider.js';
+import { collectAppNavigationObjectNames } from '../utils/appNavigationObjects.js';
 import { ObjectView } from '../views/ObjectView.js';
 
 const PageView = lazy(() => import('../views/PageView.js').then(module => ({ default: module.PageView })));
@@ -41,27 +42,6 @@ function titleize(value: string): string {
   return value.replace(/[-_]/g, ' ').replace(/\b\w/g, character => character.toUpperCase());
 }
 
-function appReferencesObject(app: unknown, objectName: string | undefined): boolean {
-  if (!objectName || !app || typeof app !== 'object') return false;
-  const definition = app as {
-    navigation?: unknown;
-    areas?: Array<{ navigation?: unknown }>;
-  };
-  const roots = [
-    ...(Array.isArray(definition.navigation) ? definition.navigation : []),
-    ...(Array.isArray(definition.areas)
-      ? definition.areas.flatMap(area => Array.isArray(area?.navigation) ? area.navigation : [])
-      : []),
-  ];
-  const matches = (items: unknown[]): boolean => items.some(item => {
-    if (!item || typeof item !== 'object') return false;
-    const node = item as { type?: unknown; objectName?: unknown; children?: unknown };
-    if (node.type === 'object' && node.objectName === objectName) return true;
-    return Array.isArray(node.children) && matches(node.children);
-  });
-  return matches(roots);
-}
-
 export function AppEntryRoute({
   dataSource,
   objects,
@@ -77,7 +57,7 @@ export function AppEntryRoute({
     : undefined;
   const page = useMetadataItem('page', packageId ? entryName : undefined, packageId);
   const packageObject = useMetadataItem('object', packageId ? entryName : undefined, packageId);
-  const canResolveSharedObject = appReferencesObject(app, entryName);
+  const canResolveSharedObject = collectAppNavigationObjectNames(app).includes(entryName ?? '');
   const needsSharedObject = !!packageId
     && !packageObject.loading
     && !packageObject.error
@@ -101,8 +81,13 @@ export function AppEntryRoute({
   const resolvedLabel = resolvedType === 'page'
     ? (typeof pageRecord?.label === 'string' ? pageRecord.label : titleize(entryName ?? ''))
     : (typeof objectRecord?.label === 'string' ? objectRecord.label : resolvedName);
-  const scopedObjects = objectRecord
-    ? [objectRecord, ...objects.filter(candidate => (
+  const directoryObject = objects.find(candidate => (
+    candidate && typeof candidate === 'object'
+    && (candidate as { name?: unknown }).name === resolvedName
+  ));
+  const primaryObject = directoryObject ?? objectRecord;
+  const scopedObjects = primaryObject
+    ? [primaryObject, ...objects.filter(candidate => (
       !candidate
       || typeof candidate !== 'object'
       || (candidate as { name?: unknown }).name !== resolvedName

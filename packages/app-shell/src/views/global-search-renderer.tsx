@@ -54,13 +54,15 @@ import * as React from 'react';
 import { useMemo, useState } from 'react';
 import { Link, useParams } from 'react-router-dom';
 import { ComponentRegistry } from '@object-ui/core';
-import { useRecordSearch, useMetadata, useAdapter } from '@object-ui/react';
+import { useRecordSearch, useAdapter } from '@object-ui/react';
 import { Input, Card, CardContent, Badge } from '@object-ui/components';
 import { Search } from 'lucide-react';
 import { useObjectTranslation } from '@object-ui/i18n';
 import { getIcon } from '../utils/getIcon.js';
 import { getRecordDisplayName } from '../utils/index.js';
 import { useNavigationContext } from '../context/NavigationContext.js';
+import { useApplicationObjects } from '../hooks/useApplicationObjects.js';
+import { useExpressionContext } from '../providers/ExpressionProvider.js';
 
 /** Keep the designer's own data attributes on the wrapper, drop the rest. */
 const splitDesigner = (props: Record<string, any>) => {
@@ -81,14 +83,15 @@ export const GlobalSearchRenderer: React.FC<GlobalSearchRendererProps> = ({
 }) => {
   const { t } = useObjectTranslation();
   const [query, setQuery] = useState('');
-  const { objects: metadataObjects } = useMetadata();
   const dataSource = useAdapter();
   const { appName } = useParams();
   const { currentAppName } = useNavigationContext();
+  const { app } = useExpressionContext();
+  const { objects: metadataObjects } = useApplicationObjects(app);
 
-  // `useMetadata().objects` can hand back a fresh array each call; the hook
-  // derives its own signature from the names, but a stable reference keeps the
-  // memo above it from churning (same reason SearchResultsPage does it).
+  // The app-scoped object directory is already name-deduplicated by the
+  // provider; this memo keeps the search input stable while that directory
+  // updates.
   const objects = useMemo(() => metadataObjects || [], [metadataObjects]);
 
   const { results, isSearching } = useRecordSearch({

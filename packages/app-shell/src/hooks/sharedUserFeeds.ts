@@ -627,8 +627,8 @@ export function isMissingResource(err: unknown): boolean {
  * `data-objectstack` states the rule for exactly this shape: the cure for a
  * doomed request is not issuing it.
  *
- * So the object registry (which the shell loads for the nav either way)
- * decides. It is a THREE-valued answer and only one value skips the read:
+ * So a named object-metadata lookup decides. It is a THREE-valued answer and
+ * only one value skips the read:
  *
  *   - not settled yet → no key, so nothing is asked and nothing is claimed.
  *     `useSharedFeed` hands a consumer the `idle` snapshot in that window,
@@ -637,8 +637,8 @@ export function isMissingResource(err: unknown): boolean {
  *     404 produced — `ready`, empty, poll stopped — so every consumer of this
  *     feed and the affirmative empty copy (#4315) are byte-for-byte unchanged;
  *   - `present` / `unknown` → the read, exactly as before. Every uncertainty
- *     lands here on purpose (see {@link useObjectPresence}): a registry with no
- *     provider, still loading, errored, or listing nothing is not evidence of
+ *     lands here on purpose (see {@link useObjectPresence}): a missing
+ *     provider, pending request, 403, or transport error is not evidence of
  *     absence, and a wrong `absent` would cost a real deployment its feed.
  */
 export function useSharedActivityFeed(): ActivityItem[] {

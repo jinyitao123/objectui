@@ -18,7 +18,7 @@ import { useActionRunner, useGlobalUndo, useMutationInvalidationBridge, notifyDa
 import { useObjectTranslation, useObjectLabel } from '@object-ui/i18n';
 import type { AppAccessVerdict, ConnectionState } from '@object-ui/data-objectstack';
 import { useAuth, useWorkspaceAdminStatus } from '@object-ui/auth';
-import { useMetadata } from '../providers/MetadataProvider.js';
+import { attachInlineSubforms, mergeViewsIntoObjects, useMetadata } from '../providers/MetadataProvider.js';
 import { useAdapter } from '../providers/AdapterProvider.js';
 import { usePreviewDrafts } from '../preview/PreviewModeContext.js';
 import { PreviewDraftEmptyState } from '../preview/PreviewDraftEmptyState.js';
@@ -30,11 +30,13 @@ import {
 import { buildExpressionUser } from '../providers/expressionUser.js';
 import { useTrackRouteAsRecent } from '../hooks/useTrackRouteAsRecent.js';
 import { useHomePath } from '../hooks/useHomePath.js';
+import { useApplicationObjects } from '../hooks/useApplicationObjects.js';
 import { useSignedInUserLocale } from '../hooks/useUserLocale.js';
 import { resolveRecordFormTarget, resolveFormViewLayout, resolveNavigateCreateUrl, resolveNavigateEditUrl, resolvePostCreateTarget } from '../utils/recordFormNavigation.js';
 import { deriveRecordSurface, deriveRecordFlowSurface } from '@object-ui/plugin-view';
 import { RECORD_FORM_PARAM, RECORD_FORM_OBJECT_PARAM, RECORD_FORM_LINK_PARAM } from '../urlParams.js';
 import { matchAppBySegment } from '../utils/appRoute.js';
+import { objectNameFromAppPath } from '../utils/appNavigationObjects.js';
 import { resolveHref, type NavTemplateContext } from '@object-ui/layout';
 
 // Components (eagerly loaded — always needed)
@@ -139,6 +141,28 @@ function DraftReviewNavigator({ appName }: { appName: string | undefined }) {
  */
 export { buildExpressionUser };
 
+function ObjectMetadataLoadError({ error }: { error: Error }) {
+  const { t } = useObjectTranslation();
+  const status = (error as Error & { httpStatus?: number; status?: number; statusCode?: number });
+  const forbidden = status.httpStatus === 403 || status.status === 403 || status.statusCode === 403;
+  return (
+    <div className="flex h-full items-center justify-center p-8">
+      <Empty>
+        <EmptyTitle>
+          {forbidden
+            ? t('empty.appEntryAccessDenied', { defaultValue: 'You do not have permission to open this entry.' })
+            : t('empty.appEntryLoadError', { defaultValue: 'Unable to load this app entry.' })}
+        </EmptyTitle>
+        <EmptyDescription>
+          {forbidden
+            ? t('empty.appEntryAccessDeniedDescription', { defaultValue: 'Your account is not authorized to open this entry.' })
+            : t('empty.appEntryLoadErrorDescription', { defaultValue: 'The entry could not be checked. Check your connection and try again.' })}
+        </EmptyDescription>
+      </Empty>
+    </div>
+  );
+}
+
 export function AppContent({ extraRoutes, extraRoutesNoApp }: AppContentProps = {}) {
   const [connectionState, setConnectionState] = useState<ConnectionState>('disconnected');
   const { user, getAuthConfig, activeOrganization } = useAuth();
@@ -171,7 +195,8 @@ export function AppContent({ extraRoutes, extraRoutesNoApp }: AppContentProps = 
   const navigate = useNavigate();
   const location = useLocation();
   const { appName } = useParams();
-  const { apps, objects: allObjects, loading: metadataLoading, ensureType, error: metadataError, refresh: refreshMetadata } = useMetadata();
+  const metadata = useMetadata();
+  const { apps, loading: metadataLoading, ensureType, error: metadataError, refresh: refreshMetadata } = metadata;
   // objectui#7373 — where this file's two "you cannot be here" exits land. Both
   // sit BELOW the readiness gate further down (`metadataLoading` &c), so the
   // list they resolve against has settled; an app list that failed to load is
@@ -182,10 +207,9 @@ export function AppContent({ extraRoutes, extraRoutesNoApp }: AppContentProps = 
   const { t } = useObjectTranslation();
   const { objectLabel } = useObjectLabel();
 
-  // Preload the metadata buckets that object and interface routes assume are
-  // available. Runtime pages resolve by name and must not enumerate every page
-  // just because a page route opened; the Studio page-management surface loads
-  // that collection on demand below.
+  // Preload the small dashboard/report collections used by their route
+  // resolvers. Object schemas are loaded by name from this app's navigation
+  // directory below; opening one app does not enumerate every installed object.
   const [scopeMetaReady, setScopeMetaReady] = useState(!ensureType);
   useEffect(() => {
     if (!ensureType) {
@@ -194,7 +218,6 @@ export function AppContent({ extraRoutes, extraRoutesNoApp }: AppContentProps = 
     }
     let cancelled = false;
     Promise.all([
-      ensureType('object'),
       ensureType('dashboard'),
       ensureType('report'),
     ]).finally(() => {
@@ -203,11 +226,13 @@ export function AppContent({ extraRoutes, extraRoutesNoApp }: AppContentProps = 
     return () => { cancelled = true; };
   }, [ensureType]);
 
-  // The Studio page-management surface compares the page collection to detect
-  // navigation additions/removals. Keep that collection read on its owning
-  // surface instead of making every runtime page open fetch `/meta/page`.
+  // Studio object/page management explicitly needs those collections. Keep
+  // their full reads on the authoring surfaces, not on every runtime route.
   useEffect(() => {
     const segments = location.pathname.split('/').filter(Boolean);
+    if (segments[0] === 'apps' && segments[2] === 'metadata' && segments[3] === 'object') {
+      void ensureType?.('object');
+    }
     if (segments[0] === 'apps' && segments[2] === 'metadata' && segments[3] === 'page') {
       void ensureType?.('page');
     }
@@ -433,6 +458,47 @@ export function AppContent({ extraRoutes, extraRoutesNoApp }: AppContentProps = 
     if (i <= 0) return undefined;
     return { [formLinkParam.slice(0, i)]: formLinkParam.slice(i + 1) };
   }, [formLinkParam]);
+  const routeObjectName = objectNameFromAppPath(location.pathname);
+  const routeSegments = location.pathname.split('/').filter(Boolean);
+  const routeObjectType = routeSegments[3];
+  const isRecordDetailSurface = routeObjectType === 'record' && !!routeSegments[4];
+  const explicitObjectRoute = !!routeObjectName
+    && ['new', 'view', 'data', 'record'].includes(routeObjectType);
+  const applicationObjectMetadata = useApplicationObjects(
+    activeApp,
+    [routeObjectName ?? '', formObjectParam ?? ''],
+    [formObjectParam ?? '', ...(explicitObjectRoute && routeObjectName ? [routeObjectName] : [])],
+  );
+  const metadataScope = metadata.getItemScope ?? 'default';
+  const [recordObjectDirectory, setRecordObjectDirectory] = useState<{
+    scope: string;
+    objects: any[];
+  } | null>(null);
+  useEffect(() => {
+    if (!isRecordDetailSurface || !ensureType || recordObjectDirectory?.scope === metadataScope) return;
+    let cancelled = false;
+    void ensureType('object').then((objects) => {
+      if (!cancelled) setRecordObjectDirectory({ scope: metadataScope, objects });
+    }, () => {
+      if (!cancelled) setRecordObjectDirectory({ scope: metadataScope, objects: [] });
+    });
+    return () => { cancelled = true; };
+  }, [ensureType, isRecordDetailSurface, metadataScope, recordObjectDirectory?.scope]);
+  const recordObjectDirectoryReady = !isRecordDetailSurface || !ensureType
+    || recordObjectDirectory?.scope === metadataScope;
+  const allObjects = useMemo(() => {
+    const views = metadata.getItemsByType?.('view') ?? [];
+    const sources = isRecordDetailSurface && recordObjectDirectoryReady
+      ? [...applicationObjectMetadata.objects, ...(recordObjectDirectory?.objects ?? [])]
+      : applicationObjectMetadata.objects;
+    const uniqueByName = new Map<string, any>();
+    for (const object of sources) {
+      if (typeof object?.name === 'string' && !uniqueByName.has(object.name)) {
+        uniqueByName.set(object.name, object);
+      }
+    }
+    return attachInlineSubforms(mergeViewsIntoObjects([...uniqueByName.values()], views));
+  }, [applicationObjectMetadata.objects, isRecordDetailSurface, metadata, recordObjectDirectory, recordObjectDirectoryReady]);
   const [refreshKey, setRefreshKey] = useState(0);
 
   const isDialogOpen = !!recordFormParam;
@@ -554,17 +620,13 @@ export function AppContent({ extraRoutes, extraRoutesNoApp }: AppContentProps = 
     return unsub;
   }, [dataSource]);
 
-  const cleanParts = location.pathname.split('/').filter(Boolean);
-  let objectNameFromPath = cleanParts[2];
-  const isTypedSurfaceRoute = cleanParts.length > 3 && (
-    objectNameFromPath === 'dashboard'
-    || objectNameFromPath === 'report'
-    || objectNameFromPath === 'design'
-    || objectNameFromPath === 'page'
-  );
-  if (objectNameFromPath === 'view' || objectNameFromPath === 'record' || isTypedSurfaceRoute) {
-    objectNameFromPath = '';
-  }
+  const objectNameFromPath = routeObjectName ?? '';
+  const currentObjectMetadataError = applicationObjectMetadata.errors.find(
+    (entry) => entry.name === objectNameFromPath,
+  )?.error;
+  const formObjectMetadataError = formObjectParam
+    ? applicationObjectMetadata.errors.find((entry) => entry.name === formObjectParam)?.error
+    : undefined;
 
   const currentObjectDef = allObjects.find((o: any) => o.name === objectNameFromPath);
 
@@ -735,7 +797,7 @@ export function AppContent({ extraRoutes, extraRoutesNoApp }: AppContentProps = 
   // organization stamped) waits exactly zero extra frames. What does wait is
   // the viewer whose verdict genuinely is not known yet — and for them a
   // LoadingScreen is the honest frame, not a screen built on a guess.
-  if (!dataSource || metadataLoading || !scopeMetaReady || !isWorkspaceAdminResolved) return <LoadingScreen />;
+  if (!dataSource || metadataLoading || !scopeMetaReady || applicationObjectMetadata.loading || !recordObjectDirectoryReady || !isWorkspaceAdminResolved) return <LoadingScreen />;
 
   // ADR-0037 — preview mode renders its OWN empty/error states and never
   // falls through to the generic "No Apps Configured" guard below: inside a
@@ -1095,23 +1157,29 @@ export function AppContent({ extraRoutes, extraRoutesNoApp }: AppContentProps = 
                   />
                 } />
                 <Route path=":objectName/new" element={
-                  <RecordFormPage mode="create" />
+                  <RecordFormPage mode="create" objects={allObjects} />
                 } />
                 <Route path=":objectName/view/:viewId" element={
-                  <ObjectView dataSource={dataSource} objects={allObjects} onEdit={handleEdit} externalRefreshKey={refreshKey} />
+                  currentObjectMetadataError
+                    ? <ObjectMetadataLoadError error={currentObjectMetadataError} />
+                    : <ObjectView dataSource={dataSource} objects={allObjects} onEdit={handleEdit} externalRefreshKey={refreshKey} />
                 } />
                 {/* ADR-0055: parameterized bare data surface — URL `filter[...]`
                     conditions over everything row-level security permits, NOT
                     anchored to any saved view. `data` is a reserved segment
                     alongside `new` / `view` / `record`. */}
                 <Route path=":objectName/data" element={
-                  <ObjectDataPage dataSource={dataSource} objects={allObjects} />
+                  currentObjectMetadataError
+                    ? <ObjectMetadataLoadError error={currentObjectMetadataError} />
+                    : <ObjectDataPage dataSource={dataSource} objects={allObjects} />
                 } />
                 <Route path=":objectName/record/:recordId" element={
-                  <RecordDetailView dataSource={dataSource} objects={allObjects} onEdit={handleEdit} />
+                  currentObjectMetadataError
+                    ? <ObjectMetadataLoadError error={currentObjectMetadataError} />
+                    : <RecordDetailView dataSource={dataSource} objects={allObjects} onEdit={handleEdit} />
                 } />
                 <Route path=":objectName/record/:recordId/edit" element={
-                  <RecordFormPage mode="edit" />
+                  <RecordFormPage mode="edit" objects={allObjects} />
                 } />
                 <Route path="dashboard/:dashboardName" element={<DashboardView dataSource={dataSource} />} />
                 <Route path="report/:reportName" element={<ReportView dataSource={dataSource} />} />
@@ -1145,7 +1213,9 @@ export function AppContent({ extraRoutes, extraRoutesNoApp }: AppContentProps = 
               </RouteFader>
             </Suspense>
           </ErrorBoundary>
-          {formObjectDef && (
+          {formObjectMetadataError && isDialogOpen
+            ? <ObjectMetadataLoadError error={formObjectMetadataError} />
+            : formObjectDef && (
             <ModalForm
               key={`${formObjectDef.name}:${editingRecord?.id || 'new'}`}
               schema={{

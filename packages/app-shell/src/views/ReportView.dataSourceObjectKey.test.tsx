@@ -140,7 +140,9 @@ async function mountReport(ds: Record<string, unknown>) {
     refresh: async () => {},
     invalidate: () => {},
     ensureType: async () => [],
-    getItem: vi.fn(async () => null),
+    getItem: vi.fn(async (type: string, name: string) =>
+      type === 'object' ? [ACCT_OBJECT, OTHER_OBJECT].find((object) => object.name === name) ?? null : null,
+    ),
     getItemsByType: () => [],
     getTypeStatus: () => 'ready',
   };

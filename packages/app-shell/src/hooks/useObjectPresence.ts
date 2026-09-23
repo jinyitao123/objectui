@@ -7,9 +7,10 @@
  */
 
 /**
- * "Does this deployment HAVE that object?", answered from the metadata registry
- * the shell already loads — so a surface that reads an OPTIONAL system object
- * can decline to ask rather than asking and being told no.
+ * "Does this deployment HAVE that object?", answered by a named metadata read
+ * so a surface that reads an OPTIONAL system object can decline to ask rather
+ * than asking and being told no. This must not enumerate the whole object
+ * directory to answer a question about one object.
  *
  * ## Why (objectui#7476)
  *
@@ -31,15 +32,11 @@
  * never loads on a deployment that DOES have the object — so absence has to be
  * evidence, never the default:
  *
- *  - the registry has not answered (`idle` / `loading` / `error`) → `unknown`;
- *  - the registry is `ready` but lists ZERO objects → `unknown`. This is the
- *    load-bearing clause. `useMetadata()` outside a `<MetadataProvider>`
- *    returns a frozen no-op whose `getTypeStatus` answers `'ready'` and whose
- *    `getItemsByType` answers `[]` — a shape that reads as "ready, and the
- *    object is not there" while meaning "nobody is answering". An empty
- *    registry is not evidence of anything;
- *  - `ready`, non-empty, and the name is in it → `present`;
- *  - `ready`, non-empty, and the name is not → `absent`. Only here.
+ *  - no metadata provider → `unknown`;
+ *  - the named read is pending → `unknown` until it settles;
+ *  - a named item is returned → `present`;
+ *  - the named endpoint returns its 404 miss → `absent`;
+ *  - permission, network, and server failures → `unknown`, never `absent`.
  *
  * `sys_*` objects ARE in this list where they exist — `AppHeader` filters them
  * out of the app-object picker by name (`!o.name.startsWith('sys_')`), which
@@ -48,11 +45,11 @@
  *
  * ## Cost
  *
- * None: `getItemsByType('object')` reads the same cache the nav, the object
- * views and `AppHeader` already populate, and kicks the fetch itself when the
- * type is still `idle` (`MetadataProvider`'s `readType`). No consumer of this
- * hook adds a request; the point is to remove one.
+ * One named metadata request for the optional object. This avoids loading the
+ * full Object directory on every console mount and preserves the 404 versus
+ * permission/transport distinction.
  */
+import { useEffect, useState } from 'react';
 import { useMetadata, type MetadataTypeStatus } from '@object-ui/react';
 
 /** What the metadata registry can say about one object name. */
@@ -91,13 +88,37 @@ export function objectPresence(
   return found ? 'present' : 'absent';
 }
 
-/** {@link objectPresence} bound to the shell's metadata registry. */
+/** {@link objectPresence} bound to the shell's by-name metadata endpoint. */
 export function useObjectPresence(name: string): ObjectPresenceReading {
-  const { getItemsByType, getTypeStatus } = useMetadata();
-  // Reading the items is also what ENSURES the type is fetched (MetadataProvider
-  // `readType`), so a surface that only ever asks this question still gets an
-  // answer instead of waiting on somebody else to populate the cache.
-  const objects = getItemsByType('object');
-  const status = getTypeStatus?.('object');
-  return { presence: objectPresence(name, status, objects), settled: metadataTypeSettled(status) };
+  const { getItem, getItemScope } = useMetadata();
+  const requestKey = JSON.stringify([name, getItemScope ?? null]);
+  const noProvider = getItemScope === 'no-provider';
+  const [snapshot, setSnapshot] = useState<ObjectPresenceReading & { key: string }>(() => ({
+    key: requestKey,
+    presence: 'unknown',
+    settled: !name || noProvider,
+  }));
+
+  useEffect(() => {
+    if (!name || noProvider) {
+      setSnapshot({ key: requestKey, presence: 'unknown', settled: true });
+      return;
+    }
+    let cancelled = false;
+    setSnapshot({ key: requestKey, presence: 'unknown', settled: false });
+    getItem('object', name)
+      .then((item) => {
+        if (!cancelled) {
+          setSnapshot({ key: requestKey, presence: item ? 'present' : 'absent', settled: true });
+        }
+      })
+      .catch(() => {
+        // A permission, network, or server failure cannot prove absence.
+        if (!cancelled) setSnapshot({ key: requestKey, presence: 'unknown', settled: true });
+      });
+    return () => { cancelled = true; };
+  }, [getItem, name, noProvider, requestKey]);
+
+  if (snapshot.key === requestKey) return snapshot;
+  return { presence: 'unknown', settled: !name || noProvider };
 }

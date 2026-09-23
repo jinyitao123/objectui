@@ -41,6 +41,7 @@ import {
 import { NavigationRenderer, hasVisibleNavigationItems } from '@object-ui/layout';
 import type { NavigationArea, NavigationItem } from '@object-ui/types';
 import { useMetadata } from '../providers/MetadataProvider.js';
+import { useApplicationObjects } from '../hooks/useApplicationObjects.js';
 import { useExpressionContext, evaluateVisibility } from '../providers/ExpressionProvider.js';
 import { usePermissions } from '@object-ui/permissions';
 import { useAuth, useWorkspaceAdminStatus } from '@object-ui/auth';
@@ -195,7 +196,7 @@ export function UnifiedSidebar({ activeAppName }: UnifiedSidebarProps) {
   const { recentItems } = useRecentItems();
   const { favorites, removeFavorite } = useFavorites();
 
-  const { apps: metadataApps, objects: metadataObjects } = useMetadata();
+  const { apps: metadataApps } = useMetadata();
   const apps = metadataApps || [];
   // objectui#7256 — every "Home" row below follows the product's DECLARED
   // landing, so the sidebar cannot offer a second home the top bar disowns.
@@ -205,6 +206,7 @@ export function UnifiedSidebar({ activeAppName }: UnifiedSidebarProps) {
   const activeApps = apps.filter((a: any) => a.active !== false && a.hidden !== true);
   // ADR-0048 (A) — route segment may be a package id; match by it (name fallback).
   const activeApp = matchAppBySegment(apps.filter((a: any) => a.active !== false), activeAppName || currentAppName) || activeApps[0];
+  const { objects: registeredObjects } = useApplicationObjects(activeApp);
 
   // Drag-reorder and pin persistence
   const { applyOrder, handleReorder } = useNavOrder(activeApp?.name || 'home');
@@ -241,11 +243,11 @@ export function UnifiedSidebar({ activeAppName }: UnifiedSidebarProps) {
     [can, hasCapabilities],
   );
 
-  // Runtime capability gate: hide nav items targeting objects/services
-  // not registered in this runtime (e.g. cloud-only `sys_app`).
+  // Runtime capability gate: object targets must be declared in this app's
+  // navigation. The route's by-name read handles missing and denied targets.
   const registeredObjectNames = React.useMemo(
-    () => new Set<string>((metadataObjects || []).map((o: any) => o?.name).filter(Boolean)),
-    [metadataObjects],
+    () => new Set<string>(registeredObjects.map((o: any) => o?.name).filter(Boolean)),
+    [registeredObjects],
   );
   const checkCap = React.useCallback(
     (kind: 'object' | 'service', name: string): boolean => {

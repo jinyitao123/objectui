@@ -29,13 +29,18 @@
  */
 
 import { describe, it, expect, vi, beforeEach } from 'vitest';
-import { renderHook, act } from '@testing-library/react';
+import { renderHook, act, waitFor } from '@testing-library/react';
 import React from 'react';
 import { MetadataCtx } from '@object-ui/react';
 import { useActionModal } from '../useActionModal';
 
 const LOG_CALL_PAGE = { name: 'log_call', type: 'utility', label: 'Log a Call' };
-const CONTACT_OBJECT = { name: 'contact', label: 'Contact', fields: {} };
+const CONTACT_OBJECT = {
+  name: 'contact',
+  label: 'Contact',
+  fields: {},
+  form: { type: 'tabbed', sections: [{ name: 'main', fields: ['name'] }] },
+};
 
 /**
  * Stand-in metadata context. `getItem(type, name)` is the ONLY lookup the
@@ -45,18 +50,21 @@ const CONTACT_OBJECT = { name: 'contact', label: 'Contact', fields: {} };
 function makeWrapper(items: Record<string, any[]>) {
   const getItem = vi.fn(async (type: string, name: string) =>
     (items[type] ?? []).find((i) => i.name === name) ?? null);
+  let objectListReads = 0;
+  const getItemsByType = vi.fn(() => []);
+  const ensureType = vi.fn(async () => []);
   const value: any = {
-    apps: [], objects: items.object ?? [], dashboards: [], reports: [], pages: [],
+    apps: [], get objects() { objectListReads += 1; return items.object ?? []; }, dashboards: [], reports: [], pages: [],
     loading: false, error: null,
-    refresh: async () => {}, invalidate: () => {}, ensureType: async () => [],
+    refresh: async () => {}, invalidate: () => {}, ensureType,
     getItem,
-    getItemsByType: () => [],
+    getItemsByType,
     getTypeStatus: () => 'ready',
   };
   const wrapper = ({ children }: { children: React.ReactNode }) => (
     <MetadataCtx.Provider value={value}>{children}</MetadataCtx.Provider>
   );
-  return { wrapper, getItem };
+  return { wrapper, getItem, getItemsByType, ensureType, getObjectListReadCount: () => objectListReads };
 }
 
 beforeEach(() => vi.clearAllMocks());
@@ -78,6 +86,28 @@ describe('useActionModal — a modal target names a page, only (objectstack#6739
     // The object lookup that produced the 400 must never happen.
     expect(getItem).toHaveBeenCalledWith('page', 'log_call');
     expect(getItem).not.toHaveBeenCalledWith('object', 'log_call');
+  });
+
+  it('loads an object form layout by name only when the form opens', async () => {
+    const { wrapper, getItem, getItemsByType, ensureType, getObjectListReadCount } = makeWrapper({
+      object: [CONTACT_OBJECT],
+      page: [],
+    });
+    const { result } = renderHook(() => useActionModal(), { wrapper });
+
+    expect(getObjectListReadCount()).toBe(0);
+    act(() => { void result.current.modalHandler({ objectName: 'contact', mode: 'create' }); });
+    await waitFor(() => expect(getItem).toHaveBeenCalledWith('object', 'contact'));
+
+    const modal = result.current.modalElement as React.ReactElement<{ schema: Record<string, unknown> }>;
+    expect(modal.props.schema.contentLayout).toBe('tabbed');
+    expect(modal.props.schema.sections).toEqual(CONTACT_OBJECT.form.sections);
+    expect(getObjectListReadCount()).toBe(0);
+    // The Object is read by name; the already-cached view directory is only
+    // consulted to compose its declared form layout.
+    expect(getItemsByType).toHaveBeenCalledWith('view');
+    expect(getItemsByType).not.toHaveBeenCalledWith('object');
+    expect(ensureType).not.toHaveBeenCalled();
   });
 
   it('REFUSES a target that names an existing object but no page', async () => {

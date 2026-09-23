@@ -24,6 +24,7 @@ import {
 import { LayoutDashboard } from 'lucide-react';
 import { MetadataPanel, useMetadataInspector } from './MetadataInspector.js';
 import { useActionModal } from '../hooks/useActionModal.js';
+import { useApplicationObjects } from '../hooks/useApplicationObjects.js';
 import { SkeletonDashboard } from '../skeletons/index.js';
 import { useMetadata } from '../providers/MetadataProvider.js';
 import { useExpressionContext } from '../providers/ExpressionProvider.js';
@@ -111,10 +112,16 @@ export function DashboardView({ dataSource }: { dataSource?: any }) {
     queueMicrotask(() => setIsLoading(false));
   }, [dashboardName]);
 
-  const { dashboards, objects: metadataObjects } = useMetadata();
+  const { dashboards } = useMetadata();
   // ADR-0048 Phase 2 — prefer the dashboard owned by the current app's package.
   const { app: activeApp } = useExpressionContext();
   const dashboard = preferLocal(dashboards as any[], dashboardName, (activeApp as any)?._packageId);
+  const widgetObjectNames = Array.isArray((dashboard as any)?.widgets)
+    ? (dashboard as any).widgets
+        .map((widget: any) => widget?.requiresObject ?? widget?.object)
+        .filter((name: unknown): name is string => typeof name === 'string' && name.length > 0)
+    : [];
+  const { objects: dashboardObjects } = useApplicationObjects(activeApp, widgetObjectNames, widgetObjectNames);
 
   // ---- Runtime capability gate --------------------------------------------
   // Hide widgets whose `requiresObject` is not registered (mirrors
@@ -123,8 +130,8 @@ export function DashboardView({ dataSource }: { dataSource?: any }) {
   // backing object isn't in this runtime (e.g. cloud-only
   // `sys_package_installation` on system_overview).
   const registeredObjectNamesForFilter = useMemo(
-    () => new Set<string>((metadataObjects || []).map((o: any) => o?.name).filter(Boolean)),
-    [metadataObjects],
+    () => new Set<string>(dashboardObjects.map((o: any) => o?.name).filter(Boolean)),
+    [dashboardObjects],
   );
   const previewSchema = useMemo(() => {
     if (!dashboard) return dashboard;

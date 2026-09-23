@@ -195,6 +195,9 @@ vi.mock('../../views/ObjectView', () => ({
     return <div data-testid="object-view">{objectName}</div>;
   },
 }));
+vi.mock('../../views/RecordDetailView.js', () => ({
+  RecordDetailView: () => <div data-testid="record-detail-view" />,
+}));
 
 vi.mock('../AppEntryRoute', () => ({
   AppEntryRoute: () => <div data-testid="app-entry-route" />,
@@ -486,6 +489,18 @@ describe('AppContent pseudo-routes — live input surface stays special (objectu
 
     expect(await screen.findByTestId('metadata-resource-list-page')).toHaveTextContent('page');
     expect(ensureTypeSpy).toHaveBeenCalledWith('page');
+  });
+
+  it('keeps ordinary object routes name-scoped and loads the full relationship directory only for record detail', async () => {
+    renderConsoleAt('/apps/crm/crm_customer/view/default');
+
+    expect(await screen.findByTestId('object-view')).toHaveTextContent('crm_customer');
+    expect(ensureTypeSpy).not.toHaveBeenCalledWith('object');
+
+    renderConsoleAt('/apps/crm/crm_customer/record/customer-1');
+
+    expect(await screen.findByTestId('record-detail-view')).toBeInTheDocument();
+    expect(ensureTypeSpy).toHaveBeenCalledWith('object');
   });
 
   /** A matched app resolves on its own — the flags change nothing here. */

@@ -50,7 +50,9 @@ import {
 } from '@object-ui/components';
 import { SchemaRenderer, useMetadata } from '@object-ui/react';
 import { ModalForm } from '@object-ui/plugin-form';
-import { resolveFormViewLayout } from '../utils/recordFormNavigation.js';
+import { useExpressionContext } from '../providers/ExpressionProvider.js';
+import { mergeViewsIntoObjects } from '../providers/MetadataProvider.js';
+import { resolveFormViewLayout, type FormViewModalLayout } from '../utils/recordFormNavigation.js';
 import { modalTargetRefusalMessage } from '../utils/modalTargetDiagnostics.js';
 
 type Placement = 'center' | 'side' | 'bottom' | 'fullscreen';
@@ -142,14 +144,22 @@ export function normalizeModalSchema(schema: any): ModalDescriptor {
 }
 
 export function useActionModal(dataSource?: any) {
-  const [state, setState] = useState<{ d: ModalDescriptor; resolve: (r: ActionResult) => void } | null>(null);
+  const [state, setState] = useState<{
+    d: ModalDescriptor;
+    formViewLayout?: FormViewModalLayout;
+    resolve: (r: ActionResult) => void;
+  } | null>(null);
   // Object metadata — degrades to an empty list outside a MetadataProvider
   // (see useMetadata). Used to resolve the object's default form view so the
   // create/edit modal honors its curated sections + field selection/order.
   // `getItem` fetches ONE named item on demand, so resolving a modal target
   // never drags in the whole (lazily loaded) page or object list — this hook is
   // mounted at the console root, where an eager list read would cost every page.
-  const { objects, getItem } = useMetadata();
+  const { getItem, getItemsByType } = useMetadata();
+  const { app } = useExpressionContext();
+  const packageId = typeof (app as { _packageId?: unknown } | undefined)?._packageId === 'string'
+    ? (app as { _packageId: string })._packageId
+    : undefined;
 
   const close = useCallback((r: ActionResult) => {
     setState((s) => {
@@ -226,11 +236,25 @@ export function useActionModal(dataSource?: any) {
         // everywhere at once. Byte-identical to what #4764 settled on.
         return { success: false, error: modalTargetRefusalMessage({ target: name }) };
       }
+      let formViewLayout: FormViewModalLayout | undefined;
+      if (d.objectName && !d.content && !(d.fields || (d as any).sections)) {
+        // The Object metadata is needed only when an object-form modal is
+        // actually opened. Read that one Object by name instead of loading the
+        // entire Object directory on every console mount.
+        const packageObject = packageId
+          ? await getItem('object', d.objectName, packageId)
+          : null;
+        const objectDef = packageObject ?? await getItem('object', d.objectName);
+        if (objectDef) {
+          const withViews = mergeViewsIntoObjects([objectDef], getItemsByType('view'))[0];
+          formViewLayout = resolveFormViewLayout(withViews);
+        }
+      }
       return new Promise<ActionResult>((resolve) => {
-        setState({ d, resolve });
+        setState({ d, formViewLayout, resolve });
       });
     },
-    [resolveModalTarget],
+    [getItem, getItemsByType, packageId, resolveModalTarget],
   );
 
   let modalElement: React.ReactNode = null;
@@ -246,9 +270,7 @@ export function useActionModal(dataSource?: any) {
       // passed an explicit field list. Without this the modal falls back to the
       // raw object schema — every field, in schema order. Mirrors the global
       // New/Edit modal in AppContent so action-opened forms stay consistent.
-      const viewLayout = (d.fields || (d as any).sections)
-        ? {}
-        : resolveFormViewLayout(objects.find((o: any) => o?.name === d.objectName));
+      const viewLayout = (d.fields || (d as any).sections) ? {} : state.formViewLayout ?? {};
       modalElement = (
         <ModalForm
           schema={{

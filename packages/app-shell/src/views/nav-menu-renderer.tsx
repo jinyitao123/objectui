@@ -110,6 +110,7 @@ import { Link, useLocation, useParams } from 'react-router-dom';
 import { ComponentRegistry } from '@object-ui/core';
 import { useMetadata } from '@object-ui/react';
 import { useAuth } from '@object-ui/auth';
+import { useApplicationObjects } from '../hooks/useApplicationObjects.js';
 import { usePermissions } from '@object-ui/permissions';
 import { useObjectTranslation, useObjectLabel } from '@object-ui/i18n';
 import { Badge, Separator, cn } from '@object-ui/components';
@@ -151,7 +152,7 @@ export const NavMenuRenderer: React.FC<NavMenuRendererProps> = ({
 }) => {
   const { t } = useObjectTranslation();
   const { objectLabel, viewLabel, dashboardLabel } = useObjectLabel();
-  const { apps, objects } = useMetadata();
+  const { apps } = useMetadata();
   const { appName } = useParams();
   const { currentAppName } = useNavigationContext();
   const { pathname, search } = useLocation();
@@ -160,7 +161,8 @@ export const NavMenuRenderer: React.FC<NavMenuRendererProps> = ({
 
   /* ── The three guards, wired to the same providers `AppSidebar` uses ────── */
 
-  const { evaluator } = useExpressionContext();
+  const { evaluator, app } = useExpressionContext();
+  const { objects } = useApplicationObjects(app);
   const evalVis = useCallback(
     (expr: string | boolean | undefined) => evaluateVisibility(expr, evaluator),
     [evaluator],

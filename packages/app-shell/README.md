@@ -215,6 +215,15 @@ navigation. A package that defines both a page and an eligible object with the
 same entry name renders an ambiguity state. The retired `/page/:pageName` route
 is not supported.
 
+The Console resolves Object schemas by the names referenced by the active app
+navigation and current surface instead of loading every installed Object on
+ordinary app entry. Explicit Studio catalog and action-parameter flows keep
+their broader metadata reads when those tools need them. Record detail also
+loads the full Object directory on demand because its reverse related-list
+graph is discovered from child-object schemas; that registry read remains a
+separate performance limit until the metadata API exposes a lightweight
+reverse-relationship index.
+
 `PageView` resolves a named page from the active app's package first, then uses
 the unscoped name lookup only when that package has no matching page. It reads
 the page item directly instead of loading every page. Page-level action
