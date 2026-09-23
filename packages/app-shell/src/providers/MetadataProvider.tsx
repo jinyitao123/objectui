@@ -331,7 +331,7 @@ function extractItem(res: unknown, expectedType: string, expectedName: string): 
     // the app-entry resolver reports a false page/object ambiguity.
     const isEmptyEnvelope = candidate.type === expectedType
       && candidate.name === expectedName
-      && META_ITEM_ENVELOPE_MARKERS.some(key => Object.hasOwn(candidate, key));
+      && META_ITEM_ENVELOPE_MARKERS.some(key => Object.prototype.hasOwnProperty.call(candidate, key));
     if (isEmptyEnvelope) return null;
   }
   return res;
