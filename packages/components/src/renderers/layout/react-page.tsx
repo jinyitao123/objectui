@@ -25,6 +25,7 @@
  *     expressed in HTML are injected.
  *   - `Block`                — escape hatch: `<Block type="object-grid" .../>`.
  *   - `useAdapter`            — live data hook: query/create/update objects.
+ *   - `navigate`              — host SPA navigation for in-app paths.
  *   - `data` / `variables`   — page data + local variables, for convenience.
  *
  * Styling — page source is metadata, not build input. A react page styles with
@@ -40,7 +41,12 @@
 
 import * as React from 'react';
 import { ComponentRegistry, isCapabilityEnabled, CAP_REACT_PAGES } from '@object-ui/core';
-import { SchemaRenderer, SchemaRendererProvider, useAdapter } from '@object-ui/react';
+import {
+  SchemaRenderer,
+  SchemaRendererProvider,
+  useAdapter,
+  useHostNavigation,
+} from '@object-ui/react';
 
 type RuntimeModule = typeof import('@object-ui/react-runtime');
 
@@ -146,6 +152,24 @@ export const ReactKindPage: React.FC<{ schema: any }> = ({ schema }) => {
   // The live data source for the injected data blocks (and the page's own
   // `useAdapter()` calls). Same object the rest of the app renders against.
   const adapter = useAdapter();
+  const { navigate: hostNavigate } = useHostNavigation();
+  const hostNavigateRef = React.useRef(hostNavigate);
+  hostNavigateRef.current = hostNavigate;
+  // One stable function keeps ReactRunner's injected scope stable across route
+  // changes. The ref forwards each call to the current host router function,
+  // whose identity may change as the router location changes.
+  const pageNavigateRef = React.useRef<((to: string, options?: { replace?: boolean }) => void) | null>(null);
+  if (!pageNavigateRef.current) {
+    pageNavigateRef.current = (to, options) => {
+      const navigate = hostNavigateRef.current;
+      if (navigate) {
+        navigate(to, options);
+      } else if (typeof window !== 'undefined') {
+        if (options?.replace) window.location.replace(to);
+        else window.location.assign(to);
+      }
+    };
+  }
   // Gate: default-closed. Off in OSS / untrusted builds. Read here so the hooks
   // below stay unconditional; the disabled notice is returned after them, and
   // the effect never loads the gated runtime when disabled.
@@ -180,6 +204,9 @@ export const ReactKindPage: React.FC<{ schema: any }> = ({ schema }) => {
       // adapter.find('object', {...}) / .create / .update. Hooks injected as
       // closure vars; the page calls them from its own component body.
       useAdapter,
+      // The Console injects its basename-aware SPA navigate here. Hosts that
+      // do not supply HostNavigationContext retain the browser navigation path.
+      navigate: pageNavigateRef.current,
       data: schema?.data ?? schema?.variables ?? {},
       variables: schema?.variables ?? {},
       page: schema ?? {},

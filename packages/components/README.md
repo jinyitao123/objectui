@@ -219,6 +219,17 @@ ComponentRegistry.register('custom-button', CustomButton)
 `SchemaRenderer` resolves every `type` against it, so a component registered
 here is renderable from schema anywhere in the app.
 
+Trusted `kind: 'react'` pages receive a `navigate(to, options?)` function in
+their source scope. It uses the host's SPA router for internal paths when the
+host supplies `HostNavigationContext`; a standalone host without that context
+retains browser navigation. Use an anchor for external destinations.
+
+```jsx
+function Page() {
+  return <button onClick={() => navigate('/apps/crm/accounts')}>Accounts</button>;
+}
+```
+
 ## API Reference
 
 See [full documentation](https://objectui.org/docs/components) for detailed API reference.

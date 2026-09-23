@@ -83,7 +83,31 @@ Nothing is imported. These identifiers are injected as closure variables:
 | The public data blocks | Every public non-container block, as a PascalCase tag *on this tier* — but *what resolves* and *what you author against* are two different sets, below. |
 | `Block` | Escape hatch for anything not injected. |
 | `useAdapter` | The live data source — query/create/update. |
+| `navigate` | Navigate to an in-app path through the host router. In ObjectUI Console this keeps navigation inside the mounted app and respects its basename. |
 | `data`, `variables`, `page` | The page's own data, local variables, and schema. |
+
+Use `navigate` for internal buttons and actions. It calls the host's SPA
+navigation bridge; in a standalone host without that bridge it falls back to a
+browser navigation. Use an anchor for external destinations:
+
+```jsx
+function Page() {
+  return (
+    <div>
+      <button onClick={() => navigate('/apps/com.acme.crm/forge_customer')}>
+        Open customer
+      </button>
+      <a href="https://example.com" target="_blank" rel="noreferrer">
+        External documentation
+      </a>
+    </div>
+  );
+}
+```
+
+The host navigation function accepts an already-resolved in-app path. It does
+not authorize that destination; the destination route still applies normal
+metadata and data permissions.
 
 #### Two tiers: what resolves, and what you author against
 
