@@ -1,6 +1,18 @@
 @import 'tailwindcss';
 @import '@object-ui/app-shell/styles.css';
 
+/* Optional geometry profile. The default Console retains its existing sizes. */
+:root[data-ui-profile='compact-enterprise'] {
+  --ui-control-height: 28px;
+  --ui-control-small-height: 28px;
+  --ui-control-radius: 3.5px;
+  --ui-control-font-size: 12.25px;
+  --ui-button-gap: 5.25px;
+  --ui-button-padding-x: 14px;
+  --ui-button-small-padding-x: 10.5px;
+  --ui-input-padding-x: 10.5px;
+}
+
 /* Typography plugin — generates the `prose` utilities. plugin-markdown's
    MarkdownImpl renders docs/markdown inside `prose prose-h1:text-3xl …`;
    without this plugin those classes are no-ops and Markdown renders with
