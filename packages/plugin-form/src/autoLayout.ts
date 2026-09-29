@@ -19,6 +19,11 @@
 import type { FormField } from '@object-ui/types';
 import { SERVER_OWNED_FIELD_NAMES } from './sanitize';
 
+/** Keep inferred forms readable in the opt-in compact Console profile. */
+export function limitInferredColumns(columns: number, profile?: string): number {
+  return profile === 'compact-enterprise' ? Math.min(columns, 2) : columns;
+}
+
 /** FormField types that are computed/aggregate and must be excluded from modal edit/create forms */
 const AUTO_GENERATED_FORM_TYPES = new Set([
   'field:formula',

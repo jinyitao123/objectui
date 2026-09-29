@@ -2896,7 +2896,7 @@ function ObjectViewInner({ dataSource, objects, onEdit, externalRefreshKey }: an
                           href: `/apps/${appName}/${objectName}`,
                           type: 'object',
                         })}
-                        className="h-8 sm:h-9 px-2"
+                        className="h-[var(--ui-toolbar-action-height,2rem)] sm:h-[var(--ui-toolbar-action-large-height,2.25rem)] px-2"
                         aria-pressed={isFavorite(`object:${objectName}`)}
                         aria-label={isFavorite(`object:${objectName}`)
                           ? t('common.removeFromFavorites', { defaultValue: 'Remove from favorites' })
@@ -2920,7 +2920,7 @@ function ObjectViewInner({ dataSource, objects, onEdit, externalRefreshKey }: an
                         size="sm"
                         onClick={actions.create}
                         disabled={createDisabled}
-                        className="shadow-none gap-1.5 sm:gap-2 h-8 sm:h-9"
+                        className="shadow-none gap-1.5 sm:gap-2 h-[var(--ui-toolbar-action-height,2rem)] sm:h-[var(--ui-toolbar-action-large-height,2.25rem)]"
                         data-testid="object-view-new-button"
                     >
                         <Plus className="h-4 w-4" />
@@ -2941,7 +2941,7 @@ function ObjectViewInner({ dataSource, objects, onEdit, externalRefreshKey }: an
                         variant="outline"
                         onClick={() => setShowImport(true)}
                         disabled={importDisabled}
-                        className="hidden sm:inline-flex shadow-none gap-1.5 sm:gap-2 h-8 sm:h-9"
+                        className="hidden sm:inline-flex shadow-none gap-1.5 sm:gap-2 h-[var(--ui-toolbar-action-height,2rem)] sm:h-[var(--ui-toolbar-action-large-height,2.25rem)]"
                         title={t('console.objectView.importTitle')}
                         data-testid="object-view-import-button"
                     >

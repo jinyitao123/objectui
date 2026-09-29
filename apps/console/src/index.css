@@ -11,6 +11,8 @@
   --ui-button-padding-x: 14px;
   --ui-button-small-padding-x: 10.5px;
   --ui-input-padding-x: 10.5px;
+  --ui-toolbar-action-height: 28px;
+  --ui-toolbar-action-large-height: 28px;
 }
 
 /* Typography plugin — generates the `prose` utilities. plugin-markdown's
