@@ -280,6 +280,10 @@ describe('resolveFormViewLayout', () => {
     expect(resolveFormViewLayout({ form: { type: 'simple', sections } })).toEqual({ sections });
   });
 
+  it('forwards an explicit column count even without curated sections', () => {
+    expect(resolveFormViewLayout({ form: { type: 'simple', columns: 2 } })).toEqual({ columns: 2 });
+  });
+
   it('adds contentLayout:"tabbed" for a tabbed form view with sections', () => {
     const sections = [
       { label: 'A', fields: [{ field: 'x' }] },
