@@ -30,6 +30,11 @@ import { AlertCircle, ChevronDown, ChevronRight, Loader2 } from 'lucide-react';
 // (objectui#3398). The icons and the `Dialog` family that used to be imported
 // here belonged to the hand-written copy this branch no longer carries.
 import { FullscreenEditor } from '../../custom/fullscreen-editor';
+import {
+  ObjectFormRuntimeContext,
+  type ObjectFormController,
+  type ObjectFormValidationResult,
+} from './objectFormRuntime';
 // The character counter both long-text render paths render (objectui#3439).
 // Hoisted here from `@object-ui/fields` for the same measured reason, and in
 // the same direction, as `FullscreenEditor` above (objectui#3398 / PR #4193):
@@ -325,6 +330,45 @@ const valuesEqualForDirty = (a: unknown, b: unknown): boolean => {
     return a === b;
   }
 };
+
+/** Structural equality for the ObjectForm's runtime-controlled value channel. */
+const valuesEqualForControl = (a: unknown, b: unknown): boolean => {
+  if (Object.is(a, b)) return true;
+  if (a instanceof Date || b instanceof Date) {
+    return a instanceof Date && b instanceof Date && a.getTime() === b.getTime();
+  }
+  if (!a || !b || typeof a !== 'object' || typeof b !== 'object') return false;
+  if (Array.isArray(a) || Array.isArray(b)) {
+    return Array.isArray(a)
+      && Array.isArray(b)
+      && a.length === b.length
+      && a.every((value, index) => valuesEqualForControl(value, b[index]));
+  }
+  const prototype = Object.getPrototypeOf(a);
+  if (prototype !== Object.getPrototypeOf(b)) return false;
+  // File, Blob, Map, Set and other platform objects are identity values. Their
+  // own enumerable keys are not a meaningful representation of their content.
+  if (prototype !== Object.prototype && prototype !== null) return false;
+  const aRecord = a as Record<string, unknown>;
+  const bRecord = b as Record<string, unknown>;
+  const keys = Object.keys(aRecord);
+  return keys.length === Object.keys(bRecord).length
+    && keys.every((key) => Object.prototype.hasOwnProperty.call(bRecord, key)
+      && valuesEqualForControl(aRecord[key], bRecord[key]));
+};
+
+/** Remove fields this mounted form resolved as read-only before any host sees a payload. */
+function stripReadonlyFieldValues(
+  values: Record<string, unknown>,
+  readonlyFieldNames: ReadonlySet<string>,
+): Record<string, unknown> {
+  if (readonlyFieldNames.size === 0) return values;
+  const writable: Record<string, unknown> = {};
+  for (const [name, value] of Object.entries(values)) {
+    if (!readonlyFieldNames.has(name)) writable[name] = value;
+  }
+  return writable;
+}
 
 /** Own-property test — a field can legitimately be named `constructor`. */
 const hasOwn = (o: Record<string, unknown>, k: string): boolean =>
@@ -1167,6 +1211,9 @@ function BuiltinTextarea({
 ComponentRegistry.register('form',
   ({ schema, className, onAction, disabled: hostDisabled, ...props }: { schema: FormSchema; className?: string; onAction?: (action: any) => void; disabled?: boolean; [key: string]: any }) => {
     const { t } = useSafeFormTranslation();
+    const objectFormRuntime = React.useContext(ObjectFormRuntimeContext);
+    const objectFormRuntimeRef = React.useRef(objectFormRuntime);
+    objectFormRuntimeRef.current = objectFormRuntime;
     // Prefix for the label ids the GROUP-labelled fields need (objectui#3961).
     // Owned here, not derived from `<FormItem>`'s own `useId()`: that id lives in
     // a context published INSIDE `FormItem`, and this renderer builds the label
@@ -1311,6 +1358,13 @@ ComponentRegistry.register('form',
       return added ? seeded : authoredDefaultValues;
     }, [authoredDefaultValues, fields]);
 
+    // ObjectForm's controlled values are runtime props carried through a
+    // context bridge, never keys on FormSchema. Model defaults remain the
+    // baseline; explicit controlled values override them for the first paint.
+    const initialFormValues = objectFormRuntime?.values === undefined
+      ? defaultValues
+      : { ...defaultValues, ...objectFormRuntime.values };
+
     // Initialize react-hook-form. `shouldFocusError: false` because RHF's
     // native focus-on-error only works for fields whose registered ref is a
     // focusable native input — it silently no-ops for custom widgets
@@ -1318,13 +1372,14 @@ ComponentRegistry.register('form',
     // own the scroll+focus explicitly in the onInvalid handler below so it
     // works for every field type and follows visual order.
     const form = useForm({
-      defaultValues,
+      defaultValues: initialFormValues,
       mode: validationMode,
       shouldFocusError: false,
     });
 
     // Scoped to this form so the error-scroll query never reaches a sibling form.
     const formRef = React.useRef<HTMLFormElement>(null);
+    const controllerMountedRef = React.useRef(false);
 
     const [isSubmitting, setIsSubmitting] = React.useState(false);
     const [submitError, setSubmitError] = React.useState<string | null>(null);
@@ -2155,6 +2210,30 @@ ComponentRegistry.register('form',
       // eslint-disable-next-line react-hooks/exhaustive-deps
     }, [defaultValues]);
 
+    // Apply host-controlled updates in place. Echoes of values just emitted by
+    // the watch channel compare equal to RHF's current values and do nothing;
+    // genuine external changes update only changed paths, without reset()'ing
+    // dirty/touched state, focus, or section-collapse state.
+    React.useLayoutEffect(() => {
+      const externalValues = objectFormRuntimeRef.current?.values;
+      if (externalValues === undefined) return;
+      const incoming = { ...defaultValues, ...externalValues };
+      const current = form.getValues() as Record<string, unknown>;
+      const changed = Object.entries(incoming).filter(([name, value]) =>
+        !valuesEqualForControl(current[name], value),
+      );
+      if (changed.length === 0) return;
+
+      resetInFlightRef.current = true;
+      try {
+        for (const [name, value] of changed) {
+          form.setValue(name, value, { shouldValidate: true, shouldDirty: true });
+        }
+      } finally {
+        resetInFlightRef.current = false;
+      }
+    }, [form, defaultValues, objectFormRuntime?.values]);
+
     // Watch for form changes - only track changes when onAction is available.
     // LAYOUT effect to stay in the same phase as the `defaultValues` reset
     // above: a passive subscription is established one commit LATER than the
@@ -2217,16 +2296,24 @@ ComponentRegistry.register('form',
     // tear this subscription down. The teardown only happens when the
     // callback's identity changes, i.e. for callers who do not memoize; the
     // guarantee is not theirs alone (#2968, #5235).
+    const schemaOnChangeRef = React.useRef(onChangeProp);
+    schemaOnChangeRef.current = onChangeProp;
+    const runtimeOnValuesChangeRef = React.useRef(objectFormRuntime?.onValuesChange);
+    runtimeOnValuesChangeRef.current = objectFormRuntime?.onValuesChange;
+    const hasValuesChangeCallback = Boolean(onChangeProp || objectFormRuntime?.onValuesChange);
     React.useLayoutEffect(() => {
-      if (onChangeProp) {
-        const subscription = form.watch((values) => {
-          // The host's own record landing is not the user changing values.
-          if (resetInFlightRef.current) return;
-          onChangeProp(values as Record<string, any>);
-        });
-        return () => subscription.unsubscribe();
-      }
-    }, [form, onChangeProp]);
+      if (!hasValuesChangeCallback) return;
+      const subscription = form.watch((values) => {
+        // The host's own record landing is not the user changing values.
+        if (resetInFlightRef.current) return;
+        const record = values as Record<string, unknown>;
+        const schemaCallback = schemaOnChangeRef.current;
+        const runtimeCallback = runtimeOnValuesChangeRef.current;
+        schemaCallback?.(record as Record<string, any>);
+        if (runtimeCallback && runtimeCallback !== schemaCallback) runtimeCallback(record);
+      });
+      return () => subscription.unsubscribe();
+    }, [form, hasValuesChangeCallback]);
 
     /**
      * Scroll a field into view and focus a control inside it. The field wrapper
@@ -2314,6 +2401,109 @@ ComponentRegistry.register('form',
       }
     };
 
+    const controllerValidationRef = React.useRef<() => Promise<ObjectFormValidationResult>>(
+      async () => ({ valid: false, errors: {}, formError: 'The form is not ready.' }),
+    );
+    const controllerRef = React.useRef<ObjectFormController | null>(null);
+    if (!controllerRef.current) {
+      controllerRef.current = { validate: () => controllerValidationRef.current() };
+    }
+    const controllerReadyCallbackRef = React.useRef(objectFormRuntime?.onControllerReady);
+    controllerReadyCallbackRef.current = objectFormRuntime?.onControllerReady;
+    const hasControllerReadyCallback = Boolean(objectFormRuntime?.onControllerReady);
+    const publishedControllerCallbackRef = React.useRef<
+      ((controller: ObjectFormController | null) => void) | null
+    >(null);
+
+    controllerValidationRef.current = async () => {
+      if (!controllerMountedRef.current) {
+        return { valid: false, errors: {}, formError: 'The form is not mounted.' };
+      }
+      const runtime = objectFormRuntimeRef.current;
+      const unavailableReason = runtime?.unavailableReason;
+      if (unavailableReason) {
+        return { valid: false, errors: {}, formError: unavailableReason };
+      }
+      if (isSubmitting) {
+        return { valid: false, errors: {}, formError: 'The form is already submitting.' };
+      }
+
+      try {
+        // `trigger` runs this mounted RHF form's existing resolver and field
+        // rules without entering handleSubmit or changing submit counters.
+        const rhfValid = await form.trigger(undefined, { shouldFocus: false });
+        const errors: Record<string, string> = {};
+        for (const field of fields as FormFieldConfig[]) {
+          const name = field?.name;
+          if (typeof name !== 'string' || !name || field.type === 'section-divider') continue;
+          const message = form.getFieldState(name).error?.message;
+          if (message != null && message !== '') errors[name] = String(message);
+        }
+
+        // Native constraints and setCustomValidity live on the actual controls,
+        // outside RHF's resolver. Read them from this form only and fold their
+        // machine field name into the same error/reveal path.
+        const nativeErrors: Record<string, string> = {};
+        const nativeFormErrors: string[] = [];
+        const nativeForm = formRef.current;
+        if (nativeForm) {
+          for (const element of Array.from(nativeForm.elements)) {
+            if (!(element instanceof HTMLInputElement
+              || element instanceof HTMLSelectElement
+              || element instanceof HTMLTextAreaElement)) continue;
+            if (element.disabled || element.validity.valid) continue;
+            const name = element.name
+              || element.closest<HTMLElement>('[data-field]')?.dataset.field
+              || '';
+            const message = element.validationMessage || 'Invalid value.';
+            if (name) nativeErrors[name] = message;
+            else nativeFormErrors.push(message);
+          }
+        }
+        const combinedErrors = { ...nativeErrors, ...errors };
+        const invalidNames = Object.keys(combinedErrors);
+        if (!rhfValid || invalidNames.length > 0 || nativeFormErrors.length > 0) {
+          if (invalidNames.length > 0) announceFieldErrors(invalidNames);
+          return {
+            valid: false,
+            errors: combinedErrors,
+            ...(invalidNames.length === 0
+              ? { formError: nativeFormErrors[0] || 'Some values are invalid.' }
+              : {}),
+          };
+        }
+
+        const currentValues = stripReadonlyFieldValues(
+          form.getValues() as Record<string, unknown>,
+          readonlyFieldNames,
+        );
+        const values = runtime?.prepareValues
+          ? runtime.prepareValues(currentValues)
+          : currentValues;
+        return { valid: true, values };
+      } catch (error) {
+        return {
+          valid: false,
+          errors: {},
+          formError: error instanceof Error ? error.message : 'The form could not be validated.',
+        };
+      }
+    };
+
+    React.useLayoutEffect(() => {
+      controllerMountedRef.current = true;
+      const callback = controllerReadyCallbackRef.current;
+      if (callback && controllerRef.current) {
+        publishedControllerCallbackRef.current = callback;
+        callback(controllerRef.current);
+      }
+      return () => {
+        controllerMountedRef.current = false;
+        publishedControllerCallbackRef.current?.(null);
+        publishedControllerCallbackRef.current = null;
+      };
+    }, [form, hasControllerReadyCallback]);
+
     // Handle form submission
     const handleSubmit = form.handleSubmit(async (data) => {
       setIsSubmitting(true);
@@ -2353,11 +2543,10 @@ ComponentRegistry.register('form',
       // and re-sending them only earns a server-side strip plus a "some fields
       // were not saved" warning on a save that changed none of them.
       if (readonlyFieldNames.size > 0 && formData && typeof formData === 'object') {
-        const kept: Record<string, unknown> = {};
-        for (const k of Object.keys(formData)) {
-          if (!readonlyFieldNames.has(k)) kept[k] = (formData as Record<string, unknown>)[k];
-        }
-        formData = kept as typeof formData;
+        formData = stripReadonlyFieldValues(
+          formData as Record<string, unknown>,
+          readonlyFieldNames,
+        );
       }
 
       try {
@@ -3372,7 +3561,7 @@ ComponentRegistry.register('form',
           )}
 
           {/* Form Actions */}
-          {(schema.showActions !== false) && (
+          {(schema.showActions !== false && (showCancel || showSubmit)) && (
             <div
               className={cn(
                 `flex flex-col sm:flex-row gap-2 ${layout === 'horizontal' ? 'sm:justify-end' : 'sm:justify-start'} mt-6`,

@@ -105,6 +105,9 @@ There is no aggregate map among them:
 ```typescript
 import {
   ObjectForm,
+  RelationshipCollectionEditor,
+  resolveRelationshipCollectionMetadata,
+  projectRelationshipDraftValues,
   TabbedForm,
   WizardForm,
   SplitForm,
@@ -137,6 +140,19 @@ import {
 
 import type {
   ObjectFormComponentProps,
+  ObjectFormController,
+  ObjectFormValidationResult,
+  RelationshipCollectionEditorProps,
+  RelationshipCollectionEditorController,
+  RelationshipCollectionValidationResult,
+  RelationshipCollectionValidationError,
+  RelationshipDraftRow,
+  RelationshipDraftRowContext,
+  ValidatedRelationshipCollectionDraft,
+  ValidatedRelationshipDraftRow,
+  RelationshipObjectSchemaLike,
+  RelationshipCollectionMetadata,
+  RelationshipCollectionMetadataError,
   ObjectFormProps,              // deprecated alias of ObjectFormComponentProps
   FormSectionContainerProps,
   TabbedFormProps,
@@ -954,6 +970,92 @@ or `'view'`, add the `recordId` of the record being opened. Note that this
 different key with a different vocabulary (`'edit' | 'read' | 'disabled'`, see
 [Schema API](#schema-api)).
 
+### Controlled ObjectForm runtime
+
+React hosts that keep the save operation in a domain workflow can control a
+simple create/edit ObjectForm without replacing its field renderer or its
+react-hook-form instance:
+
+```tsx
+import React from 'react';
+import type { DataSource } from '@object-ui/types';
+import {
+  ObjectForm,
+  type ObjectFormController,
+} from '@object-ui/plugin-form';
+
+function PurchaseEditor({ dataSource, saveThroughAction }: {
+  dataSource: DataSource;
+  saveThroughAction: (values: Record<string, unknown>) => Promise<void>;
+}) {
+  const [values, setValues] = React.useState<Record<string, unknown>>({ code: '' });
+  const [controller, setController] = React.useState<ObjectFormController | null>(null);
+  const [error, setError] = React.useState('');
+
+  async function save() {
+    if (!controller) return;
+    const result = await controller.validate();
+    if (!result.valid) {
+      setError(result.formError ?? Object.values(result.errors).join(', '));
+      return;
+    }
+    setError('');
+    await saveThroughAction(result.values);
+  }
+
+  return (
+    <>
+      <ObjectForm
+        schema={{ type: 'object-form', objectName: 'purchase_order', mode: 'create', showSubmit: false }}
+        dataSource={dataSource}
+        values={values}
+        onValuesChange={setValues}
+        onControllerReady={setController}
+      />
+      {error && <p role="alert">{error}</p>}
+      <button type="button" onClick={save}>Save through workflow</button>
+    </>
+  );
+}
+```
+
+`values`, `onValuesChange`, and `onControllerReady` are React-runtime props on
+`ObjectFormComponentProps`; they are **not** keys of `ObjectFormSchema`, Spec,
+JSON metadata, or the component registration inputs. `onValuesChange` receives
+edits from the mounted form. Echoing those values back does not reset the live
+form; a genuine host update is applied in place, preserving focus, dirty state,
+and collapsed groups. Model defaults still seed fields the host leaves out of
+`values`.
+
+The React Page runtime currently forwards function/value props through its
+registered block wrapper, but these three props are **not** in the generated
+`@objectstack/spec` React Page authoring contract. This runtime example does not
+claim that an authored Page passes `os validate` or publish validation with
+these props; that authoring-contract support is a separate pending change.
+
+`ObjectFormController.validate()` returns
+`{ valid: true, values }` or
+`{ valid: false, errors, formError? }`. It runs the mounted form's existing
+RHF rules and native/custom validity checks, expands and focuses grouped field
+errors, and returns values through the same read-only/system-field and field
+permission sanitization used by persistence. It never calls `submitHandler`,
+`DataSource.create`, or `DataSource.update`. While the form is loading,
+unavailable, or uploading, validation returns `valid: false` without writing.
+`onControllerReady` receives the controller as soon as the ObjectForm runtime
+mounts (so it can report a loading/unavailable result), then receives `null`
+when that ObjectForm unmounts.
+
+Controlled mode supports `simple` forms, including grouped simple forms, in
+`create` and `edit`. Supplying these runtime props to another form variant or
+to a form with subforms renders an explicit unsupported-mode error; the
+uncontrolled behavior of those variants is unchanged.
+
+Hiding the built-in submit button does not change the form's native Enter-key
+submission. A row collector backed by a data source **must provide
+`submitHandler`** so Enter hands the collected row to the host instead of
+falling through to generic `create`/`update`. `validate()` is separate and does
+not call that handler.
+
 ### The TypeScript route — basic `form`
 
 A bare `form` never fetches or saves by itself: it has no object name and no
@@ -1024,6 +1126,49 @@ anything.
 > (`packages/core/src/data-scope/element-data-source.ts:131`), so an adapter written
 > there is ignored rather than mistaken for a binding. Pass adapters through the
 > provider above.
+
+## Relationship collection drafts
+
+`RelationshipCollectionEditor` is a directly imported React component for
+editing unsaved rows of a metadata-declared child lookup or master-detail
+relationship. It does not introduce a JSON schema type, a React Page injected
+tag, or a recursive FormView contract. It preserves the existing relationship's
+ownership and uses ObjectForm for fields, permissions, and validation.
+
+Provide `parentObjectName`, `childObjectName`, `dataSource`, controlled `value`
+rows (`{ draftKey, values }`), and `onChange`. The relationship field is inferred
+from the child's metadata or explicitly named with `relationshipField`; that
+foreign key is excluded from row controls and left for the host's transaction.
+`draftKey` is stable editor identity and is never record data.
+
+`onControllerReady` supplies a `RelationshipCollectionEditorController` with
+`validate()`. The result is either `{ valid: true, draft }` or
+`{ valid: false, errors, draft? }`. Each validated row contains writable values
+and any composed child drafts. Errors carry an outer-to-inner `rowKeys` path,
+object name, optional field name, and message. Loading, denied creation,
+unavailable nested controllers, and changes during async validation refuse the
+draft. The editor never calls data-source create/update/delete methods; Enter
+only collects local values through its row form's submit handler.
+
+Use `children={({ row, onControllerReady }) => ...}` for one directly nested
+collection per row and pass the supplied callback to that collection. A nested
+controller is required by default when this slot is supplied; set
+`nestedEditorRequired={false}` only for a slot with no nested collection.
+`includeRow` lets the host skip a fully empty draft before required validation.
+`minRows` constrains included rows; `canRemoveRow` independently constrains
+removal of visible drafts. A required-looking initial empty row need not become
+a persisted record. `createDraftValues` supplies documented local defaults.
+
+The default `presentation="cards"` uses Card/Header/Content for richer rows.
+`presentation="rows"` uses an inline form and a trailing remove action, useful
+for compact contact channels. `columns` controls the native ObjectForm grid;
+rows default to three columns. Both use the same mounted fields and validation
+controller. Public labels and `className` can be supplied by the host.
+
+The standalone Console preview at `?sample=relationships` demonstrates a
+customer, contact, and contact-channel draft composition. Its outer **Check
+draft** action validates all included rows. It never saves records and is not
+evidence of an atomic server transaction or of authoring/publish acceptance.
 
 ## TypeScript Support
 

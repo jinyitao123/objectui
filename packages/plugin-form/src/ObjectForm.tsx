@@ -17,7 +17,12 @@ import React, { useEffect, useState, useCallback, useMemo } from 'react';
 import type { ObjectFormSchema, FormField, FormSchema, DataSource } from '@object-ui/types';
 import { SchemaRenderer, useSafeFieldLabel } from '@object-ui/react';
 import { mapFieldTypeToFormType, buildValidationRules, formatFileSize } from '@object-ui/fields';
-import { useIsMobile, toast } from '@object-ui/components';
+import { ObjectFormRuntimeContext, useIsMobile, toast } from '@object-ui/components';
+import type {
+  ObjectFormController,
+  ObjectFormRuntimeContextValue,
+  ObjectFormValidationResult,
+} from '@object-ui/components';
 import { resolveEffectiveCrudAffordances } from '@object-ui/core';
 import { resolveSuccessNavigate } from './successBehavior';
 import { resolveSubmitRedirect, submitRedirectScope } from './submitRedirect';
@@ -90,6 +95,29 @@ export interface ObjectFormComponentProps {
    * Additional CSS class
    */
   className?: string;
+
+  /**
+   * React-runtime controlled values. These are not ObjectFormSchema / Spec
+   * metadata keys and are accepted only by simple create/edit forms.
+   */
+  values?: Record<string, unknown>;
+
+  /** Reports edits from the mounted simple form's existing RHF instance. */
+  onValuesChange?: (values: Record<string, unknown>) => void;
+
+  /** Receives the mounted form's validate-only controller, then null on teardown. */
+  onControllerReady?: (controller: ObjectFormController | null) => void;
+}
+
+type ObjectFormRuntimeProps = Pick<
+  ObjectFormComponentProps,
+  'values' | 'onValuesChange' | 'onControllerReady'
+>;
+
+interface SimpleObjectFormProps {
+  schema: ObjectFormSchema;
+  dataSource?: DataSource;
+  runtimeProps?: ObjectFormRuntimeProps;
 }
 
 /**
@@ -120,6 +148,24 @@ function foldFormButtons(schema: ObjectFormComponentProps['schema']): ObjectForm
   return out as ObjectFormComponentProps['schema'];
 }
 
+/** The one sanitizer pipeline used by persistence and the runtime validator. */
+function prepareObjectFormValues(
+  formData: Record<string, any>,
+  schema: ObjectFormSchema,
+  objectSchema: { fields?: Record<string, any> } | null,
+  perms: Parameters<typeof fieldWriteGate>[0],
+  hasInlineFields: boolean,
+): Record<string, any> {
+  const schemaForSanitizing = hasInlineFields ? null : objectSchema;
+  let payload = sanitizeFormData(formData, schemaForSanitizing, {
+    canEdit: fieldWriteGate(perms, schema.objectName),
+  });
+  if (isCreateFormMode(schema)) {
+    payload = omitServerResolvedDefaults(payload, schemaForSanitizing);
+  }
+  return payload;
+}
+
 /**
  * ObjectForm Component
  *
@@ -141,6 +187,9 @@ function foldFormButtons(schema: ObjectFormComponentProps['schema']): ObjectForm
 export const ObjectForm: React.FC<ObjectFormComponentProps> = ({
   schema: rawSchema,
   dataSource,
+  values,
+  onValuesChange,
+  onControllerReady,
 }) => {
   const perms = usePermissions();
 
@@ -241,7 +290,22 @@ export const ObjectForm: React.FC<ObjectFormComponentProps> = ({
       })),
     } as ObjectFormComponentProps['schema']);
   }, [rawSchema, perms, groupObjectDef, canResolveGroups]);
+
+  const hasRuntimeProps = values !== undefined
+    || onValuesChange !== undefined
+    || onControllerReady !== undefined;
+  const supportsRuntimeProps =
+    (schema.mode === undefined || schema.mode === 'create' || schema.mode === 'edit')
+    && (schema.formType === undefined || schema.formType === 'simple')
+    && !(schema.subforms?.length);
+  const unsupportedRuntimeProps = hasRuntimeProps && !supportsRuntimeProps;
+  React.useEffect(() => {
+    if (unsupportedRuntimeProps) onControllerReady?.(null);
+  }, [unsupportedRuntimeProps, onControllerReady]);
   const { sectionLabel } = useSafeFieldLabel();
+  const runtimeProps: ObjectFormRuntimeProps | undefined = hasRuntimeProps
+    ? { values, onValuesChange, onControllerReady }
+    : undefined;
   const tSec = (s: any) =>
     s?.name ? sectionLabel(schema.objectName, s.name, s.label || s.name) : s?.label;
 
@@ -283,6 +347,18 @@ export const ObjectForm: React.FC<ObjectFormComponentProps> = ({
     if (!inertPredicateLayout || !inertPredicateSections) return;
     console.warn(sectionPredicateUnsupportedWarning(inertPredicateLayout, inertPredicateSections));
   }, [inertPredicateLayout, inertPredicateSections]);
+
+  if (unsupportedRuntimeProps) {
+    return (
+      <div
+        role="alert"
+        data-testid="object-form-runtime-unsupported"
+        className="rounded-md border border-destructive/40 bg-destructive/10 p-4 text-sm text-destructive"
+      >
+        Controlled values and validation are supported only for simple create/edit forms without subforms.
+      </div>
+    );
+  }
 
   if (routesToMasterDetail) {
     return (
@@ -528,15 +604,16 @@ export const ObjectForm: React.FC<ObjectFormComponentProps> = ({
   }
 
   // Default: simple form
-  return <SimpleObjectForm schema={schema} dataSource={dataSource} />;
+  return <SimpleObjectForm schema={schema} dataSource={dataSource} runtimeProps={runtimeProps} />;
 };
 
 /**
  * SimpleObjectForm — default form variant with auto-generated fields from ObjectQL schema.
  */
-const SimpleObjectForm: React.FC<ObjectFormComponentProps> = ({
+const SimpleObjectForm: React.FC<SimpleObjectFormProps> = ({
   schema,
   dataSource,
+  runtimeProps,
 }) => {
   const { fieldLabel, sectionLabel } = useSafeFieldLabel();
   const isMobile = useIsMobile();
@@ -565,6 +642,45 @@ const SimpleObjectForm: React.FC<ObjectFormComponentProps> = ({
   const [initialData, setInitialData] = useState<any>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<Error | null>(null);
+  const [formController, setFormController] = React.useState<ObjectFormController | null>(null);
+  const readyCallbackRef = React.useRef(runtimeProps?.onControllerReady);
+  const deliveredReadyCallbackRef = React.useRef<((controller: ObjectFormController | null) => void) | null>(null);
+  const hasRuntimeController = Boolean(runtimeProps && typeof runtimeProps.onControllerReady === 'function');
+  React.useLayoutEffect(() => {
+    readyCallbackRef.current = runtimeProps?.onControllerReady;
+  }, [runtimeProps?.onControllerReady]);
+  React.useLayoutEffect(() => {
+    const callback = readyCallbackRef.current;
+    if (!hasRuntimeController || typeof callback !== 'function') {
+      if (deliveredReadyCallbackRef.current) {
+        deliveredReadyCallbackRef.current(null);
+        deliveredReadyCallbackRef.current = null;
+      }
+      return;
+    }
+    const controller: ObjectFormController = {
+      validate: async (): Promise<ObjectFormValidationResult> => {
+        if (loading) {
+          return { valid: false, errors: {}, formError: 'The form is still loading.' };
+        }
+        if (error) {
+          return { valid: false, errors: {}, formError: 'The form could not be loaded.' };
+        }
+        if (!formController) {
+          return { valid: false, errors: {}, formError: 'The form is not ready.' };
+        }
+        return formController.validate();
+      },
+    };
+    deliveredReadyCallbackRef.current = callback;
+    callback(controller);
+  }, [loading, error, formController, hasRuntimeController]);
+  React.useLayoutEffect(() => {
+    return () => {
+      deliveredReadyCallbackRef.current?.(null);
+      deliveredReadyCallbackRef.current = null;
+    }
+  }, []);
   // Terminal state for `submitBehavior: { kind: 'thank-you' | 'next-record' }`
   // — without it the form stayed mounted and fully filled after a successful
   // submit, with nothing disabling re-submission (a second click created a
@@ -1076,31 +1192,15 @@ const SimpleObjectForm: React.FC<ObjectFormComponentProps> = ({
       return formData;
     }
 
-    // Strip server-managed and computed / read-only fields from the payload
-    // before persisting. react-hook-form retains state for unmounted/disabled
-    // fields (see ModalForm), so an edit form seeded from a full record read
-    // round-trips computed columns it never rendered — formula/summary/rollup
-    // values, flattened lookups, id/timestamps — which the server rejects as
-    // unknown or non-writable fields. Mirrors ModalForm/DrawerForm. For inline
-    // forms `objectSchema` is a field-less stub, so pass null to strip only the
-    // server-managed keys rather than dropping every (schema-less) value.
-    // FLS defence-in-depth, inside the ONE outbound filter: react-hook-form
-    // retains state for unmounted/disabled fields, so a field the caller may
-    // read but not edit is in `formData` even though the gate above rendered
-    // it non-editable. The verdict is the resolver's, adapted by
-    // `fieldWriteGate` — ⛔ never a second implementation of it, and ⛔ never a
-    // strip loop beside this call (objectui#10120).
-    let payload = sanitizeFormData(formData, hasInlineFields ? null : objectSchema, {
-      canEdit: fieldWriteGate(perms, schema.objectName),
-    });
-    // A CREATE payload omits the fields the producer owns (#4069): a rendered
-    // control registers even when nothing seeded it, so an untouched
-    // runtime-default field would ride along as `undefined`/`''` and defeat
-    // `applyFieldDefaults`, which only resolves a field that arrives absent or
-    // null. Create only — on an edit form a cleared column is a real removal.
-    if (isCreateFormMode(schema)) {
-      payload = omitServerResolvedDefaults(payload, hasInlineFields ? null : objectSchema);
-    }
+    // Persistence and ObjectFormController.validate share this exact payload
+    // preparation path, including field-level security and create defaults.
+    const payload = prepareObjectFormValues(
+      formData as Record<string, any>,
+      schema,
+      objectSchema,
+      perms,
+      Boolean(hasInlineFields),
+    );
 
     try {
       let result;
@@ -1313,6 +1413,33 @@ const SimpleObjectForm: React.FC<ObjectFormComponentProps> = ({
      ...schemaDefaults,
      ...initialData
   };
+
+  const prepareControlledValues = useCallback(
+    (values: Record<string, unknown>) => prepareObjectFormValues(
+      values,
+      schema,
+      objectSchema,
+      perms,
+      Boolean(hasInlineFields),
+    ),
+    [schema, objectSchema, perms, hasInlineFields],
+  );
+  const runtimeUnavailableReason = loading
+    ? 'The form is still loading.'
+    : error
+      ? 'The form could not be loaded.'
+      : uploadGate.uploading
+        ? uploadGate.reason || 'Wait until the upload finishes.'
+        : undefined;
+  const runtimeContextValue: ObjectFormRuntimeContextValue | null = runtimeProps
+    ? {
+        values: runtimeProps.values,
+        onValuesChange: runtimeProps.onValuesChange,
+        onControllerReady: setFormController,
+        prepareValues: prepareControlledValues,
+        unavailableReason: runtimeUnavailableReason,
+      }
+    : null;
 
   // The persisted record, for `previous`-scoped field rules and the read-only
   // submit strip (objectui#3484). Edit mode only, and WITHOUT the schema
@@ -1625,33 +1752,35 @@ const SimpleObjectForm: React.FC<ObjectFormComponentProps> = ({
     // while a narrow drawer stays stacked. Section dividers span the full row.
     const laidOutFields = groupedFields;
     const fieldContainerClass = containerGridColsFor(formColumns);
+    const groupedFormSchema: FormSchema = {
+      type: 'form',
+      objectName: schema.objectName,
+      fields: laidOutFields,
+      layout: formLayout,
+      columns: formColumns,
+      ...(fieldContainerClass ? { fieldContainerClass } : {}),
+      defaultValues: finalDefaultValues,
+      previousValues,
+      showSubmit: schema.showSubmit !== false && schema.mode !== 'view',
+      showCancel: schema.showCancel !== false,
+      // While an upload is in flight the Save button says so, the same
+      // answer ActionParamDialog gives its Confirm button. The notice below
+      // carries the reason in a sentence (objectui#10166).
+      submitLabel: uploadGate.uploading
+        ? uploadGate.busyLabel
+        : schema.submitText || (schema.mode === 'create' ? 'Create' : 'Update'),
+      cancelLabel: schema.cancelText,
+      onSubmit: handleSubmit,
+      onCancel: handleCancel,
+    };
+    const groupedFormRenderer = <SchemaRenderer schema={groupedFormSchema} />;
 
     return (
       <UploadGateProvider gate={uploadGate}>
         <div className="w-full @container">
-          <SchemaRenderer
-            schema={{
-              type: 'form',
-              objectName: schema.objectName,
-              fields: laidOutFields,
-              layout: formLayout,
-              columns: formColumns,
-              ...(fieldContainerClass ? { fieldContainerClass } : {}),
-              defaultValues: finalDefaultValues,
-              previousValues,
-              showSubmit: schema.showSubmit !== false && schema.mode !== 'view',
-              showCancel: schema.showCancel !== false,
-              // While an upload is in flight the Save button says so, the same
-              // answer ActionParamDialog gives its Confirm button. The notice
-              // below carries the reason in a sentence (objectui#10166).
-              submitLabel: uploadGate.uploading
-                ? uploadGate.busyLabel
-                : schema.submitText || (schema.mode === 'create' ? 'Create' : 'Update'),
-              cancelLabel: schema.cancelText,
-              onSubmit: handleSubmit,
-              onCancel: handleCancel,
-            } as FormSchema}
-          />
+          {runtimeContextValue
+            ? <ObjectFormRuntimeContext.Provider value={runtimeContextValue}>{groupedFormRenderer}</ObjectFormRuntimeContext.Provider>
+            : groupedFormRenderer}
           <UploadInFlightNotice gate={uploadGate} />
           {conflictDialog}
         </div>
@@ -1808,6 +1937,7 @@ const SimpleObjectForm: React.FC<ObjectFormComponentProps> = ({
     className: schema.className,
     mobileStickyActions: Boolean(mobileOpts?.stickyActions),
   };
+  const formRenderer = <SchemaRenderer schema={formSchema} />;
 
   return (
     <UploadGateProvider gate={uploadGate}>
@@ -1815,7 +1945,9 @@ const SimpleObjectForm: React.FC<ObjectFormComponentProps> = ({
         className={mobileOpts?.stickyActions ? 'w-full pb-20 md:pb-0' : 'w-full'}
         data-mobile-form={mobileOpts ? 'true' : undefined}
       >
-        <SchemaRenderer schema={formSchema} />
+        {runtimeContextValue
+          ? <ObjectFormRuntimeContext.Provider value={runtimeContextValue}>{formRenderer}</ObjectFormRuntimeContext.Provider>
+          : formRenderer}
         <UploadInFlightNotice gate={uploadGate} />
         {conflictDialog}
       </div>

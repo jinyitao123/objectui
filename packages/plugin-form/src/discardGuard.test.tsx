@@ -68,7 +68,7 @@ describe('ModalForm unsaved-changes guard', () => {
     try {
       const onOpenChange = vi.fn();
       const onCancel = vi.fn();
-      render(<ModalForm schema={{ objectName: 'task', mode: 'create', open: true, onOpenChange, onCancel }} dataSource={ds} />);
+      render(<ModalForm schema={{ type: 'object-form', formType: 'modal', objectName: 'task', mode: 'create', open: true, onOpenChange, onCancel }} dataSource={ds} />);
       await waitFor(() => expect(screen.getByTestId('modal-form-footer')).toBeTruthy());
       await dirtyTheForm();
       fireEvent.click(screen.getByText('Cancel'));

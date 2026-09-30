@@ -33,6 +33,7 @@ import '@object-ui/plugin-grid';
 import '@object-ui/plugin-list';
 import { ComponentPreviewDataSource } from './fixture-data';
 import { MasterDetailFixture } from './master-detail-fixture';
+import { RelationshipFixture } from './relationship-fixture';
 import './preview.css';
 
 const LIST_SCHEMA = {
@@ -240,7 +241,7 @@ function PreviewApp() {
   const [dataSource] = useState(() => new ComponentPreviewDataSource());
   const [sample, setSample] = useState(() => {
     const value = new URLSearchParams(window.location.search).get('sample');
-    return value === 'forms' || value === 'list' || value === 'details' ? value : 'controls';
+    return value === 'forms' || value === 'list' || value === 'details' || value === 'relationships' ? value : 'controls';
   });
   const selectSample = (value: string) => {
     const url = new URL(window.location.href);
@@ -271,11 +272,13 @@ function PreviewApp() {
                   <TabsTrigger value="forms">Forms</TabsTrigger>
                   <TabsTrigger value="list">List</TabsTrigger>
                   <TabsTrigger value="details">Details</TabsTrigger>
+                  <TabsTrigger value="relationships">Relationships</TabsTrigger>
                 </TabsList>
                 <TabsContent value="controls" className="min-w-0"><ControlsSection /></TabsContent>
                 <TabsContent value="forms" className="min-w-0"><FormsSection /></TabsContent>
                 <TabsContent value="list" className="min-w-0"><ListSection /></TabsContent>
                 <TabsContent value="details" className="min-w-0"><MasterDetailFixture /></TabsContent>
+                <TabsContent value="relationships" className="min-w-0"><RelationshipFixture /></TabsContent>
               </Tabs>
             </div>
           </main>

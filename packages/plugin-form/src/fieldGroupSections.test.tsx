@@ -98,7 +98,7 @@ it('reveals a collapsed date group when native validity refuses submission', asy
     fieldGroups: [{ key: 'schedule', label: 'Schedule', collapse: 'expanded' }],
     fields: { due: { type: 'date', label: 'Due', group: 'schedule' } },
   });
-  render(<ModalForm schema={{ objectName: 'ticket', mode: 'create', open: true, initialValues: { due: '2026-09-29' } }} dataSource={ds} />);
+  render(<ModalForm schema={{ type: 'object-form', formType: 'modal', objectName: 'ticket', mode: 'create', open: true, initialValues: { due: '2026-09-29' } }} dataSource={ds} />);
   const input = await waitFor(() => {
     const input = inputNamed('due');
     expect(input).not.toBeNull();
@@ -106,7 +106,7 @@ it('reveals a collapsed date group when native validity refuses submission', asy
   });
   fireEvent.change(input, { target: { value: '2026-02-30' } });
   expect(input.validity.valid).toBe(false);
-  const group = screen.getByRole('button', { name: 'Schedule', exact: true });
+  const group = screen.getByRole('button', { name: /^Schedule$/ });
   fireEvent.click(group);
   expect(group.getAttribute('aria-expanded')).toBe('false');
   input.closest('form')!.requestSubmit();

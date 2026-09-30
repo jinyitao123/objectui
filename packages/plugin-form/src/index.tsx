@@ -15,11 +15,31 @@ import {
   useResolvedDataSource,
   type ElementDataSourceMapping,
 } from '@object-ui/react';
-import type { DataSource } from '@object-ui/types';
+import type { DataSource, ObjectFormSchema } from '@object-ui/types';
+import type { ObjectFormController } from '@object-ui/components';
 import { ObjectForm } from './ObjectForm';
 
 export { ObjectForm };
 export type { ObjectFormComponentProps } from './ObjectForm';
+export type { ObjectFormController, ObjectFormValidationResult } from '@object-ui/components';
+export {
+  RelationshipCollectionEditor,
+  resolveRelationshipCollectionMetadata,
+  projectRelationshipDraftValues,
+} from './RelationshipCollectionEditor';
+export type {
+  RelationshipCollectionEditorProps,
+  RelationshipCollectionEditorController,
+  RelationshipCollectionValidationResult,
+  RelationshipCollectionValidationError,
+  RelationshipDraftRow,
+  RelationshipDraftRowContext,
+  ValidatedRelationshipCollectionDraft,
+  ValidatedRelationshipDraftRow,
+  RelationshipObjectSchemaLike,
+  RelationshipCollectionMetadata,
+  RelationshipCollectionMetadataError,
+} from './RelationshipCollectionEditor';
 
 /**
  * @deprecated Use `ObjectFormComponentProps`. Renamed in objectui#4650 because
@@ -169,11 +189,33 @@ export type { ResolveSectionGroupsOptions } from './sectionGroups';
  */
 export type { FieldDefaultsSchemaLike } from './schemaDefaults';
 
-// Register object-form component
-const ObjectFormRenderer: React.FC<{ schema: any; dataSource?: unknown }> = elementDataSourceBlock(({
-  schema,
+// Register object-form component. These runtime-only props are intentionally
+// absent from `inputs`: they are React callbacks/values, not JSON metadata.
+interface ObjectFormRendererProps {
+  schema: ObjectFormSchema & Record<string, unknown>;
+  dataSource?: DataSource;
+  values?: Record<string, unknown>;
+  onValuesChange?: (values: Record<string, unknown>) => void;
+  onControllerReady?: (controller: ObjectFormController | null) => void;
+  [key: string]: unknown;
+}
+
+const ObjectFormRenderer: React.FC<ObjectFormRendererProps> = elementDataSourceBlock(({
+  schema: rawSchema,
   dataSource: dataSourceProp,
+  values: runtimeValues,
+  onValuesChange: runtimeOnValuesChange,
+  onControllerReady: runtimeOnControllerReady,
 }) => {
+  // React Page's public Block wrapper folds runtime JSX props into its
+  // transient SchemaRenderer node. Remove these three runtime slots before
+  // forwarding the authored form schema to ObjectForm/ElementDataSourceGate.
+  const {
+    values: schemaValues,
+    onValuesChange: schemaOnValuesChange,
+    onControllerReady: schemaOnControllerReady,
+    ...schema
+  } = rawSchema;
   // ObjectForm needs a dataSource to fetch the object schema and auto-generate
   // its fields. Without one, an `object-form` rendered straight through
   // SchemaRenderer (e.g. the Studio view preview) has no fields.
@@ -212,13 +254,21 @@ const ObjectFormRenderer: React.FC<{ schema: any; dataSource?: unknown }> = elem
       // so the two stay in step. A form with no `objectName` is a different
       // defect and is left to report itself.
       requiresDataSource={
-        !(schema?.customFields?.length > 0)
+        !((schema?.customFields?.length ?? 0) > 0)
         && typeof schema?.objectName === 'string'
         && schema.objectName.length > 0
       }
       noDataSourceMessage={noDataSourceMessage('object-form', schema?.objectName)}
     >
-      {(bound) => <ObjectForm schema={bound} dataSource={dataSource} />}
+      {(bound) => (
+        <ObjectForm
+          schema={bound}
+          dataSource={dataSource}
+          values={runtimeValues ?? schemaValues as Record<string, unknown> | undefined}
+          onValuesChange={runtimeOnValuesChange ?? schemaOnValuesChange as ObjectFormRendererProps['onValuesChange']}
+          onControllerReady={runtimeOnControllerReady ?? schemaOnControllerReady as ObjectFormRendererProps['onControllerReady']}
+        />
+      )}
     </ElementDataSourceGate>
   );
 });

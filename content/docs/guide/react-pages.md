@@ -232,6 +232,82 @@ instance, `pageSize` and `fields` are deprecated aliases of `pagination` and
 Function props (`onRowClick`, `onSelect`) are passed through as real callbacks —
 that is how you wire one block to another.
 
+`ObjectForm` also accepts the React-runtime props `values`, `onValuesChange`,
+and `onControllerReady` for a host-owned save workflow. These are callback and
+state props, **not** `ObjectFormSchema` / Spec / JSON keys. Controlled mode
+supports simple create/edit forms, including grouped simple forms; other
+variants or forms with subforms show an explicit unsupported-mode error.
+`onControllerReady` publishes a controller while the form is loading as well;
+`validate()` then returns an invalid `formError` until the form is ready, and
+the callback receives `null` when the ObjectForm unmounts.
+
+**Authoring boundary:** these props are absent from the generated
+`@objectstack/spec` React Page contract. The example below describes the
+trusted React runtime forwarding path only; it does not establish
+`os validate`/publish acceptance for authored Pages. Wait for that contract to
+include these props before treating such a Page as publishable.
+
+The controller validates the same mounted form without submitting it. It
+returns sanitized writable values only when valid, and reports RHF/native
+validity errors (including revealing a collapsed group) otherwise:
+
+```jsx
+function Page() {
+  const [values, setValues] = React.useState({ code: '' });
+  const [controller, setController] = React.useState(null);
+  const [error, setError] = React.useState('');
+
+  async function saveThroughWorkflow() {
+    if (!controller) return;
+    const result = await controller.validate();
+    if (!result.valid) {
+      setError(result.formError ?? Object.values(result.errors).join(', '));
+      return;
+    }
+    setError('');
+    await runExistingBusinessAction(result.values);
+  }
+
+  return (
+    <div>
+      <ObjectForm
+        objectName="purchase_order"
+        mode="create"
+        values={values}
+        onValuesChange={setValues}
+        onControllerReady={setController}
+        showSubmit={false}
+        submitHandler={(draft) => setValues(draft)}
+      />
+      {error && <p role="alert">{error}</p>}
+      <button type="button" onClick={saveThroughWorkflow}>Save</button>
+    </div>
+  );
+}
+```
+
+`runExistingBusinessAction` represents the page's existing workflow call; the
+validate-only controller never invokes `submitHandler` or adapter
+`create`/`update`. Hiding the form's submit button does not disable native
+Enter-key submission. When an ObjectForm is used as a row collector with a data
+source, provide `submitHandler` so Enter hands the values to the collector
+instead of invoking generic CRUD. Echoing `onValuesChange` values back does not
+reset the active form, and model defaults still fill keys omitted from the
+host's `values` object.
+
+#### Composing relationship drafts in a native React host
+
+`RelationshipCollectionEditor` is a directly imported React component from
+`@object-ui/plugin-form`, not an injected React Page tag or JSON component type.
+It resolves a declared child lookup or master-detail relationship, renders each
+draft with the same ObjectForm, and exposes one aggregate validate-only
+controller. A React `children` slot composes another collection; it does not add
+recursive FormView metadata or change lookup ownership. See the package's
+[relationship draft API](../../../packages/plugin-form/README.md#relationship-collection-drafts)
+for controlled rows, inclusion rules, and card/row presentation. The standalone
+Console preview at `?sample=relationships` exercises the host composition and
+does not persist records or prove transaction atomicity.
+
 One collision to know about: `type` is both the schema's component
 discriminator and a legitimate prop name on some blocks (a chart's family, for
 instance). The discriminator wins the `type` slot, and your value is preserved
