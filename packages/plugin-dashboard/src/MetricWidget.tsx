@@ -389,6 +389,7 @@ export const MetricWidget = ({
 
   return (
     <Card
+      data-dashboard-metric-card=""
       className={cn(
         "h-full overflow-hidden min-h-[var(--ui-dashboard-metric-card-min-height,auto)]",
         onClick && "cursor-pointer transition-colors hover:bg-accent/40 focus-visible:ring-2 focus-visible:ring-ring focus-visible:outline-none",

@@ -45,6 +45,16 @@ title panel margin/padding/minimum height, surface/border/radius, and filter
 panel spacing. Header text follows the model's showTitle/showDescription
 flags. Header actions still execute in DashboardRenderer; no duplicate action
 runner or undeclared organization/search control is introduced.
+Dataset-bound KPI cards keep the native Dataset query and may use the existing
+`options.icon`, widget `description` and `options.drillDown` renderer extras.
+The compact profile places the description in a help tooltip, shows an emphasis
+rule and exposes the drill arrow only when the Dataset response includes its
+base object. The drill uses the metric's resolved filter and returned time
+range; it does not synthesize trend bars from the value. The arrow opens the
+existing shared drill drawer, forwarding its target, columns, row limit and
+inline report. Its custom drill filter and mode are not interpreted on this
+metric path; a named report reference also needs a host resolver.
+`options.description` continues to render as the separate sub-caption.
 
 The profile is opt-in and keeps the existing dimensions as CSS fallbacks.
 It contains no business state or permission rules. Host apps may supply their

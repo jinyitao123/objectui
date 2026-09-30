@@ -1,5 +1,20 @@
 # @object-ui/plugin-gantt
 
+## Host navigation callbacks
+
+The registered `object-gantt` renderer forwards the existing React
+`onRowClick` and `onTaskClick` callbacks to `ObjectGantt`. A host can therefore
+keep its own record destination with `navigation: { mode: 'none' }`. Overlay
+modes retain the native record overlay owner. These callbacks are runtime
+props, not JSON metadata properties. The renderer does not forward a host's
+paged `data` array or page size: timeline rows still come from its complete,
+governed query up to the disclosed platform ceiling.
+
+`--ui-gantt-min-height` controls the standalone timeline's minimum panel
+height (420px when omitted). The compact Console host uses zero so a short
+schedule can follow its rows instead of reserving a large empty canvas;
+explicitly sized hosts still supply their own available height.
+
 Gantt chart plugin for Object UI - Visualize project timelines and task dependencies.
 
 ## Features

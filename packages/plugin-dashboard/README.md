@@ -208,13 +208,31 @@ const card: MetricCardNode = {
 
 `value` is the only required key. `title` and `description` take a plain string
 or the spec's inline per-locale map (`I18nLabel`).
+The standalone `MetricCard` has no separate help-text prop, so its `description`
+remains the caption beneath the value. Dataset dashboard widgets have the
+distinct top-level `description` field and can use that as header help without
+changing the `options.description` sub-caption.
 
-The dashboard widget `description` is the card's explanatory line; a dataset
-metric's `options.description` is its sub-caption. The renderer also supports
-ordered top-N dataset output through `options.sortBy`, `options.sortOrder`, and
-a positive `options.limit`. `sortBy` must name a projected dimension or value;
-the renderer does not invent a numbered rank column, so a visible rank must
-come from the dataset itself.
+The dashboard widget `description` is the card's explanatory text; a dataset
+metric's `options.description` is its sub-caption. On the compact host the
+header text moves into a help tooltip while the sub-caption stays beneath the
+value. `options.icon` supplies the metric icon name from the same open renderer
+options bag; `DashboardWidgetSchema` has no top-level `icon` or `drillDown`
+member. A dataset-bound metric's `options.drillDown` uses the existing
+`DrillDownConfig`: the arrow appears only when the config enables it and the
+Dataset response includes its base object. The shared drill drawer receives its
+target, column and row-limit settings and uses the widget's resolved query
+scope and an inline report definition. Its custom `filter` expression is not
+forwarded because a metric click has no bucket event to interpolate; `mode` is
+not interpreted by the shared drawer. Named report references still require a
+host resolver, which this package does not provide. Period comparison
+indicators continue to come only from the server-backed `compareTo` query; no
+trend series is inferred or drawn from the displayed value.
+
+The renderer also supports ordered top-N dataset output through `options.sortBy`,
+`options.sortOrder`, and a positive `options.limit`. `sortBy` must name a
+projected dimension or value; the renderer does not invent a numbered rank
+column, so a visible rank must come from the dataset itself.
 
 KPI cards use separate `--ui-dashboard-metric-title-*` and
 `--ui-dashboard-metric-value-*` variables so a compact metric label does not
@@ -227,8 +245,12 @@ header/content spacing, icon size, note spacing, and minimum height use
 `--ui-dashboard-metric-value-margin-top`,
 `--ui-dashboard-metric-note-margin-top`,
 `--ui-dashboard-metric-delta-margin-top`, and
-`--ui-dashboard-metric-card-min-height`. The fallback values retain each
-renderer’s previous geometry and typography.
+`--ui-dashboard-metric-card-min-height`. The compact profile also uses
+`--ui-dashboard-metric-accent-line-*`, `--ui-dashboard-metric-help-*`, and
+`--ui-dashboard-metric-drill-button-size` for its optional emphasis rule,
+tooltip affordance and drill control. Missing host tokens keep the emphasis
+rule and help affordance hidden; the fallback values retain each renderer’s
+previous geometry and typography.
 
 #### Percent `format` patterns (`'0%'`, `'0.00%'`)
 

@@ -14,6 +14,7 @@ The standard runtime UI for ObjectStack applications. This package provides the 
 - **Command Palette**: `⌘+K` for quick navigation across apps and objects
 - **Dark/Light Theme**: System-aware theme with per-app branding (logo, colors, favicon)
 - **Developer Tools**: Built-in metadata inspector with collapsible sections and copy-to-clipboard support
+- **Native Approvals**: Pending, submitted and all-request queues share governed request data and declared actions. Submitted/all queues can filter every native terminal status, including cancelled; pending always stays scoped to the current approver's pending requests.
 
 ## Quick Start
 

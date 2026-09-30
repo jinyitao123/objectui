@@ -231,6 +231,27 @@ light-mode HSL triple and does not follow the light/dark toggle, whereas `--prim
 
 ## Development Mode
 
+### List host geometry
+
+The optional compact Console profile renders the public ListView utility tools
+as a wrapping row and exposes list search in its own persistent row. Host CSS
+variables control the cluster chrome, insets and search placement; view
+metadata continues to control available actions, searchable fields, sorting,
+filters, density and pagination. Both search surfaces use the same query state,
+so clearing or refreshing does not introduce a second search implementation.
+Default hosts retain the segmented cluster and desktop search popover. See the
+plugin-list README for the host variables.
+
+The native Gantt query receives the list's current filter and search slice.
+Its registered renderer forwards only the declared host navigation callbacks,
+so custom workspaces can keep their record destination without supplying a
+paged timeline. Gantt refresh remains on its own toolbar.
+
+The native approvals center includes cancelled requests in the submitted/all
+status filters. Switching to the pending queue continues to query only pending
+requests assigned to the current approver; a terminal-status choice from another
+queue cannot widen that scope.
+
 There is **no bundled mock backend** — offline development is not a thing here. In dev exactly as
 in production, `ObjectStackAdapter` talks over HTTP to a live ObjectStack server at
 `VITE_SERVER_URL`, and everything above the adapter in the data flow depends on that call

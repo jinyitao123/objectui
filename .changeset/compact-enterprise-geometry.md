@@ -5,6 +5,7 @@
 "@object-ui/app-shell": patch
 "@object-ui/plugin-grid": patch
 "@object-ui/plugin-list": patch
+"@object-ui/plugin-gantt": patch
 "@object-ui/fields": patch
 "@object-ui/plugin-dashboard": patch
 "@object-ui/plugin-charts": patch
@@ -26,3 +27,11 @@ Reveal a collapsed group when native input validity rejects submission before
 react-hook-form receives the event, retaining the invalid draft and write gate.
 Expose a host plot-height token in the shared chart container, scoped by native
 Dataset dashboards. Retain the 350px fallback and explicit dimension precedence.
+Expose a persistent host-controlled list search row. Relay active filters and
+search to the native Gantt query, preserve the timeline's full-data ceiling,
+and forward only existing host navigation callbacks. Compact timelines can
+follow their row height without a 420px minimum canvas.
+Dataset KPI headers consume existing icon and description metadata; compact
+hosts expose help and emphasis chrome. Declared metric drill actions use the
+original query scope and shared drill drawer. Native approvals expose the
+existing cancelled status in submitted/all queues without widening pending.

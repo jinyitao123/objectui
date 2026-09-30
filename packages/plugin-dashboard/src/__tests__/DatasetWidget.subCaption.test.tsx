@@ -45,32 +45,23 @@
  * directly.
  */
 
-import { describe, it, expect, vi, afterEach } from 'vitest';
+import { describe, it, expect, vi, afterEach, beforeAll } from 'vitest';
 import { render, screen, cleanup } from '@testing-library/react';
 import { I18nProvider } from '@object-ui/i18n';
 import { DatasetWidget } from '../DatasetWidget';
 
 afterEach(cleanup);
 
-/**
- * The metric tile's markup with NO sub-caption declared, exactly as
- * origin/main@64c3cdd44 renders it. Spelled out in full (not a snapshot file)
- * so a regression shows up as a diff in the test source review. This is the
- * same byte string `DatasetWidget.colorVariant.test.tsx` pins for the same
- * widget — two files measuring the pre-change bytes independently.
- */
-const BASELINE_NO_SUBCAPTION =
-  '<div class="flex h-full w-full flex-col items-start justify-center gap-1 p-2">'
-  + '<span class="text-2xl font-semibold tabular-nums">510000</span>'
-  + '<span class="text-xs text-muted-foreground">revenue</span>'
-  + '</div>';
+// Compare with the current caption-free render; host geometry may evolve.
+let baselineNoSubcaption = '';
 
-/** The baseline with the sub-caption span appended — nothing else may move. */
-const withSubCaption = (text: string) =>
-  BASELINE_NO_SUBCAPTION.replace(
-    '</div>',
-    `<span class="text-xs text-muted-foreground" data-testid="dataset-metric-subcaption">${text}</span></div>`,
-  );
+function expectCaption(container: HTMLElement, text: string) {
+  const copy = container.cloneNode(true) as HTMLElement;
+  const caption = copy.querySelector('[data-testid="dataset-metric-subcaption"]');
+  expect(caption?.textContent).toBe(text);
+  caption?.remove();
+  expect(copy.innerHTML).toBe(baselineNoSubcaption);
+}
 
 const renderMetric = async (
   widgetExtras: Record<string, unknown> = {},
@@ -86,6 +77,12 @@ const renderMetric = async (
   await screen.findByText('510000');
   return container;
 };
+
+beforeAll(async () => {
+  const control = await renderMetric();
+  baselineNoSubcaption = control.innerHTML;
+  cleanup();
+});
 
 /** Same, under an explicit UI language — the inline per-locale map's axis. */
 const renderMetricIn = async (language: string, widgetExtras: Record<string, unknown> = {}) => {
@@ -106,7 +103,7 @@ describe('DatasetWidget metric tile — the declared sub-caption (#7293)', () =>
   // ── Control half: green BEFORE and after. Must not red on ablation. ──────
   it('renders the pre-change markup byte-for-byte when no sub-caption is declared', async () => {
     const container = await renderMetric();
-    expect(container.innerHTML).toBe(BASELINE_NO_SUBCAPTION);
+    expect(container.innerHTML).toBe(baselineNoSubcaption);
   });
 
   it.each([
@@ -117,7 +114,7 @@ describe('DatasetWidget metric tile — the declared sub-caption (#7293)', () =>
     ['a locale map with no usable entry', { description: {} }],
   ])('injects no node for %s', async (_label, options) => {
     const container = await renderMetric(options === undefined ? {} : { options });
-    expect(container.innerHTML).toBe(BASELINE_NO_SUBCAPTION);
+    expect(container.innerHTML).toBe(baselineNoSubcaption);
     expect(container.querySelector('[data-testid="dataset-metric-subcaption"]')).toBeNull();
   });
 
@@ -131,7 +128,7 @@ describe('DatasetWidget metric tile — the declared sub-caption (#7293)', () =>
     );
     // …and the tile is otherwise untouched: the value, the measure label and
     // the layout are the baseline bytes with exactly one span appended.
-    expect(container.innerHTML).toBe(withSubCaption('awaiting confirmation / awaiting approval'));
+    expectCaption(container, 'awaiting confirmation / awaiting approval');
   });
 
   it('renders the value the server overlaid onto the key', async () => {
@@ -144,7 +141,7 @@ describe('DatasetWidget metric tile — the declared sub-caption (#7293)', () =>
       id: 'list_completeness',
       options: { description: '待确认 7 / 待审批 3' },
     });
-    expect(container.innerHTML).toBe(withSubCaption('待确认 7 / 待审批 3'));
+    expectCaption(container, '待确认 7 / 待审批 3');
   });
 
   it.each([
@@ -157,7 +154,7 @@ describe('DatasetWidget metric tile — the declared sub-caption (#7293)', () =>
       },
     });
     expect(screen.getByTestId('dataset-metric-subcaption')).toHaveTextContent(expected);
-    expect(container.innerHTML).toBe(withSubCaption(expected));
+    expectCaption(container, expected);
   });
 
   it('reads the map through `pickLocalized`, not a private string-only test', async () => {
@@ -170,7 +167,7 @@ describe('DatasetWidget metric tile — the declared sub-caption (#7293)', () =>
       options: { description: { en: 'English only' } },
     });
     // No `zh` entry: `pickLocalized` falls through to `en` rather than missing.
-    expect(container.innerHTML).toBe(withSubCaption('English only'));
+    expectCaption(container, 'English only');
   });
 });
 

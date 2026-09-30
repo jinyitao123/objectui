@@ -44,6 +44,7 @@ import { isObjectProvider, deriveStaticTableColumns, composeSeriesLabel } from '
 import { classifyWidgetType, METRIC_LIKE_TYPES } from './widgetDispatch';
 import { LEGACY_RETIRED_WIDGET_SCHEMA, isLegacyRetiredWidget } from './legacyRetiredWidget';
 import { DatasetWidget } from './DatasetWidget';
+import { MetricHeaderTitle } from './MetricCardChrome';
 import { useWidgetSubCaption } from './widgetSubCaption';
 import { DashboardFilterBar } from './DashboardFilterBar';
 
@@ -901,6 +902,14 @@ const DashboardRendererInner = forwardRef<HTMLDivElement, DashboardRendererProps
         const isKpiWidget = widget.type === 'metric';
         const resolvedTitle = tWidgetTitle(widget);
         const resolvedDescription = tWidgetDescription(widget);
+        const metricOptions = widget.options && typeof widget.options === 'object'
+          ? widget.options as Record<string, unknown>
+          : {};
+        const metricIcon = isKpiWidget && typeof metricOptions.icon === 'string'
+          ? metricOptions.icon
+          : undefined;
+        const hasMetricHeaderAdornment = isKpiWidget && (!!metricIcon || !!resolvedDescription);
+        const showWidgetCardHeader = !!resolvedTitle || hasMetricHeaderAdornment;
         const widgetKey = widget.id || resolvedTitle || `widget-${index}`;
         const isSelected = designMode && selectedWidgetId === widget.id;
 
@@ -944,7 +953,7 @@ const DashboardRendererInner = forwardRef<HTMLDivElement, DashboardRendererProps
                  {designMode && <div className="absolute inset-0 z-10" aria-hidden="true" data-testid="widget-click-overlay" />}
             </div>
         ) : (
-                <Card data-dashboard-card=""
+                <Card data-dashboard-card="" data-dashboard-metric-card={isKpiWidget ? '' : undefined}
                     className={cn(
                     "overflow-hidden border-border/50 shadow-sm transition-all hover:shadow-md bg-card/50 backdrop-blur-sm",
                     isKpiWidget && "min-h-[var(--ui-dashboard-metric-card-min-height,auto)]",
@@ -955,23 +964,43 @@ const DashboardRendererInner = forwardRef<HTMLDivElement, DashboardRendererProps
                 style={innerGridSpanStyle}
                 {...designModeProps}
             >
-                {resolvedTitle && (
+                {showWidgetCardHeader && (
                     <CardHeader data-dashboard-card-header="" className={cn(
                       "border-border/40 bg-muted/20",
                       isKpiWidget
                         ? "pt-[var(--ui-dashboard-metric-padding-y,1.5rem)] pb-[var(--ui-dashboard-metric-header-padding-bottom,0.5rem)] px-[var(--ui-dashboard-metric-padding-x,0.75rem)] sm:px-[var(--ui-dashboard-metric-padding-x,1.5rem)] [--ui-card-divider-display:none] border-b-[length:var(--ui-dashboard-metric-header-border-width,1px)]"
                         : "pt-[var(--ui-card-padding,1.5rem)] pb-[var(--ui-card-header-padding-bottom,0.5rem)] border-b-[length:var(--ui-dashboard-header-border-width,1px)] px-[var(--ui-card-padding,0.75rem)] sm:px-[var(--ui-card-padding,1.5rem)]"
                     )}>
-                        <CardTitle className={cn(
-                          "tracking-tight truncate",
-                          isKpiWidget
-                            ? "text-[length:var(--ui-dashboard-metric-title-font-size,0.875rem)] sm:text-[length:var(--ui-dashboard-metric-title-font-size,1rem)] leading-[var(--ui-dashboard-metric-title-line-height,1.25rem)] sm:leading-[var(--ui-dashboard-metric-title-line-height,1.5rem)] [font-weight:var(--ui-dashboard-metric-title-font-weight,500)]"
-                            : "text-[length:var(--ui-card-title-font-size,0.875rem)] sm:text-[length:var(--ui-card-title-font-size,1rem)] leading-[var(--ui-card-title-line-height,1.25rem)] sm:leading-[var(--ui-card-title-line-height,1.5rem)] [font-weight:var(--ui-card-title-font-weight,500)]"
-                        )} title={resolvedTitle}>
+                        {hasMetricHeaderAdornment ? (
+                          <MetricHeaderTitle
+                            className="flex-1"
+                            icon={metricIcon}
+                            description={resolvedDescription}
+                            colorVariant={widget.colorVariant}
+                            title={(
+                              resolvedTitle ? <CardTitle className={cn(
+                                "tracking-tight truncate",
+                                "text-[length:var(--ui-dashboard-metric-title-font-size,0.875rem)] sm:text-[length:var(--ui-dashboard-metric-title-font-size,1rem)] leading-[var(--ui-dashboard-metric-title-line-height,1.25rem)] sm:leading-[var(--ui-dashboard-metric-title-line-height,1.5rem)] [font-weight:var(--ui-dashboard-metric-title-font-weight,500)]",
+                              )} title={resolvedTitle}>
+                                {resolvedTitle}
+                              </CardTitle> : null
+                            )}
+                          />
+                        ) : resolvedTitle ? (
+                          <CardTitle className={cn(
+                            "tracking-tight truncate",
+                            isKpiWidget
+                              ? "text-[length:var(--ui-dashboard-metric-title-font-size,0.875rem)] sm:text-[length:var(--ui-dashboard-metric-title-font-size,1rem)] leading-[var(--ui-dashboard-metric-title-line-height,1.25rem)] sm:leading-[var(--ui-dashboard-metric-title-line-height,1.5rem)] [font-weight:var(--ui-dashboard-metric-title-font-weight,500)]"
+                              : "text-[length:var(--ui-card-title-font-size,0.875rem)] sm:text-[length:var(--ui-card-title-font-size,1rem)] leading-[var(--ui-card-title-line-height,1.25rem)] sm:leading-[var(--ui-card-title-line-height,1.5rem)] [font-weight:var(--ui-card-title-font-weight,500)]"
+                          )} title={resolvedTitle}>
                             {resolvedTitle}
-                        </CardTitle>
+                          </CardTitle>
+                        ) : null}
                         {resolvedDescription && (
-                            <p className="text-xs text-muted-foreground mt-0.5 line-clamp-2">{resolvedDescription}</p>
+                            <p className={cn(
+                              "text-xs text-muted-foreground mt-0.5 line-clamp-2",
+                              isKpiWidget && "[display:var(--ui-dashboard-metric-header-description-display,block)]",
+                            )} data-dashboard-metric-header-description={isKpiWidget ? '' : undefined}>{resolvedDescription}</p>
                         )}
                     </CardHeader>
                 )}

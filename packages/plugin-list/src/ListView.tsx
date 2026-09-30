@@ -1166,6 +1166,7 @@ export const ListView = React.forwardRef<ListViewHandle, ListViewProps>(({
     (schema.viewType as ViewType)
   );
   const [searchTerm, setSearchTerm] = React.useState(() => initialSearchTerm ?? '');
+  const inlineSearchRef = React.useRef<HTMLInputElement>(null);
   const [showSearchPopover, setShowSearchPopover] = React.useState(false);
   
   // Sort State
@@ -1927,13 +1928,11 @@ export const ListView = React.forwardRef<ListViewHandle, ListViewProps>(({
   // ⛔ What the second half does NOT do (objectui#7222). It does not
   // "short-circuit the renderer's own fetch" — an earlier version of this
   // comment said it did, and believing that is exactly what made objectui#7210's
-  // double fetch invisible on a read-through. No host prop reaches the chart at
-  // all: the registered `object-gantt` renderer (`plugin-gantt/src/index.tsx`)
-  // destructures `({ schema })` and hands `ObjectGantt` exactly `schema` and
-  // `dataSource`, so `data`, `onRowClick`, `rowHeight` and the rest of
-  // `baseProps` are dropped one layer up, and the chart queries for itself
+  // double fetch invisible on a read-through. The registered `object-gantt` renderer now forwards only the declared
+  // host navigation callbacks. Host `data`, `rowHeight` and pagination are
+  // still withheld, and the chart queries for itself
   // whichever branch the render below takes. It is the one view wrapper that
-  // forwards nothing — `object-grid`, `object-kanban`, `object-calendar`,
+  // withholds the host row array — `object-grid`, `object-kanban`, `object-calendar`,
   // `object-map` and `object-tree` all spread `{...props}`. Pinned
   // behaviourally, one package over, in
   // `plugin-gantt/src/ObjectGantt.hostDataProp-7210.test.tsx`.
@@ -3156,9 +3155,23 @@ export const ListView = React.forwardRef<ListViewHandle, ListViewProps>(({
         // `plugin-gantt/src/ObjectGantt.unconfiguredRefusal-7070.test.tsx`).
         const startDateField = schema.gantt?.startDateField || schema.options?.gantt?.startDateField;
         const endDateField = schema.gantt?.endDateField || schema.options?.gantt?.endDateField;
+        const titleField = schema.gantt?.titleField || schema.options?.gantt?.titleField;
+        const searchFields = schema.searchableFields?.length
+          ? schema.searchableFields
+          : titleField ? [titleField] : [];
+        // Gantt owns its query rather than the parent's paged rows. Relay the
+        // active filters and search as canonical filter nodes so both views
+        // describe the same slice without truncating the timeline to a page.
+        const ganttFilter = mergeFilterNodes(
+          buildEffectiveFilter(schema.filter, currentFilters, userFilterConditions),
+          searchTerm && searchFields.length
+            ? ['or', ...searchFields.map(field => [field, 'contains', searchTerm])]
+            : undefined,
+        );
         return {
           type: 'object-gantt',
           ...baseProps,
+          filter: ganttFilter,
           // objectui#7334 — the view-level `navigation` the author wrote.
           //
           // `ObjectGantt` owns a record drawer of its own and resolves
@@ -3194,9 +3207,8 @@ export const ListView = React.forwardRef<ListViewHandle, ListViewProps>(({
           //
           // That is two sources of truth for one question. `gantt` is the only
           // branch where forwarding settles the question rather than splitting
-          // it: its wrapper drops host props entirely (objectui#7210 /
-          // objectui#7222), so the schema path is the only live carrier and
-          // `onRowClick` is not there to outrank anything.
+          // it: its wrapper forwards only explicit navigation callbacks, while
+          // the schema still decides whether the native overlay owns a click.
           //
           // Conditional, not `navigation: schema.navigation` — an ABSENT key,
           // not present-and-undefined, the same distinction the two non-axis
@@ -3215,6 +3227,9 @@ export const ListView = React.forwardRef<ListViewHandle, ListViewProps>(({
           ...(schema.gantt?.titleField ? { titleField: schema.gantt.titleField } : {}),
           ...(schema.options?.gantt || {}),
           ...(schema.gantt || {}),
+          ...(groupingConfig?.fields?.[0]?.field
+            ? { groupByField: groupingConfig.fields[0].field }
+            : {}),
         };
       }
       case 'map': {
@@ -3336,7 +3351,7 @@ export const ListView = React.forwardRef<ListViewHandle, ListViewProps>(({
   // asynchronously (`/me/permissions`) and `objectDef` loads into state, so a
   // grid schema built before either resolved must be rebuilt when they do —
   // otherwise `editable` keeps the pre-verdict answer for the session.
-  }, [currentView, schema, currentSort, effectiveFields, hasAuthoredColumns, groupingConfig, rowColorConfig, navigation.handleClick, density.mode, galleryCardSize, inlineEdit, inlineEditOffered, objectDef]);
+  }, [currentView, schema, currentSort, currentFilters, userFilterConditions, searchTerm, effectiveFields, hasAuthoredColumns, groupingConfig, rowColorConfig, navigation.handleClick, density.mode, galleryCardSize, inlineEdit, inlineEditOffered, objectDef]);
 
   const hasFilters = currentFilters.conditions && currentFilters.conditions.length > 0;
 
@@ -3893,11 +3908,10 @@ export const ListView = React.forwardRef<ListViewHandle, ListViewProps>(({
         </div>
       )}
 
-      {/* Unified toolbar — Tabs + UserFilters (left) + Tool buttons (right) on one row.
-          The right-hand cluster is wrapped in a single rounded pill container
-          with vertical dividers (Linear / Notion style) so utility buttons
-          read as one segmented control rather than a loose bag of icons. */}
-      <div className="border-b px-2 sm:px-4 py-1.5 flex items-center justify-between gap-[var(--ui-list-toolbar-gap,0.25rem)] sm:gap-[var(--ui-list-toolbar-gap,0.5rem)] bg-background">
+      {/* Host geometry can separate search from the shared tool row without
+          changing the query or permission owners. Default hosts retain the
+          segmented tool cluster and search popover. */}
+      <div className="border-b px-[var(--ui-list-toolbar-padding-x,0.5rem)] sm:px-[var(--ui-list-toolbar-padding-x,1rem)] py-[var(--ui-list-toolbar-padding-y,0.375rem)] min-h-[var(--ui-list-toolbar-min-height,0px)] flex flex-wrap items-center justify-between gap-[var(--ui-list-toolbar-gap,0.25rem)] sm:gap-[var(--ui-list-toolbar-gap,0.5rem)] bg-background">
         <div className="flex items-center gap-[var(--ui-list-toolbar-gap,0.5rem)] overflow-x-auto min-w-0">
           {/* User Filters — filter elements (dropdown chips / preset tabs /
               toggles). Mutually exclusive with view tabs above, so at most
@@ -3928,7 +3942,7 @@ export const ListView = React.forwardRef<ListViewHandle, ListViewProps>(({
             distinguishable from a content div's. The left half of the toolbar
             (view tabs + active filter chips) deliberately still prints: it
             says WHICH slice of the data is on the page. */}
-        <div className="flex items-center gap-0 shrink-0 rounded-lg border border-border bg-muted/40 p-0.5 shadow-sm" data-print-hide>
+        <div className="flex flex-wrap items-center gap-[var(--ui-list-tools-gap,0px)] shrink-0 max-w-full mr-[var(--ui-list-tools-margin-right,0px)] rounded-[var(--ui-list-tools-radius,0.5rem)] border-[length:var(--ui-list-tools-border-width,1px)] border-border bg-[var(--ui-list-tools-background,hsl(var(--muted)/0.4))] p-[var(--ui-list-tools-padding,0.125rem)] shadow-sm [box-shadow:var(--ui-list-tools-shadow,var(--tw-shadow))]" data-print-hide>
           {/* Visualization switcher — compact dropdown (Airtable-style
               "List ▾"), first slot of the right tool cluster so the whole
               toolbar stays a single row. */}
@@ -4105,7 +4119,7 @@ export const ListView = React.forwardRef<ListViewHandle, ListViewProps>(({
                   <GroupingEditor
                     value={groupingConfig as any}
                     fieldOptions={allFields.map((f: any) => ({ value: f.name, label: f.label || f.name }))}
-                    maxLevels={3}
+                    maxLevels={currentView === 'gantt' ? 1 : 3}
                     labels={{
                       addGroup: t('list.addGroup', { defaultValue: 'Add group field' }),
                       collapseTitle: t('list.collapsedByDefault', { defaultValue: 'Collapsed by default' }),
@@ -4247,7 +4261,7 @@ export const ListView = React.forwardRef<ListViewHandle, ListViewProps>(({
           )}
 
           {/* Row Height / Density Mode — table-style density (rowHeight) */}
-          {toolbarFlags.showDensity && !toolbarFlags.compactToolbar && currentView !== 'gallery' && (() => {
+          {toolbarFlags.showDensity && !toolbarFlags.compactToolbar && currentView !== 'gallery' && currentView !== 'gantt' && (() => {
             const DensityIcon = density.mode === 'compact' ? Rows4 : density.mode === 'comfortable' ? Rows3 : Rows2;
             const modeLabel =
               density.mode === 'compact'
@@ -4358,7 +4372,7 @@ export const ListView = React.forwardRef<ListViewHandle, ListViewProps>(({
               reload. Filters / sort / pagination / search all live in component state,
               so bumping refreshKey re-queries while preserving the view. Always visible
               (mobile + desktop) since reloading data is a primary list action. */}
-          {toolbarFlags.showRefresh && (
+          {toolbarFlags.showRefresh && currentView !== 'gantt' && (
             <Button
               variant="ghost"
               size="sm"
@@ -4475,7 +4489,7 @@ export const ListView = React.forwardRef<ListViewHandle, ListViewProps>(({
                   variant="ghost"
                   size="sm"
                   className={cn(
-                    "hidden sm:inline-flex h-7 text-muted-foreground hover:text-primary text-xs transition-colors duration-150",
+                    "hidden sm:[display:var(--ui-list-search-trigger-display,inline-flex)] h-7 text-muted-foreground hover:text-primary text-xs transition-colors duration-150",
                     searchTerm ? "px-2 text-foreground font-medium" : "w-7 p-0"
                   )}
                   data-testid="search-icon-button"
@@ -4536,6 +4550,40 @@ export const ListView = React.forwardRef<ListViewHandle, ListViewProps>(({
           )}
         </div>
       </div>
+
+      {toolbarFlags.showSearch && (
+        <div
+          className="[display:var(--ui-list-inline-search-display,none)] border-b bg-background px-[var(--ui-list-toolbar-padding-x,1rem)] py-[var(--ui-list-inline-search-padding-y,0.625rem)]"
+          data-testid="list-inline-search"
+          data-print-hide
+        >
+          <div className="relative w-full max-w-[var(--ui-list-inline-search-width,20rem)]">
+            <Search className="absolute left-2 top-1/2 -translate-y-1/2 h-3.5 w-3.5 text-muted-foreground" aria-hidden="true" />
+            <Input
+              ref={inlineSearchRef}
+              aria-label={t('list.search')}
+              placeholder={t('table.search')}
+              value={searchTerm}
+              onChange={(event) => handleSearchChange(event.target.value)}
+              className="pl-7 pr-7"
+            />
+            {searchTerm && (
+              <Button
+                variant="ghost"
+                size="sm"
+                className="absolute right-0.5 top-1/2 -translate-y-1/2 h-5 w-5 p-0"
+                aria-label={t('list.clear')}
+                onClick={() => {
+                  handleSearchChange('');
+                  inlineSearchRef.current?.focus();
+                }}
+              >
+                <X className="h-3 w-3" />
+              </Button>
+            )}
+          </div>
+        </div>
+      )}
 
 
       {/* Filters Panel - Removed as it is now in Popover */}

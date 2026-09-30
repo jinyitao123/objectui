@@ -85,7 +85,7 @@ export const MetricCard: React.FC<MetricCardProps & SchemaHostProps> = ({
   const { language } = useObjectTranslation();
 
   return (
-    <Card className={cn("h-full min-h-[var(--ui-dashboard-metric-card-min-height,auto)]", className)} {...domProps}>
+    <Card data-dashboard-metric-card="" className={cn("h-full min-h-[var(--ui-dashboard-metric-card-min-height,auto)]", className)} {...domProps}>
       <CardHeader className="flex flex-row items-center justify-between space-y-0 pt-[var(--ui-dashboard-metric-padding-y,1.5rem)] px-[var(--ui-dashboard-metric-padding-x,1.5rem)] pb-[var(--ui-dashboard-metric-header-padding-bottom,0.5rem)] [--ui-card-divider-display:none]">
         <CardTitle className="text-[length:var(--ui-dashboard-metric-title-font-size,0.875rem)] leading-[var(--ui-dashboard-metric-title-line-height,1.25rem)] [font-weight:var(--ui-dashboard-metric-title-font-weight,500)]">
           {pickLocalized(title, language)}

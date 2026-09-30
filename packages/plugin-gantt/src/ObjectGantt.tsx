@@ -1622,9 +1622,10 @@ export const ObjectGantt: React.FC<ObjectGanttProps> = ({
   // it owns the four overlay modes itself; `new_window` calls `onNavigate` and
   // otherwise falls through to a `window.open`; and `page` calls `onNavigate`
   // and then **returns with no fallback**. This component supplied no
-  // `onNavigate`, and its own registration hands it no host `onRowClick`
-  // either (`ObjectGanttRenderer` forwards `schema` and `dataSource` only —
-  // objectui#7210 / objectui#7222). So `page` had BOTH carriers empty at once.
+  // `onNavigate`, and its registration originally handed it no host `onRowClick`
+  // either. That made `page` have BOTH carriers empty at once. The registered
+  // renderer now forwards named navigation callbacks; paged host data stays
+  // withheld and the native page destination below remains the fallback.
   //
   // That was invisible until the sibling half of objectui#7334 started
   // forwarding the authored `navigation` down the gantt view-schema path: the
@@ -1633,9 +1634,9 @@ export const ObjectGantt: React.FC<ObjectGanttProps> = ({
   // click does nothing at all". A silent dead click is worse than a loud wrong
   // one, so the sink lands on the same card rather than as a follow-up.
   //
-  // ⛔ NOT a host prop forwarded to the chart. Nothing is taken from
-  // `ObjectGanttRenderer`, no `{...props}` is spread anywhere, and
-  // objectui#7210 half 2 stays untouched and unruled. The destination is the
+  // ⛔ NOT a host prop forwarded to the chart. No `{...props}` bag is spread from
+  // `ObjectGanttRenderer`; only its named navigation callbacks are forwarded.
+  // The timeline's own query and platform ceiling remain unchanged. The destination is the
   // one this component ALREADY computes for the drawer's full-page link, so a
   // `page` click and the drawer's "open full page" affordance cannot diverge.
   //
@@ -2101,7 +2102,7 @@ export const ObjectGantt: React.FC<ObjectGanttProps> = ({
           the pane's bottom edge — swallowing the horizontal scrollbar.
           flex-1/min-h-0 tracks the real available height;
           the min-h keeps standalone embeds (no sized parent) usable. */}
-      <div className="flex-1 min-h-[420px]">
+      <div className="flex-1 min-h-[var(--ui-gantt-min-height,420px)]">
         {ganttConfig?.resourceView && assigneeAccessor ? (
           <ResourceWorkload
             tasks={displayTasks}

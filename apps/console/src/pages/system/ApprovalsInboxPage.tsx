@@ -1546,6 +1546,7 @@ export function ApprovalsInboxPage() {
                     <SelectItem value="rejected">{statusLabel('rejected')}</SelectItem>
                     <SelectItem value="recalled">{statusLabel('recalled')}</SelectItem>
                     <SelectItem value="returned">{statusLabel('returned')}</SelectItem>
+                    <SelectItem value="cancelled">{statusLabel('cancelled')}</SelectItem>
                   </SelectContent>
                 </Select>
               )}

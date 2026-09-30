@@ -10,6 +10,30 @@ to the grid plugin's table tokens; metadata continues to own column widths,
 row density and pagination. The Console's optional `compact-enterprise`
 profile supplies candidate values for these tokens.
 
+Hosts may separate search into a persistent row with
+`--ui-list-inline-search-display: flex` and hide the desktop popover trigger with
+`--ui-list-search-trigger-display: none`. Both inputs share the same search
+state, declared searchable fields, pagination reset and refresh behavior.
+`userActions.search: false` suppresses both surfaces. The inline row is hidden
+by default and is excluded from print output.
+
+The toolbar consumes `--ui-list-toolbar-padding-x`,
+`--ui-list-toolbar-padding-y` and `--ui-list-toolbar-min-height`. The tool cluster
+uses `--ui-list-tools-gap`, `--ui-list-tools-margin-right`,
+`--ui-list-tools-radius`, `--ui-list-tools-border-width`,
+`--ui-list-tools-padding`, `--ui-list-tools-background` and
+`--ui-list-tools-shadow`; omitted variables keep the original segmented layout.
+`--ui-list-inline-search-width` and `--ui-list-inline-search-padding-y` control
+the persistent search row's geometry. These are CSS host seams, not metadata
+properties or additional query paths.
+
+Native Gantt views own their complete timeline query. List search and active
+filters are relayed as canonical filter nodes instead of passing a paged row
+array. Refresh is provided by the Gantt toolbar so it re-reads the displayed
+timeline. Grouping is limited to the Gantt contract's single `groupByField`;
+the flat grid density toggle is omitted because it does not control Gantt
+row geometry. Other list types retain their existing controls.
+
 ## Features
 
 - **View Type Switching**: Switch between Grid, Kanban, Gallery, Calendar,
