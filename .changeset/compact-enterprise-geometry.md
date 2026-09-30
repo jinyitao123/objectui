@@ -21,3 +21,5 @@ Add public Card wrappers and use them in the JSON card renderer, retaining
 primitive refs and caller overrides. Compact card geometry includes radius,
 inset divider, padding, title hierarchy and a light resting shadow. Compact
 dirty Cancel uses the existing discard guard; the default host remains unchanged.
+Reveal a collapsed group when native input validity rejects submission before
+react-hook-form receives the event, retaining the invalid draft and write gate.

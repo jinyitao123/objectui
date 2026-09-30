@@ -91,6 +91,30 @@ const CONTAINERS: Array<[string, React.ComponentType<any>, string]> = [
   ['DrawerForm', DrawerForm as any, 'drawer'],
 ];
 
+it('reveals a collapsed date group when native validity refuses submission', async () => {
+  document.documentElement.dataset.uiProfile = 'compact-enterprise';
+  const ds = makeDS({
+    name: 'ticket',
+    fieldGroups: [{ key: 'schedule', label: 'Schedule', collapse: 'expanded' }],
+    fields: { due: { type: 'date', label: 'Due', group: 'schedule' } },
+  });
+  render(<ModalForm schema={{ objectName: 'ticket', mode: 'create', open: true, initialValues: { due: '2026-09-29' } }} dataSource={ds} />);
+  const input = await waitFor(() => {
+    const input = inputNamed('due');
+    expect(input).not.toBeNull();
+    return input!;
+  });
+  fireEvent.change(input, { target: { value: '2026-02-30' } });
+  expect(input.validity.valid).toBe(false);
+  const group = screen.getByRole('button', { name: 'Schedule', exact: true });
+  fireEvent.click(group);
+  expect(group.getAttribute('aria-expanded')).toBe('false');
+  input.closest('form')!.requestSubmit();
+  await waitFor(() => expect(group.getAttribute('aria-expanded')).toBe('true'));
+  expect(input.value).toBe('2026-02-30');
+  expect(ds.create).not.toHaveBeenCalled();
+});
+
 describe.each(CONTAINERS)('%s — fieldGroups fallback (#4774)', (_name, Container, formType) => {
   /** No `sections`, no `customFields` — the group fallback is the only producer. */
   const renderForm = (ds: any, extra: Record<string, unknown> = {}) =>

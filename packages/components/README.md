@@ -31,6 +31,8 @@ layout state: controllers remain registered, retain draft values and still
 participate in validation. A submit error expands the relevant group before
 focusing its first invalid field. Predicate and permission visibility retain
 their separate semantics.
+Native input validity is routed through the same reveal path when its control
+is collapsed; browser validation runs before the RHF submit callback.
 
 The public Card family and the JSON `card` renderer use custom wrappers over
 the unchanged primitives. Host variables control radius, resting shadow,

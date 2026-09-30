@@ -3204,6 +3204,15 @@ ComponentRegistry.register('form',
             onSubmit={handleSubmit}
             className={className}
             {...formProps}
+            onInvalidCapture={(event) => {
+              const control = event.target;
+              if ((control instanceof HTMLInputElement || control instanceof HTMLTextAreaElement || control instanceof HTMLSelectElement) && collapsedSectionFieldNames.has(control.name)) {
+                // Native validity runs before RHF receives a submit event.
+                // Reveal the registered control before focusing its error.
+                event.preventDefault();
+                announceFieldErrors([control.name]);
+              }
+            }}
             // Apply designer props
             data-obj-id={dataObjId}
             data-obj-type={dataObjType}

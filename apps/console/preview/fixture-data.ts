@@ -50,7 +50,7 @@ const objectSchema = {
     status: { type: 'select', label: 'Status', options: options.status },
     requested_on: { type: 'date', label: 'Requested on', required: true },
     need_by: { type: 'date', label: 'Need by' },
-    amount: { type: 'currency', label: 'Estimated amount', currency: 'USD' },
+    amount: { type: 'currency', label: 'Estimated amount' },
     owner: { type: 'text', label: 'Request owner' },
     department: { type: 'select', label: 'Department', options: options.department },
     cost_center: { type: 'text', label: 'Cost center' },
