@@ -16,7 +16,7 @@ import {
   CardDescription,
   CardContent,
   CardFooter
-} from '../../ui';
+} from '../../custom/profile-card';
 import { forwardRef } from 'react';
 
 // Index signature on the parameter annotation, not on the `forwardRef` type

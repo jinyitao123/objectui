@@ -10,6 +10,19 @@ and field metadata remain unchanged. Editable widgets use the components
 package's control wrappers, so host control geometry applies consistently to
 the object form and inline editor paths.
 
+The `date` field follows the host's `compact-enterprise` profile: when the host
+sets `document.documentElement.dataset.uiProfile` to `compact-enterprise`,
+editing uses localized full-year text and a trailing shared calendar popover;
+without that profile, it keeps the
+native `input[type=date]`.
+Valid changes in both paths write date-only `YYYY-MM-DD` values. Invalid text
+remains a draft with an announced error and blocks normal form submission.
+API ISO timestamps are
+normalized to their leading calendar day, and the field metadata's `min_date`
+and `max_date` bound selectable days in either path. Read-only fields remain
+formatted display values. See the [fields guide](../../content/docs/guide/fields.md#editing-date-fields)
+for the date, locale, accessibility and keyboard behavior.
+
 ## Features
 
 - 📚 **Standard Fields** - Implementation of all ObjectStack protocol fields (Text, Number, Date, Lookup, etc.)

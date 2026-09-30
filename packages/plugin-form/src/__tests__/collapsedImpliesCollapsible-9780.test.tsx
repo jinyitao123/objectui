@@ -15,7 +15,7 @@
  * grouped layout read `collapsed` for the initial state UNCONDITIONALLY, while
  * it installed the disclosure control only for a section that also wrote
  * `collapsible` — so `collapsed: true` written ALONE rendered a section that
- * starts closed, keeps its fields out of the DOM, and offers nothing on the
+ * starts closed, keeps its fields out of visible layout, and offers nothing on the
  * page that can bring them back, with no error, no warning and no degradation.
  * "Collapsed by default" is an everyday intent and `collapsed: true` is its
  * most natural spelling, which is exactly why it had to become the correct one.
@@ -109,11 +109,11 @@ async function groupedForm(section: Record<string, unknown>): Promise<HTMLElemen
 
 /** The section headings actually drawn, in DOM order. */
 const headings = (f: HTMLElement): string[] =>
-  [...f.querySelectorAll('.border-b span')].map((el) => el.textContent ?? '');
+  [...f.querySelectorAll('[data-form-section-label]')].map((el) => el.textContent ?? '');
 
 /** The field controls actually drawn, in DOM order. */
 const drawnFields = (f: HTMLElement): string[] =>
-  [...f.querySelectorAll('[data-field]')].map((el) => el.getAttribute('data-field') as string);
+  [...f.querySelectorAll('[data-field]')].filter((el) => !el.closest('[hidden]')).map((el) => el.getAttribute('data-field') as string);
 
 /**
  * The disclosure controls on the page: the divider rows a user can actually
@@ -139,7 +139,7 @@ describe('`object-form` grouped layout — `sections[].collapsed` implies `colla
     ).toEqual(['Money']);
     expect(
       drawnFields(f),
-      'the authored intent is honoured — the section starts closed, its fields out of the DOM',
+      'the authored intent is honoured — the section starts closed, its fields out of visible layout',
     ).toEqual([]);
     expect(
       toggles(f),

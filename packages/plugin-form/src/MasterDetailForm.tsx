@@ -1128,7 +1128,7 @@ export const MasterDetailForm: React.FC<MasterDetailFormProps> = ({
           {/* Why Save is unavailable — above the row so it reads before the
               dead control (objectui#10166). */}
           <UploadInFlightNotice gate={uploadGate} />
-          <div className="flex items-center justify-end gap-2">
+          <div className="flex items-center justify-end gap-[var(--ui-dialog-action-gap,0.5rem)]">
             {schema.onCancel && (
               <Button type="button" variant="outline" onClick={schema.onCancel} disabled={saving} data-testid="md-form-cancel">
                 {schema.cancelText ?? 'Cancel'}

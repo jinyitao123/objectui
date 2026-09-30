@@ -23,6 +23,24 @@ The form renderer also consumes `--ui-form-row-gap`, `--ui-form-column-gap`,
 classes remain authoritative. Collapsible section headers support Enter and
 Space in addition to pointer activation.
 
+Section chrome consumes `--ui-section-border-width`, heading gap, accent
+display/width/height, chevron order and count display tokens. The compact
+profile places the chevron after the label and shows a filled/readable field
+ratio; an empty array or missing value does not count as filled. Collapsing is
+layout state: controllers remain registered, retain draft values and still
+participate in validation. A submit error expands the relevant group before
+focusing its first invalid field. Predicate and permission visibility retain
+their separate semantics.
+
+The public Card family and the JSON `card` renderer use custom wrappers over
+the unchanged primitives. Host variables control radius, resting shadow,
+padding, title typography, an inset header divider and content spacing. The
+compact candidate uses a 5.25px radius, 17.5px content inset and a subtle
+1px/2px resting shadow. Caller classes still override the defaults. A host
+must compose a Card around a workspace that needs a panel boundary; field
+controls do not manufacture page-level cards. Solid Dashboard surfaces opt in
+through the compact host; default-host transparency and blur remain intact.
+
 ## Features
 
 - 🎨 **Tailwind Native** - Built entirely with Tailwind CSS utility classes

@@ -31,7 +31,7 @@
  * the drawer MAP is under test as well as the push), route B mounts
  * `DrawerForm` directly with the same section (the shape a programmatic host
  * builds, where no map runs at all). Both read the blurb off the divider ROW —
- * the `<p>` inside the same `.border-b` block that carries the heading — ⛔ not
+ * the `<p>` inside the same `data-form-section` block that carries the heading — ⛔ not
  * off `document.body.textContent`, which any stray render of the same string
  * would satisfy. Each carries the sibling member `label` on the SAME section in
  * the SAME call as the live control, so an empty blurb list can never be an
@@ -153,11 +153,11 @@ const viaDrawerForm = (
 
 /** The section headings actually drawn, in DOM order. */
 const headings = (f: HTMLElement): string[] =>
-  [...f.querySelectorAll('.border-b span')].map((el) => el.textContent ?? '');
+  [...f.querySelectorAll('[data-form-section-label]')].map((el) => el.textContent ?? '');
 
 /** The section BLURBS actually drawn, read off the divider row itself. */
 const blurbs = (f: HTMLElement): string[] =>
-  [...f.querySelectorAll('.border-b p')].map((el) => el.textContent ?? '');
+  [...f.querySelectorAll('[data-form-section] p')].map((el) => el.textContent ?? '');
 
 /** The field controls actually drawn, in DOM order. */
 const drawnFields = (f: HTMLElement): string[] =>

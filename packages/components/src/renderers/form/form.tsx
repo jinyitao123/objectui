@@ -41,20 +41,23 @@ import { SchemaRendererContext, usePredicateScope, isPermissionError, extractWri
 import { createSafeTranslation } from '@object-ui/i18n';
 
 /** Inline section header rendered as a virtual field inside a flat SchemaRenderer field list.
- *  Collapsibility is controlled externally (collapsed state lives in DrawerForm). */
-function SectionDivider({ label, description, collapsible, collapsed, onToggle, className }: {
+ *  Collapsibility is controlled by the hosting form. */
+function SectionDivider({ label, description, collapsible, collapsed, onToggle, className, filled, total }: {
   label?: string;
   description?: string;
   collapsible?: boolean;
   collapsed?: boolean;
   onToggle?: () => void;
   className?: string;
+  filled?: number;
+  total?: number;
 }) {
   if (!label && !description) return null;
   return (
     <div
+      data-form-section=""
       className={cn(
-        'col-span-full pt-[var(--ui-section-padding-top,1rem)] pb-[var(--ui-section-padding-bottom,0.25rem)] border-b border-border',
+        'col-span-full pt-[var(--ui-section-padding-top,1rem)] pb-[var(--ui-section-padding-bottom,0.25rem)] border-b-[length:var(--ui-section-border-width,1px)] border-border',
         collapsible && 'cursor-pointer select-none focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring',
         className
       )}
@@ -70,13 +73,16 @@ function SectionDivider({ label, description, collapsible, collapsed, onToggle, 
       } : undefined}
     >
       {label && (
-        <div className="flex items-center gap-1.5">
+        <div className="flex items-center gap-[var(--ui-section-heading-gap,0.375rem)] before:content-[''] before:[display:var(--ui-section-accent-display,none)] before:w-[var(--ui-section-accent-width,0px)] before:h-[var(--ui-section-accent-height,0px)] before:bg-primary">
           {collapsible && (
             collapsed
-              ? <ChevronRight className="h-3.5 w-3.5 text-muted-foreground" />
-              : <ChevronDown className="h-3.5 w-3.5 text-muted-foreground" />
+              ? <ChevronRight className="order-[var(--ui-section-chevron-order,0)] h-3.5 w-3.5 text-muted-foreground" />
+              : <ChevronDown className="order-[var(--ui-section-chevron-order,0)] h-3.5 w-3.5 text-muted-foreground" />
           )}
-          <span className="text-[length:var(--ui-section-font-size,0.875rem)] font-semibold text-foreground">{label}</span>
+          <span data-form-section-label="" className="order-1 text-[length:var(--ui-section-font-size,0.875rem)] font-semibold text-foreground">{label}</span>
+          {total != null && total > 0 && (
+            <span aria-hidden="true" className="order-3 ml-auto [display:var(--ui-section-count-display,none)] text-xs font-normal text-muted-foreground">{filled ?? 0}/{total}</span>
+          )}
         </div>
       )}
       {/* A section's authored blurb. Carried on the divider because a sectioned
@@ -1630,6 +1636,17 @@ ComponentRegistry.register('form',
       return hiddenNames;
     }, [fields, ruleRecord, previousRecord, isCreateForm, predicateScope]);
 
+    // Collapse is a presentation state, distinct from permission/predicate
+    // visibility. Keep collapsed controls mounted so required-field validation
+    // and draft values remain intact; only their layout is hidden.
+    const fieldByName = indexFieldsByName(fields as FormFieldConfig[]);
+    const collapsedSectionFieldNames = new Set<string>();
+    for (const field of fields as FormFieldConfig[]) {
+      const divider = field as FormFieldConfig & { fields?: unknown; collapsible?: boolean; collapsed?: boolean };
+      if (divider.type !== 'section-divider' || !divider.collapsible || !divider.collapsed || !Array.isArray(divider.fields)) continue;
+      for (const name of divider.fields) if (typeof name === 'string') collapsedSectionFieldNames.add(name);
+    }
+
     // --- Tabbed field layout (#2959) ---------------------------------------
     // `fieldTabs` spreads THIS form's fields across tab panels. Crucially there
     // is still exactly ONE <form> / react-hook-form instance: the panels are
@@ -2271,6 +2288,15 @@ ComponentRegistry.register('form',
       // view to that tab whenever its predicate later re-admits it.
       const tabKey = tabKeyByFieldName.get(firstName);
       if (tabKey && hiddenFieldTabKeys.has(tabKey)) return;
+      if (conditionallyHiddenFieldNames.has(firstName) || hiddenSectionFieldNames.has(firstName)) return;
+      let openedSection = false;
+      for (const field of fields as FormFieldConfig[]) {
+        const divider = field as FormFieldConfig & { fields?: unknown; collapsed?: boolean; onToggle?: () => void };
+        if (divider.type === 'section-divider' && divider.collapsed && Array.isArray(divider.fields) && divider.fields.includes(firstName) && typeof divider.onToggle === 'function') {
+          divider.onToggle();
+          openedSection = true;
+        }
+      }
       if (tabKey && tabKey !== activeFieldTab) {
         setPickedFieldTab(tabKey);
         if (typeof requestAnimationFrame === 'function') {
@@ -2280,7 +2306,12 @@ ComponentRegistry.register('form',
         }
         return;
       }
-      revealField(firstName);
+      if (openedSection) {
+        if (typeof requestAnimationFrame === 'function') requestAnimationFrame(() => revealField(firstName));
+        else setTimeout(() => revealField(firstName), 0);
+      } else {
+        revealField(firstName);
+      }
     };
 
     // Handle form submission
@@ -2589,6 +2620,13 @@ ComponentRegistry.register('form',
       // so all fields share the same form instance (enables cross-section conditions).
       if (type === 'section-divider') {
         const fp = fieldProps as any;
+        const members = Array.isArray(fp.fields)
+          ? fp.fields.filter((member: unknown): member is string => typeof member === 'string' && fieldByName.has(member) && !fieldByName.get(member)?.hidden && !conditionallyHiddenFieldNames.has(member) && !hiddenSectionFieldNames.has(member))
+          : [];
+        const filled = members.filter((member: string) => {
+          const value = ruleRecord[member];
+          return !isMissingForRequired(value) && (!Array.isArray(value) || value.length > 0);
+        }).length;
         return (
           <SectionDivider
             key={name}
@@ -2598,6 +2636,8 @@ ComponentRegistry.register('form',
             collapsed={fp.collapsed}
             onToggle={fp.onToggle}
             className={fp.className}
+            filled={filled}
+            total={members.length}
           />
         );
       }
@@ -2900,7 +2940,8 @@ ComponentRegistry.register('form',
           rules={rules}
           render={({ field: formField, fieldState }) => (
             <FormItem
-              className={cn('[display:var(--ui-field-display,block)] gap-[var(--ui-field-stack-gap,0px)] space-y-[var(--ui-field-margin-gap,0.5rem)]', colSpanClass)}
+              className={cn(collapsedSectionFieldNames.has(name) ? 'hidden' : '[display:var(--ui-field-display,block)] gap-[var(--ui-field-stack-gap,0px)] space-y-[var(--ui-field-margin-gap,0.5rem)]', colSpanClass)}
+              hidden={collapsedSectionFieldNames.has(name)}
               data-testid={fieldTestId}
               data-field={name}
             >

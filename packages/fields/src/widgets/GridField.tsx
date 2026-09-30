@@ -703,7 +703,7 @@ export function GridField({
           type="button"
           variant="ghost"
           size="sm"
-          className="h-7 gap-1.5 text-xs text-muted-foreground"
+          className="h-[var(--ui-control-small-height,1.75rem)] gap-[var(--ui-button-gap,0.375rem)] text-xs text-muted-foreground"
           data-testid="line-items-columns"
         >
           <SlidersHorizontal className="h-3.5 w-3.5" />
@@ -752,19 +752,19 @@ export function GridField({
         className={cn('space-y-2', className)}
       >
         {columnChooser && <div className="flex justify-end">{columnChooser}</div>}
-        <div className="border border-border rounded-lg overflow-x-auto" data-testid="line-items-readonly">
-        <table className="w-full text-sm">
+        <div className="border border-border rounded-[var(--ui-card-radius,0.5rem)] overflow-x-auto" data-testid="line-items-readonly">
+        <table className="w-full text-[length:var(--ui-table-font-size,0.875rem)]">
           <thead className="bg-muted border-b border-border">
             <tr>
               {showLineNumbers && (
-                <th className="w-10 px-2 py-2 text-right text-xs font-medium text-muted-foreground">#</th>
+                <th className="w-10 px-[var(--ui-table-cell-padding-x,0.5rem)] py-2 text-right text-xs font-medium text-muted-foreground">#</th>
               )}
               {columns.map((c) => (
                 <th
                   key={c.name}
                   style={{ minWidth: minWidthFor(c) }}
                   className={cn(
-                    'px-3 py-2 text-xs font-medium text-muted-foreground whitespace-nowrap',
+                    'px-[var(--ui-table-cell-padding-x,0.75rem)] py-2 text-xs font-medium text-muted-foreground whitespace-nowrap',
                     isNumeric(c.type) ? 'text-right' : 'text-left',
                   )}
                 >
@@ -787,12 +787,12 @@ export function GridField({
               rows.map((row, rowIdx) => (
                 <tr key={rowIdx}>
                   {showLineNumbers && (
-                    <td className="px-2 py-2 text-right text-muted-foreground tabular-nums">{rowIdx + 1}</td>
+                    <td className="px-[var(--ui-table-cell-padding-x,0.5rem)] py-2 text-right text-muted-foreground tabular-nums">{rowIdx + 1}</td>
                   )}
                   {columns.map((c) => (
                     <td
                       key={c.name}
-                      className={cn('px-3 py-2 text-foreground', isNumeric(c.type) && 'text-right tabular-nums')}
+                      className={cn('px-[var(--ui-table-cell-padding-x,0.75rem)] py-2 text-foreground', isNumeric(c.type) && 'text-right tabular-nums')}
                     >
                       {c.type === 'lookup' && row[c.name] != null && row[c.name] !== '' ? (
                         <LookupField
@@ -824,11 +824,11 @@ export function GridField({
               <tr>
                 <td
                   colSpan={Math.max((showLineNumbers ? 1 : 0) + totalColIndex, 1)}
-                  className="px-3 py-2 text-right text-xs font-medium text-muted-foreground"
+                  className="px-[var(--ui-table-cell-padding-x,0.75rem)] py-2 text-right text-xs font-medium text-muted-foreground"
                 >
                   Total
                 </td>
-                <td className="px-3 py-2 text-right font-semibold text-foreground tabular-nums">
+                <td className="px-[var(--ui-table-cell-padding-x,0.75rem)] py-2 text-right font-semibold text-foreground tabular-nums">
                   {total.toLocaleString()}
                 </td>
                 {columns.length - totalColIndex - 1 > 0 && (
@@ -899,7 +899,7 @@ export function GridField({
         );
       }
       return (
-        <span className={cn('px-2 text-sm text-foreground', isNumeric(c.type) && 'tabular-nums', (val == null || val === '') && 'text-muted-foreground')}>
+        <span className={cn('px-2 text-[length:var(--ui-table-font-size,0.875rem)] text-foreground', isNumeric(c.type) && 'tabular-nums', (val == null || val === '') && 'text-muted-foreground')}>
           {displayText(c, val, displayLocale)}
         </span>
       );
@@ -908,7 +908,7 @@ export function GridField({
     if (c.computed) {
       return (
         <span
-          className={cn('block px-2 text-sm tabular-nums', isNumeric(c.type) ? 'text-right' : 'text-left', (val == null || val === '') ? 'text-muted-foreground' : 'text-foreground')}
+          className={cn('block px-2 text-[length:var(--ui-table-font-size,0.875rem)] tabular-nums', isNumeric(c.type) ? 'text-right' : 'text-left', (val == null || val === '') ? 'text-muted-foreground' : 'text-foreground')}
           title="Computed"
           data-computed={c.name}
         >
@@ -955,7 +955,7 @@ export function GridField({
       return (
         <Select value={val != null ? String(val) : ''} onValueChange={(v) => setCell(rowIdx, c, v)} disabled={locked}>
           <SelectTrigger
-            className="h-8 rounded-none border-0 bg-transparent px-2 shadow-none focus:ring-1 focus:ring-ring/60"
+            className="h-[var(--ui-control-height,2rem)] rounded-none border-0 bg-transparent px-[var(--ui-input-padding-x,0.5rem)] text-[length:var(--ui-control-font-size,0.875rem)] shadow-none focus:ring-1 focus:ring-ring/60"
             aria-label={c.label || c.name}
             aria-invalid={invalid || undefined}
           >
@@ -972,14 +972,14 @@ export function GridField({
     return (
       <div className="relative">
         {c.type === 'currency' && (
-          <span className="pointer-events-none absolute left-2 top-1/2 -translate-y-1/2 text-xs text-muted-foreground">{c.prefix || '¥'}</span>
+          <span className="pointer-events-none absolute left-[var(--ui-input-padding-x,0.5rem)] top-1/2 -translate-y-1/2 text-xs text-muted-foreground">{c.prefix || '¥'}</span>
         )}
         <Input
           data-cell={`${rowIdx}-${colIdx}`}
           aria-invalid={invalid || undefined}
           onKeyDown={(e) => onCellKeyDown(e, rowIdx, colIdx)}
           className={cn(
-            'h-8 rounded-none border-0 bg-transparent px-2 shadow-none focus-visible:ring-1 focus-visible:ring-ring/60',
+            'h-[var(--ui-control-height,2rem)] rounded-none border-0 bg-transparent px-[var(--ui-input-padding-x,0.5rem)] text-[length:var(--ui-control-font-size,0.875rem)] shadow-none focus-visible:ring-1 focus-visible:ring-ring/60',
             c.type === 'currency' && 'pl-6',
             isNumeric(c.type) && 'text-right tabular-nums',
           )}
@@ -1046,18 +1046,18 @@ export function GridField({
       data-testid="line-items"
     >
       {columnChooser && <div className="flex justify-end">{columnChooser}</div>}
-      <div className="border border-border rounded-lg overflow-x-auto">
-        <table ref={gridRef} className="w-full text-sm">
+      <div className="border border-border rounded-[var(--ui-card-radius,0.5rem)] overflow-x-auto">
+        <table ref={gridRef} className="w-full text-[length:var(--ui-table-font-size,0.875rem)]">
           <thead className="bg-muted/60 border-b border-border">
             <tr>
               {showLineNumbers && (
-                <th className={cn('px-2 py-2 text-right text-xs font-medium text-muted-foreground', allowReorder ? 'w-14' : 'w-10')}>#</th>
+                <th className={cn('px-[var(--ui-table-cell-padding-x,0.5rem)] py-2 text-right text-xs font-medium text-muted-foreground', allowReorder ? 'w-14' : 'w-10')}>#</th>
               )}
               {columns.map((c) => (
                 <th
                   key={c.name}
                   className={cn(
-                    'px-2 py-2 text-xs font-medium text-muted-foreground whitespace-nowrap',
+                    'px-[var(--ui-table-cell-padding-x,0.5rem)] py-2 text-xs font-medium text-muted-foreground whitespace-nowrap',
                     isNumeric(c.type) ? 'text-right' : 'text-left',
                   )}
                   style={widthStyle(c)}
@@ -1163,7 +1163,7 @@ export function GridField({
                               type="button"
                               variant="ghost"
                               size="icon"
-                              className="h-8 w-8 text-muted-foreground hover:text-foreground"
+                              className="h-[var(--ui-icon-button-size,2rem)] w-[var(--ui-icon-button-size,2rem)] text-muted-foreground hover:text-foreground"
                               aria-label="Open row"
                               title="Open full form"
                               data-testid={`line-items-expand-${rowIdx}`}
@@ -1181,7 +1181,7 @@ export function GridField({
                               // discoverable and reachable on touch/coarse-pointer devices,
                               // which have no hover. The action column width is reserved
                               // regardless, so this adds no layout shift.
-                              className="h-8 w-8 text-muted-foreground hover:text-foreground"
+                              className="h-[var(--ui-icon-button-size,2rem)] w-[var(--ui-icon-button-size,2rem)] text-muted-foreground hover:text-foreground"
                               aria-label="Duplicate row"
                               title="Duplicate line"
                               data-testid={`line-items-duplicate-${rowIdx}`}
@@ -1197,7 +1197,7 @@ export function GridField({
                               variant="ghost"
                               size="icon"
                               // Always visible — see the duplicate button above.
-                              className="h-8 w-8 text-muted-foreground hover:text-destructive"
+                              className="h-[var(--ui-icon-button-size,2rem)] w-[var(--ui-icon-button-size,2rem)] text-muted-foreground hover:text-destructive"
                               aria-label="Remove row"
                               data-testid={`line-items-remove-${rowIdx}`}
                               onClick={() => removeRow(rowIdx)}
@@ -1219,11 +1219,11 @@ export function GridField({
               <tr>
                 <td
                   colSpan={Math.max((showLineNumbers ? 1 : 0) + totalColIndex, 1)}
-                  className="px-3 py-2 text-right text-xs font-medium text-muted-foreground"
+                  className="px-[var(--ui-table-cell-padding-x,0.75rem)] py-2 text-right text-xs font-medium text-muted-foreground"
                 >
                   Total
                 </td>
-                <td className="px-3 py-2 text-right font-semibold text-foreground tabular-nums" data-testid="line-items-total">
+                <td className="px-[var(--ui-table-cell-padding-x,0.75rem)] py-2 text-right font-semibold text-foreground tabular-nums" data-testid="line-items-total">
                   {total.toLocaleString()}
                 </td>
                 {(columns.length - totalColIndex - 1 + (hasRowActions ? 1 : 0)) > 0 && (
@@ -1244,7 +1244,7 @@ export function GridField({
           disabled={maxRows != null && rows.length >= maxRows}
           data-testid="line-items-add"
         >
-          <Plus className="mr-1.5 h-4 w-4" />
+          <Plus className="mr-[var(--ui-button-gap,0.375rem)] h-4 w-4" />
           {cfg.add_label || 'Add line'}
         </Button>
       )}

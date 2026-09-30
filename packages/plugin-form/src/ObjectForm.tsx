@@ -1613,13 +1613,9 @@ const SimpleObjectForm: React.FC<ObjectFormComponentProps> = ({
       const secCols = clampCol((section as any).columns);
       const laid = formColumns > 1 ? applyAutoColSpan(sectionFields, formColumns, secCols) : sectionFields;
 
-      // Collapsed groups keep their fields registered (values preserved) but
-      // hidden from the DOM. An untitled bucket is never collapsible.
-      if (label && isCollapsed) {
-        groupedFields.push(...laid.map(f => ({ ...f, hidden: true })));
-      } else {
-        groupedFields.push(...laid);
-      }
+      // The divider's collapse state controls layout in the shared renderer.
+      // It keeps Controllers mounted so drafts and required validation survive.
+      groupedFields.push(...laid);
     });
 
     // Per-section colSpan was applied in the loop above — each section at its

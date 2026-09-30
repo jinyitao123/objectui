@@ -20,6 +20,22 @@ defaults, validation, permissions, relationships and submission. Keyboard
 collapsibility is covered by `src/__tests__/formSectionKeyboard.test.tsx`;
 metadata grouping and inferred layout have their existing regression suites.
 
+Modal section collapse is forwarded from both authored sections and derived
+object field groups. A collapsed group keeps its draft controllers mounted;
+required fields still block submission and the first invalid group opens.
+Collapse is not permission or predicate hiding. Compact section counters show
+filled fields against readable, currently applicable members. Modal content
+has no outer desktop padding: header, body and footer each own one padding
+layer, so an upstream mobile-dialog default cannot double the host inset.
+With `confirmOnDiscard` enabled, the compact host also confirms a dirty Cancel;
+Keep editing returns to the existing draft. The default host retains immediate
+explicit cancellation.
+
+Inline master-detail grids consume the same control and table geometry tokens.
+This does not alter typed columns, computation, row validation or atomic
+`batchTransaction` persistence. The geometry gallery's Details sample only
+edits a draft because its in-memory adapter has no atomic persistence path.
+
 Form plugin for Object UI - Advanced form components with validation, multi-step forms, and field-level control.
 
 ## Features

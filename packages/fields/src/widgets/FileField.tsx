@@ -416,9 +416,10 @@ export function FileField({ value, onChange, field, readonly, onUploadingChange,
 /**
  * FileCell — compact upload control for a line-item grid cell (objectui#2360).
  *
- * Same value shape and upload pipeline as {@link FileField}, sized for a 32px
- * grid row: existing files render as removable chips (image thumbnail / file
- * icon + name) and a small button opens the native file picker. No
+ * Same value shape and upload pipeline as {@link FileField}, sized for the
+ * compact grid control height (32px without a host profile): files render as
+ * removable chips (image thumbnail / file icon + name), and a small button
+ * opens the native file picker. No
  * drag-and-drop zone — a grid cell has no room for one; the per-row expand
  * form still offers the full-size FileField.
  */
@@ -482,7 +483,7 @@ export function FileCell({
   const showUpload = !disabled && !uploading && (multiple || files.length === 0);
 
   return (
-    <div className="flex min-h-8 flex-wrap items-center gap-1 px-1 py-0.5">
+    <div className="flex min-h-[var(--ui-control-height,2rem)] flex-wrap items-center gap-[var(--ui-button-gap,0.25rem)] px-1 py-0.5">
       <input
         ref={inputRef}
         type="file"
@@ -545,7 +546,7 @@ export function FileCell({
           type="button"
           variant="ghost"
           size="sm"
-          className="h-7 gap-1 px-2 text-xs text-muted-foreground hover:text-foreground"
+          className="h-[var(--ui-control-small-height,1.75rem)] gap-[var(--ui-button-gap,0.25rem)] px-[var(--ui-button-small-padding-x,0.5rem)] text-[length:var(--ui-control-font-size,0.75rem)] text-muted-foreground hover:text-foreground"
           onClick={() => inputRef.current?.click()}
           aria-label={ariaLabel}
           data-cell={dataCell}

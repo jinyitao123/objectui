@@ -139,9 +139,9 @@ export type SectionDividerGate = 'heading' | 'headingOrBlurb' | 'headingOrBlurbR
  * `section.collapsible` alone, and its derived push gates the collapsed state
  * on `section.collapsible` as well. Resolving it HERE would pick a winner among
  * them, which is the `collapsed` / `collapsible` decision this card is fenced
- * off from. So each arm keeps its own resolution and hands the result over; an
- * arm that emits no collapse pair at all (both `ModalForm` sites) passes
- * nothing and gets no keys.
+ * off from. So each arm keeps its own resolution and hands the result over.
+ * ModalForm resolves its declaration and live state before projecting the
+ * divider, including collapsed-only declarations.
  */
 export interface SectionDividerSource {
   /** Section identity; spells the row's `name`. */

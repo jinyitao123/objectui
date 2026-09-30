@@ -1142,7 +1142,7 @@ export function LookupField({ value, onChange, field, readonly, error: fieldErro
         // clip instead (objectui#3466). flex-1/min-w-0 keep handling the
         // flex-parent (form row) case.
         'min-w-0 max-w-full flex-1 justify-start text-left font-normal',
-        compact && 'h-8 rounded-none border-0 bg-transparent px-2 shadow-none focus-visible:ring-1 focus-visible:ring-ring/60',
+        compact && 'h-[var(--ui-control-height,2rem)] rounded-none border-0 bg-transparent px-[var(--ui-input-padding-x,0.5rem)] text-[length:var(--ui-control-font-size,0.875rem)] shadow-none focus-visible:ring-1 focus-visible:ring-ring/60',
       )}
       type="button"
       disabled={dependenciesMissing || props.disabled}
@@ -1157,11 +1157,11 @@ export function LookupField({ value, onChange, field, readonly, error: fieldErro
     >
       {hydrating ? (
         <Loader2
-          className={cn('size-4 shrink-0 animate-spin text-muted-foreground', compact ? 'mr-1.5' : 'mr-2')}
+          className={cn('size-4 shrink-0 animate-spin text-muted-foreground', compact ? 'mr-[var(--ui-button-gap,0.375rem)]' : 'mr-2')}
           data-testid="lookup-hydrating"
         />
       ) : (
-        <Search className={cn('size-4 shrink-0 text-muted-foreground', compact ? 'mr-1.5' : 'mr-2')} />
+        <Search className={cn('size-4 shrink-0 text-muted-foreground', compact ? 'mr-[var(--ui-button-gap,0.375rem)]' : 'mr-2')} />
       )}
       <span className={cn('truncate', compact && selectedOptions.length === 0 && 'text-muted-foreground')}>
         {dependenciesMissing

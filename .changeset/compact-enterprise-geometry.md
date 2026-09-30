@@ -6,6 +6,18 @@
 "@object-ui/plugin-grid": patch
 "@object-ui/plugin-list": patch
 "@object-ui/fields": patch
+"@object-ui/plugin-dashboard": patch
 ---
 
 Add an opt-in compact enterprise geometry profile through custom control wrappers, retaining upstream Shadcn files and default size fallbacks. Extend the profile to field spacing, grouped forms, modal chrome, list toolbars, table cells and inferred form columns. Forward explicitly authored default FormView columns to the native record modal. Collapsible form section headers support Enter and Space. Model validation, permissions and submission continue through the existing renderers.
+
+Remove duplicate desktop modal padding. Preserve registered drafts and validation
+when a group collapses, expand invalid groups on submit, and carry collapse from
+both authored modal sections and object field groups. Add opt-in section counters
+and heading geometry. Compact date fields use the shared localized calendar and
+retain date-only values and bounds. Inline master-detail grids share the host
+control geometry without changing row computation or atomic submission.
+Add public Card wrappers and use them in the JSON card renderer, retaining
+primitive refs and caller overrides. Compact card geometry includes radius,
+inset divider, padding, title hierarchy and a light resting shadow. Compact
+dirty Cancel uses the existing discard guard; the default host remains unchanged.

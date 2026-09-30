@@ -180,22 +180,22 @@ async function mount(schema: Record<string, unknown>): Promise<HTMLElement> {
 
 /** The field controls actually drawn, in DOM order. */
 const drawnFields = (c: HTMLElement): string[] =>
-  [...c.querySelectorAll('[data-field]')].map((el) => el.getAttribute('data-field') as string);
+  [...c.querySelectorAll('[data-field]:not([hidden])')].map((el) => el.getAttribute('data-field') as string);
 
 /** The section headings actually drawn, in DOM order. */
 const headings = (c: HTMLElement): string[] =>
-  [...c.querySelectorAll('.border-b span')].map((el) => el.textContent ?? '');
+  [...c.querySelectorAll('[data-form-section-label]')].map((el) => el.textContent ?? '');
 
 /**
  * The section BLURBS actually drawn, in DOM order — read off the divider row
  * itself (`SectionDivider` renders the description as the `<p>` inside the same
- * `.border-b` block that carries the heading), not off the form's whole
+ * `data-form-section` block that carries the heading), not off the form's whole
  * `textContent`. A `textContent` read would be satisfied by the string
  * appearing anywhere at all — a field's own help text, a toast, a label — which
  * is fine for asserting ABSENCE and useless for asserting ARRIVAL.
  */
 const blurbs = (c: HTMLElement): string[] =>
-  [...c.querySelectorAll('.border-b p')].map((el) => el.textContent ?? '');
+  [...c.querySelectorAll('[data-form-section] p')].map((el) => el.textContent ?? '');
 
 /**
  * The disclosure CONTROLS actually drawn. `SectionDivider` is a control only
@@ -308,7 +308,7 @@ describe('`object-form` — the member shape of `sections`', () => {
     expect(drawnFields(untitled), '…and it still renders them').toEqual(['amount']);
   });
 
-  it('4. `collapsed` removes the members from the DOM, and it IMPLIES `collapsible` — the heading is a control either way (objectui#9780)', async () => {
+  it('4. `collapsed` removes the members from visible layout and IMPLIES `collapsible` — the heading is a control either way (objectui#9780)', async () => {
     // ⚠️ FLIPPED by objectui#9780 (maintainer ruling 2026-09-18, letter A), in
     // the same change that made the implication true — see this file's header.
     // The first block used to assert `.toBeNull()` here, pinning the trap as
@@ -317,7 +317,8 @@ describe('`object-form` — the member shape of `sections`', () => {
       sections: [{ label: 'Money', fields: ['amount'], collapsed: true }],
     });
     expect(headings(closed)).toEqual(['Money']);
-    expect(drawnFields(closed), '`collapsed` takes the section’s fields out of the DOM').toEqual([]);
+    expect(drawnFields(closed), '`collapsed` takes the section’s fields out of visible layout').toEqual([]);
+    expect(closed.querySelector('[data-field="amount"][hidden]')).not.toBeNull();
     const implied = closed.querySelector('[role="button"]');
     expect(
       implied,
@@ -447,7 +448,7 @@ describe('`object-form` — the member shape of `sections`', () => {
       ],
     });
     expect(collapseControls(titled), 'the lit control: a heading makes the row a control').toBe(1);
-    expect(drawnFields(titled), '…and `collapsed` then really does remove the fields').toEqual([]);
+    expect(drawnFields(titled), '…and `collapsed` then really does hide the fields').toEqual([]);
   });
 
   it('9. the blurb-only row carries NO predicate: an authored `visibleWhen` gates nothing', async () => {
@@ -511,8 +512,8 @@ describe('`object-form` — the member shape of `sections`', () => {
     // `description`, so a hit is a reading on an instrument that can report
     // none.
     const ARMS: Array<{ formType: string; blurb: (c: HTMLElement) => string[] }> = [
-      { formType: 'split', blurb: (c) => [...c.querySelectorAll('.border-b p')].map((e) => e.textContent ?? '') },
-      { formType: 'modal', blurb: (c) => [...c.querySelectorAll('.border-b p')].map((e) => e.textContent ?? '') },
+      { formType: 'split', blurb: (c) => [...c.querySelectorAll('[data-form-section] p')].map((e) => e.textContent ?? '') },
+      { formType: 'modal', blurb: (c) => [...c.querySelectorAll('[data-form-section] p')].map((e) => e.textContent ?? '') },
       {
         formType: 'wizard',
         blurb: (c) => [...c.querySelectorAll('.form-section p.text-muted-foreground')].map((e) => e.textContent ?? ''),

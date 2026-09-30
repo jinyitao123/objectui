@@ -84,6 +84,35 @@ Object UI comes with built-in support for the standard [ObjectStack Protocol](ht
 | `user` | Person picker — searches the `sys_user` object (a lookup specialized to users) |
 | `owner` | Record owner — a `user` field, typically read-only and stamped with the current user |
 
+## Editing date fields
+
+`DateField` keeps the browser's native `input[type=date]` unless the host sets
+`document.documentElement.dataset.uiProfile` to `compact-enterprise`. Under
+that profile, it uses an editable text control with a trailing calendar button
+and the shared calendar popover. Valid selections and text commits write a
+date-only `YYYY-MM-DD` string. Invalid text remains a draft, is announced as
+an error and sets native validity, so normal form submission cannot silently
+persist the previous date.
+
+When a stored value is an ISO timestamp such as
+`2026-06-17T00:00:00.000Z`, the field normalizes it to the leading
+`2026-06-17` calendar day. It does not convert that date through UTC midnight,
+which could shift the day in a viewer's time zone. Selecting a day in the
+calendar writes the same local calendar day back as `YYYY-MM-DD`.
+
+The existing date-field metadata keys `min_date` and `max_date` apply to both
+presentations. The native input receives its `min` and `max` attributes; the
+calendar disables days before `min_date` and after `max_date`, so both endpoints
+remain selectable. `disabled` disables the editing control, while `readonly`
+keeps the existing locale-formatted display and does not open a picker.
+
+The calendar and full-year date text use the shared display locale. The input
+preserves the field's id, name, descriptions, validation state and focus
+handlers. The 280px popover has a six-week grid, a custom month/year panel, Today
+and Clear controls; bounds apply to both typed values and these actions.
+Keyboard users can open it from the calendar button, navigate the grid, select
+a day and return to the input. Error text follows the active UI language.
+
 ## What a number field silently rewrites
 
 `number`, `currency`, `percent` and `geolocation` render a native

@@ -62,6 +62,30 @@ function accidentalClose() {
 }
 
 describe('ModalForm unsaved-changes guard', () => {
+  it('compact host confirms dirty Cancel and can return to the preserved draft', async () => {
+    const previousProfile = document.documentElement.dataset.uiProfile;
+    document.documentElement.dataset.uiProfile = 'compact-enterprise';
+    try {
+      const onOpenChange = vi.fn();
+      const onCancel = vi.fn();
+      render(<ModalForm schema={{ objectName: 'task', mode: 'create', open: true, onOpenChange, onCancel }} dataSource={ds} />);
+      await waitFor(() => expect(screen.getByTestId('modal-form-footer')).toBeTruthy());
+      await dirtyTheForm();
+      fireEvent.click(screen.getByText('Cancel'));
+      await waitFor(() => expect(screen.getByText('Discard changes?')).toBeTruthy());
+      expect(onOpenChange).not.toHaveBeenCalled();
+      fireEvent.click(screen.getByText('Keep editing'));
+      expect(document.querySelector<HTMLInputElement>('input')?.value).toBe('hello world');
+      fireEvent.click(screen.getByText('Cancel'));
+      fireEvent.click(await screen.findByText('Discard'));
+      expect(onOpenChange).toHaveBeenCalledWith(false);
+      expect(onCancel).toHaveBeenCalledOnce();
+      expect(ds.create).not.toHaveBeenCalled();
+    } finally {
+      if (previousProfile === undefined) delete document.documentElement.dataset.uiProfile;
+      else document.documentElement.dataset.uiProfile = previousProfile;
+    }
+  });
   it('Cancel closes immediately when the form is pristine (no confirm)', async () => {
     const onOpenChange = vi.fn();
     render(

@@ -402,7 +402,7 @@ export function DashboardFilterBar({ defs, values, onChange, onReset, dataSource
 
   return (
     <div
-      className={cn('col-span-full flex flex-wrap items-center gap-2', className)}
+      className={cn('col-span-full flex flex-wrap gap-[var(--ui-dashboard-toolbar-gap,0.5rem)] items-center', className)}
       data-testid="dashboard-filter-bar"
       role="group"
       aria-label={tt('dashboard.filters.label', 'Dashboard filters')}

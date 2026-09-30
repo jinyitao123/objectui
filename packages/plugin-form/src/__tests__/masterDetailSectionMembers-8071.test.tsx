@@ -135,7 +135,7 @@ const drawnFields = (c: HTMLElement): string[] =>
 
 /** The section headings actually drawn, in DOM order. */
 const headings = (c: HTMLElement): string[] =>
-  [...c.querySelectorAll('.border-b span')].map((el) => el.textContent ?? '');
+  [...c.querySelectorAll('[data-form-section-label]')].map((el) => el.textContent ?? '');
 
 /** The detail collection is still on screen — the half `sections` must not move. */
 const detailIsDrawn = (c: HTMLElement): boolean => (c.textContent ?? '').includes('Qty');

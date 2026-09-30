@@ -35,6 +35,45 @@
   --ui-dialog-title-font-size: 15.75px;
   --ui-dialog-title-line-height: 24.5px;
   --ui-dialog-action-gap: 7px;
+  --ui-modal-empty-description-gap: 0px;
+  --ui-section-count-display: inline;
+  --ui-section-border-width: 0px;
+  --ui-section-heading-gap: 7px;
+  --ui-section-chevron-order: 2;
+  --ui-section-accent-display: block;
+  --ui-section-accent-width: 3px;
+  --ui-section-accent-height: 17.5px;
+  --ui-card-radius: 5.25px;
+  --ui-card-shadow: 0 1px 2px rgba(9, 30, 66, 0.04);
+  --ui-card-padding: 17.5px;
+  --ui-card-header-padding-bottom: 13px;
+  --ui-card-divider-display: block;
+  --ui-card-content-padding-top: 18px;
+  --ui-card-title-font-size: 12.25px;
+  --ui-card-title-line-height: 17.5px;
+  --ui-card-title-font-weight: 700;
+  --ui-card-hover-shadow: 0 6px 18px rgba(9, 30, 66, 0.06);
+  --ui-dashboard-header-border-width: 0px;
+  --ui-dashboard-grid-gap: 14px;
+  --ui-dashboard-grid-row-height: 49px;
+  --ui-dashboard-toolbar-gap: 7px;
+  --ui-dashboard-metric-title-font-size: 10.5px;
+  --ui-dashboard-metric-title-line-height: 14px;
+  --ui-dashboard-metric-title-font-weight: 400;
+  --ui-dashboard-metric-value-font-size: 25px;
+  --ui-dashboard-metric-value-line-height: 25px;
+  --ui-dashboard-metric-value-font-weight: 800;
+  --ui-dashboard-metric-card-min-height: 112px;
+  --ui-dashboard-metric-padding-x: 17px;
+  --ui-dashboard-metric-padding-y: 14px;
+  --ui-dashboard-metric-header-padding-bottom: 0px;
+  --ui-dashboard-metric-content-padding-top: 0px;
+  --ui-dashboard-metric-inner-padding: 0px;
+  --ui-dashboard-metric-icon-size: 26px;
+  --ui-dashboard-metric-value-margin-top: 5.25px;
+  --ui-dashboard-metric-note-margin-top: 7px;
+  --ui-dashboard-metric-delta-margin-top: 3px;
+  --ui-dashboard-metric-header-border-width: 0px;
   --ui-modal-padding-x: 21px;
   --ui-modal-header-padding-top: 17.5px;
   --ui-modal-header-padding-bottom: 14px;
@@ -49,6 +88,19 @@
   --ui-list-toolbar-gap: 7px;
   --ui-toolbar-action-height: 28px;
   --ui-toolbar-action-large-height: 28px;
+}
+
+/* Solid dashboard panels in this profile; default-host translucency stays intact. */
+:root[data-ui-profile='compact-enterprise'] [data-dashboard-card] {
+  background-color: hsl(var(--card));
+  border-color: hsl(var(--border));
+  backdrop-filter: none;
+}
+:root[data-ui-profile='compact-enterprise'] [data-dashboard-card]:hover {
+  box-shadow: var(--ui-card-hover-shadow);
+}
+:root[data-ui-profile='compact-enterprise'] [data-dashboard-card-header] {
+  background-color: transparent;
 }
 
 /* Typography plugin — generates the `prose` utilities. plugin-markdown's

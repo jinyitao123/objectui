@@ -611,7 +611,7 @@ export const DrawerForm: React.FC<DrawerFormProps> = ({
     // cross-section field conditions (e.g. condition: { field: 'type', equals: 'lookup' })
     // work via react-hook-form's watch(). A virtual 'section-divider' field is inserted
     // before each group to render the collapsible section header.
-    // Fields in a collapsed section get hidden: true so they're excluded from the DOM.
+    // The divider's collapse state hides layout without unregistering controls.
     if (schema.sections?.length) {
       const allFields: FormField[] = [];
       schema.sections.forEach((section, index) => {
@@ -657,11 +657,7 @@ export const DrawerForm: React.FC<DrawerFormProps> = ({
           ),
         );
 
-        if (isCollapsed) {
-          allFields.push(...sectionFields.map(f => ({ ...f, hidden: true })));
-        } else {
-          allFields.push(...sectionFields);
-        }
+        allFields.push(...sectionFields);
       });
 
       return (
@@ -725,7 +721,7 @@ export const DrawerForm: React.FC<DrawerFormProps> = ({
           ),
         );
         const laidOut = columns > 1 ? applyAutoColSpan(body, columns) : body;
-        allFields.push(...(isCollapsed ? laidOut.map(f => ({ ...f, hidden: true })) : laidOut));
+        allFields.push(...laidOut);
       });
       const groupedFieldClass = CONTAINER_GRID_COLS[columns];
       return (

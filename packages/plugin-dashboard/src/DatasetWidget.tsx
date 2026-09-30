@@ -763,7 +763,7 @@ export function DatasetWidget({ widget, dataSource, subCaption }: { widget: any;
   if (state.status === 'loading' || state.status === 'idle') {
     return (
       <div
-        className="h-full w-full p-2"
+        className="h-full w-full p-[var(--ui-dashboard-metric-inner-padding,0.5rem)]"
         data-testid="dataset-loading"
         role="status"
         aria-busy="true"
@@ -771,7 +771,7 @@ export function DatasetWidget({ widget, dataSource, subCaption }: { widget: any;
       >
         <span className="sr-only">{tt('dashboard.loading', 'Loading…')}</span>
         {isMetric ? (
-          <div className="flex h-full w-full flex-col items-start justify-center gap-2 p-2">
+          <div className="flex h-full w-full flex-col items-start justify-center gap-2 p-[var(--ui-dashboard-metric-inner-padding,0.5rem)]">
             <Skeleton className="h-8 w-32 rounded" />
             <Skeleton className="h-3 w-20 rounded" />
           </div>
@@ -955,10 +955,10 @@ export function DatasetWidget({ widget, dataSource, subCaption }: { widget: any;
       ? (pickLocalized(options.description, language) || undefined)
       : (subCaption || undefined);
     return (
-      <div className="flex h-full w-full flex-col items-start justify-center gap-1 p-2">
-        <span className={cn('text-2xl font-semibold tabular-nums', accentClass)}>{formatMeasure(value, f?.format, f?.currency, f?.percentScale, displayLocale)}</span>
+      <div className="flex h-full w-full flex-col items-start justify-center gap-1 p-[var(--ui-dashboard-metric-inner-padding,0.5rem)]">
+        <span className={cn('mt-[var(--ui-dashboard-metric-value-margin-top,0px)] text-[length:var(--ui-dashboard-metric-value-font-size,1.5rem)] leading-[var(--ui-dashboard-metric-value-line-height,2rem)] [font-weight:var(--ui-dashboard-metric-value-font-weight,600)] tabular-nums', accentClass)}>{formatMeasure(value, f?.format, f?.currency, f?.percentScale, displayLocale)}</span>
         {delta && (
-          <div className="mt-0.5 flex min-w-0 flex-wrap items-center gap-x-2 gap-y-0.5 text-xs text-muted-foreground" data-testid="dataset-compare-trend">
+          <div className="mt-[var(--ui-dashboard-metric-delta-margin-top,0.125rem)] flex min-w-0 flex-wrap items-center gap-x-2 gap-y-0.5 text-xs text-muted-foreground" data-testid="dataset-compare-trend">
             <span className={cn(
               'flex shrink-0 items-center font-medium',
               delta.direction === 'up' && 'text-emerald-600 dark:text-emerald-400',

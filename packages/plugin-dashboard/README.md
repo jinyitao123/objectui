@@ -155,6 +155,22 @@ const schema: DashboardComponentSchema = {
 
 `type` and `widgets` are the required keys; every other key above is optional.
 
+Dashboard `gap` stays in author control: an explicit value is converted from
+quarter-rem units and wins over visual defaults. When omitted, the responsive
+layout reads `--ui-dashboard-grid-gap` (fallback `1rem` on desktop and stacked
+widgets, `0.75rem` between mobile KPI tiles). Filter controls use
+`--ui-dashboard-toolbar-gap` (fallback `0.5rem`). Widget `layout: { x, y, w,
+h }` supplies grid spans; for example, `w: 7` and `w: 4` on an 11-column grid
+can approximate the report's 1.75:1 chart split without adding a layout key.
+
+Dashboard cards consume the shared Card geometry variables
+`--ui-card-padding`, `--ui-card-header-padding-bottom`,
+`--ui-card-content-padding-top`, and `--ui-card-title-*`. Their utility-class
+fallbacks retain the existing component geometry when a host does not define a
+profile. `--ui-dashboard-header-border-width` controls the dashboard's fallback
+bottom border (default `1px`); set it to `0px` when the shared CardHeader draws
+its divider.
+
 ### Metric Card
 
 Display a single metric or KPI:
@@ -183,6 +199,27 @@ const card: MetricCardNode = {
 
 `value` is the only required key. `title` and `description` take a plain string
 or the spec's inline per-locale map (`I18nLabel`).
+
+The dashboard widget `description` is the card's explanatory line; a dataset
+metric's `options.description` is its sub-caption. The renderer also supports
+ordered top-N dataset output through `options.sortBy`, `options.sortOrder`, and
+a positive `options.limit`. `sortBy` must name a projected dimension or value;
+the renderer does not invent a numbered rank column, so a visible rank must
+come from the dataset itself.
+
+KPI cards use separate `--ui-dashboard-metric-title-*` and
+`--ui-dashboard-metric-value-*` variables so a compact metric label does not
+inherit a chart heading's type scale. Their horizontal and vertical padding,
+header/content spacing, icon size, note spacing, and minimum height use
+`--ui-dashboard-metric-padding-x`, `--ui-dashboard-metric-padding-y`,
+`--ui-dashboard-metric-header-padding-bottom`,
+`--ui-dashboard-metric-content-padding-top`,
+`--ui-dashboard-metric-inner-padding`, `--ui-dashboard-metric-icon-size`,
+`--ui-dashboard-metric-value-margin-top`,
+`--ui-dashboard-metric-note-margin-top`,
+`--ui-dashboard-metric-delta-margin-top`, and
+`--ui-dashboard-metric-card-min-height`. The fallback values retain each
+renderer’s previous geometry and typography.
 
 #### Percent `format` patterns (`'0%'`, `'0.00%'`)
 

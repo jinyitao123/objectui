@@ -101,6 +101,7 @@ export {
   SelectTrigger,
   Textarea,
 } from './custom/profile-controls';
+export { Card, CardHeader, CardTitle, CardDescription, CardContent, CardFooter } from './custom/profile-card';
 
 // Export the notification surfaces — one per spec `displayType` (#3014).
 export * from './notifications';

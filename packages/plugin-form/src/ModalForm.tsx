@@ -15,6 +15,7 @@
 
 import React, { useState, useCallback, useEffect, useMemo, useId, useRef } from 'react';
 import type { FormField, DataSource, ObjectFormSchema } from '@object-ui/types';
+import type { FormSection as SpecFormSection } from '@objectstack/spec/ui';
 import {
   Dialog,
   MobileDialogContent,
@@ -83,6 +84,8 @@ export interface ModalFormSectionConfig {
   label?: string;
   description?: string;
   columns?: 1 | 2 | 3 | 4;
+  collapsible?: SpecFormSection['collapsible'];
+  collapsed?: SpecFormSection['collapsed'];
   fields: (string | FormField)[];
   /**
    * ADR-0089 `FormSection.visibleWhen` — conditional visibility for the
@@ -143,7 +146,8 @@ export interface ModalFormSchema {
    * Guard against *accidentally* discarding unsaved input. When the form has
    * unsaved changes, an accidental close (backdrop click, Escape, or the X
    * button) first asks the user to confirm. The explicit Cancel button is an
-   * intentional discard and always closes immediately. Set to `false` to drop
+   * intentional discard and closes immediately by default. The compact host
+   * profile also confirms explicit Cancel when dirty. Set to `false` to drop
    * the confirmation entirely.
    * @default true
    */
@@ -261,6 +265,19 @@ export const ModalForm: React.FC<ModalFormProps> = ({
 
   // Stable form id for linking the external submit button to the form element
   const formId = useId();
+  const [collapsedSections, setCollapsedSections] = useState<Record<string, boolean>>({});
+
+  const sectionCollapse = (section: Pick<ModalFormSectionConfig, 'collapsible' | 'collapsed'>, key: string) => {
+    const collapsible = Boolean(section.collapsible || section.collapsed);
+    const collapsed = collapsible && (collapsedSections[key] ?? Boolean(section.collapsed));
+    return {
+      collapsible,
+      collapsed,
+      onToggle: collapsible
+        ? () => setCollapsedSections(previous => ({ ...previous, [key]: !collapsed }))
+        : undefined,
+    };
+  };
 
   // Field-group fallback (object-designer metadata): when the caller passes no
   // explicit sections, honor the object's declared `fieldGroups` the same way
@@ -565,14 +582,16 @@ export const ModalForm: React.FC<ModalFormProps> = ({
     return () => window.removeEventListener('beforeunload', handler);
   }, [isOpen, isDirty, confirmOnDiscard]);
 
-  // The explicit Cancel button is an *intentional* discard, so it closes
-  // immediately — no "Discard changes?" prompt. The unsaved-changes guard only
-  // intercepts *accidental* closes (backdrop click, Escape, the X), which Radix
-  // routes through onOpenChange below. (attemptClose stays for that path.)
+  // The compact host confirms every dirty close, including explicit Cancel.
+  // The default host retains its intentional-discard behavior.
   const handleCancel = useCallback(() => {
+    if (typeof document !== 'undefined' && document.documentElement.dataset.uiProfile === 'compact-enterprise') {
+      attemptClose(true);
+      return;
+    }
     cancelIntentRef.current = true;
     finalizeClose();
-  }, [finalizeClose]);
+  }, [attemptClose, finalizeClose]);
 
   const formLayout = (schema.layout === 'vertical' || schema.layout === 'horizontal')
     ? schema.layout
@@ -673,6 +692,7 @@ export const ModalForm: React.FC<ModalFormProps> = ({
             visibleWhen: section.visibleWhen,
             className: section.className,
             gridClassName: section.gridClassName,
+            collapse: sectionCollapse(section, sectionKey(section, index)),
             fields: formColumns > 1
               ? applyAutoColSpan(body, formColumns, clampCol(section.columns))
               : body,
@@ -735,6 +755,7 @@ export const ModalForm: React.FC<ModalFormProps> = ({
               visibleWhen: g.visibleWhen,
               members: g.fields.map((f) => f.name),
               className: g.className,
+              collapse: g.collapse,
             },
             'headingOrBlurbRow',
           ),
@@ -775,6 +796,7 @@ export const ModalForm: React.FC<ModalFormProps> = ({
               description: section.description,
               visibleWhen: (section as any).visibleWhen,
               members: body.map((f) => f.name),
+              collapse: sectionCollapse(section, String(section.name || index)),
             },
             'heading',
           ),
@@ -839,9 +861,9 @@ export const ModalForm: React.FC<ModalFormProps> = ({
   if (subforms?.length && schema.mode !== 'view') {
     return (
       <Dialog open={isOpen} onOpenChange={schema.onOpenChange}>
-        <MobileDialogContent className={cn(sizeClass, 'flex flex-col h-[100dvh] sm:h-auto sm:max-h-[var(--ui-modal-max-height,90vh)] overflow-hidden p-0', className, schema.className)}>
+        <MobileDialogContent className={cn(sizeClass, 'flex flex-col h-[100dvh] sm:h-auto sm:max-h-[var(--ui-modal-max-height,90vh)] overflow-hidden p-0 sm:p-0', className, schema.className)}>
           {(schema.title || schema.description) && (
-            <DialogHeader className="shrink-0 px-4 pt-4 sm:px-[var(--ui-modal-padding-x,1.5rem)] sm:pt-[var(--ui-modal-header-padding-top,1.5rem)] pb-2 sm:pb-[var(--ui-modal-header-padding-bottom,0.5rem)] border-b">
+            <DialogHeader className={cn("shrink-0 px-4 pt-4 sm:px-[var(--ui-modal-padding-x,1.5rem)] sm:pt-[var(--ui-modal-header-padding-top,1.5rem)] pb-2 sm:pb-[var(--ui-modal-header-padding-bottom,0.5rem)] border-b", !schema.description && "space-y-[var(--ui-modal-empty-description-gap,0.375rem)]")}>
               {schema.title && <DialogTitle className="text-[length:var(--ui-dialog-title-font-size,1.125rem)] leading-[var(--ui-dialog-title-line-height,1)]">{schema.title}</DialogTitle>}
               {schema.description ? (
                 <DialogDescription>{schema.description}</DialogDescription>
@@ -891,9 +913,9 @@ export const ModalForm: React.FC<ModalFormProps> = ({
         attemptClose(false);
       }}
     >
-      <MobileDialogContent className={cn(sizeClass, 'flex flex-col h-[100dvh] sm:h-auto sm:max-h-[var(--ui-modal-max-height,90vh)] overflow-hidden p-0', className, schema.className)}>
+      <MobileDialogContent className={cn(sizeClass, 'flex flex-col h-[100dvh] sm:h-auto sm:max-h-[var(--ui-modal-max-height,90vh)] overflow-hidden p-0 sm:p-0', className, schema.className)}>
         {(schema.title || schema.description) && (
-          <DialogHeader className="shrink-0 px-4 pt-4 sm:px-[var(--ui-modal-padding-x,1.5rem)] sm:pt-[var(--ui-modal-header-padding-top,1.5rem)] pb-2 sm:pb-[var(--ui-modal-header-padding-bottom,0.5rem)] border-b">
+          <DialogHeader className={cn("shrink-0 px-4 pt-4 sm:px-[var(--ui-modal-padding-x,1.5rem)] sm:pt-[var(--ui-modal-header-padding-top,1.5rem)] pb-2 sm:pb-[var(--ui-modal-header-padding-bottom,0.5rem)] border-b", !schema.description && "space-y-[var(--ui-modal-empty-description-gap,0.375rem)]")}>
             {schema.title && <DialogTitle className="text-[length:var(--ui-dialog-title-font-size,1.125rem)] leading-[var(--ui-dialog-title-line-height,1)]">{schema.title}</DialogTitle>}
             {schema.description ? (
               <DialogDescription>{schema.description}</DialogDescription>

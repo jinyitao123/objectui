@@ -1,4 +1,7 @@
 import { ValueDataSource } from '@object-ui/core';
+import { Field, ObjectSchema } from '@objectstack/spec/data';
+
+export const PREVIEW_REQUEST_LINE_OBJECT = 'preview_purchase_request_line';
 
 export interface PreviewRequest {
   id: string;
@@ -55,6 +58,34 @@ const objectSchema = {
   },
 };
 
+const requiredLineField = { required: true, storage: { notNull: true } } as const;
+
+const requestLineObjectSchema = ObjectSchema.create({
+  name: PREVIEW_REQUEST_LINE_OBJECT,
+  label: 'Purchase request line fixture',
+  pluralLabel: 'Purchase request line fixtures',
+  icon: 'list',
+  nameField: 'item',
+  sharingModel: 'private',
+  fields: {
+    request_id: Field.masterDetail('preview_purchase_request', {
+      label: 'Purchase request',
+      ...requiredLineField,
+      inlineEdit: 'grid',
+    }),
+    item: Field.text({ label: 'Item', ...requiredLineField, maxLength: 160 }),
+    quantity: Field.number({ label: 'Quantity', ...requiredLineField, min: 1, scale: 0 }),
+    unit_price: Field.currency({ label: 'Unit price', ...requiredLineField, precision: 18, scale: 2 }),
+    line_amount: Field.currency({
+      label: 'Line total',
+      precision: 18,
+      scale: 2,
+      expression: { dialect: 'cel', source: 'record.quantity * record.unit_price' },
+    }),
+  },
+  enable: { apiEnabled: false, searchable: false, trackHistory: false, files: false, feeds: false, activities: false },
+});
+
 const requestFixtures: PreviewRequest[] = [
   { id: 'fixture-001', code: 'REQ-2026-001', title: 'Workshop safety supplies', supplier: 'northwind', status: 'review', requested_on: '2026-09-03', need_by: '2026-09-18', amount: 3480, owner: 'Alex Morgan', department: 'operations', cost_center: 'OPS-104', memo: 'Replace depleted protective equipment.' },
   { id: 'fixture-002', code: 'REQ-2026-002', title: 'Prototype connectors', supplier: 'contoso', status: 'approved', requested_on: '2026-09-05', need_by: '2026-09-21', amount: 12850, owner: 'Jordan Lee', department: 'engineering', cost_center: 'ENG-220', memo: 'Parts for the September prototype build.' },
@@ -73,7 +104,8 @@ export class ComponentPreviewDataSource extends ValueDataSource<PreviewRequest> 
     super({ items: requestFixtures, idField: 'id' });
   }
 
-  override async getObjectSchema(objectName: string): Promise<typeof objectSchema> {
+  override async getObjectSchema(objectName: string) {
+    if (objectName === PREVIEW_REQUEST_LINE_OBJECT) return requestLineObjectSchema;
     return { ...objectSchema, name: objectName };
   }
 }

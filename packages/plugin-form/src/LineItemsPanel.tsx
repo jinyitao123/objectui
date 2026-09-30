@@ -413,7 +413,7 @@ export const LineItemsPanel: React.FC<{ schema: LineItemsPanelSchema }> = ({ sch
 
   return (
     <Card className={cn('shadow-none')}>
-      <CardHeader className="flex-row items-center justify-between gap-2 pb-2">
+      <CardHeader className="flex-row items-center justify-between gap-[var(--ui-list-toolbar-gap,0.5rem)] pb-2">
         <CardTitle className="text-sm font-medium">{schema.title || 'Line Items'}</CardTitle>
         {!schema.readonly && (
           <Button

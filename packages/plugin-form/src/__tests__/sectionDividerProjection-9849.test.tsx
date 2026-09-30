@@ -36,7 +36,7 @@
  *
  *  1. `every arm carries the key` — the six call sites, each mounted through a
  *     real renderer, each reading the blurb off the divider ROW (the `<p>`
- *     inside the same `.border-b` block that carries the heading) and ⛔ never
+ *     inside the same `data-form-section` block that carries the heading) and ⛔ never
  *     off `document.body.textContent`, which any stray render would satisfy.
  *     The sibling member `label` on the SAME section in the SAME call is the
  *     live control, so an empty blurb list can never be an instrument that sees
@@ -115,11 +115,11 @@ async function mounted(node: React.ReactElement): Promise<HTMLElement> {
 
 /** The section headings actually drawn, in DOM order. */
 const headings = (f: HTMLElement): string[] =>
-  [...f.querySelectorAll('.border-b span')].map((el) => el.textContent ?? '');
+  [...f.querySelectorAll('[data-form-section-label]')].map((el) => el.textContent ?? '');
 
 /** The section BLURBS actually drawn, read off the divider row itself. */
 const blurbs = (f: HTMLElement): string[] =>
-  [...f.querySelectorAll('.border-b p')].map((el) => el.textContent ?? '');
+  [...f.querySelectorAll('[data-form-section] p')].map((el) => el.textContent ?? '');
 
 /** The field controls actually drawn, in DOM order. */
 const drawnFields = (f: HTMLElement): string[] =>
@@ -264,7 +264,7 @@ describe('objectui#9849 — one path from a section configuration to its divider
       expect(headings(f), 'no heading is authored and none is synthesised').toEqual([]);
       expect(blurbs(f)).toEqual([BLURB]);
       expect(
-        f.querySelectorAll('.border-b[role="button"]').length,
+        f.querySelectorAll('[data-form-section][role="button"]').length,
         'the blurb-only row carries no collapse pair, so it is not a control',
       ).toBe(0);
       expect(drawnFields(f), 'the liveness control: the member itself still renders').toContain(

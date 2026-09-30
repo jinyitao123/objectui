@@ -17,6 +17,22 @@ primitives; list, grid and form renderers consume the same host variables.
 Form metadata still owns field groups, explicit columns, validation and
 submission. A modal retains its fixed action footer and independently
 scrolling body. Collapsible form sections can be activated with Enter or Space.
+In the compact profile, section chrome places a chevron after the heading and
+shows a filled/applicable-field ratio. Collapsed groups retain draft values
+and validation; submitting with an invalid field expands its group and focuses
+the error. Predicates and field permissions still determine applicability.
+
+The native modal uses one inset per header/body/footer rather than adding the
+mobile-dialog's desktop padding around all three. Date fields use the shared
+calendar under this profile; see [date field editing](/docs/guide/fields#editing-date-fields).
+Inline master-detail controls reuse the same geometry while retaining their
+existing typed fields, computed amounts and transaction requirement.
+The public Card family and JSON card renderer consume shared radius, padding,
+shadow, title and inset-divider variables. Workspace composition owns the card
+boundary; a standalone master-detail form does not create an extra outer card
+inside an existing modal. The Details gallery supplies that boundary explicitly.
+The compact modal asks before a dirty Cancel when `confirmOnDiscard` is enabled;
+Keep editing preserves the draft. Default-host cancellation is unchanged.
 
 The profile is opt-in and keeps the existing dimensions as CSS fallbacks.
 It contains no business state or permission rules. Host apps may supply their
