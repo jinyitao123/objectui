@@ -89,6 +89,18 @@ export {
 // Export raw Shadcn UI components
 export * from './ui';
 export * from './custom';
+// The profile-aware wrappers intentionally shadow the raw Shadcn exports at
+// the package boundary; their token fallbacks retain the raw primitives' sizes.
+export {
+  Button,
+  buttonVariants,
+  Input,
+  Label,
+  NativeSelect,
+  SelectItem,
+  SelectTrigger,
+  Textarea,
+} from './custom/profile-controls';
 
 // Export the notification surfaces — one per spec `displayType` (#3014).
 export * from './notifications';

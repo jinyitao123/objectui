@@ -10,17 +10,13 @@ import { ComponentRegistry, resolveFieldRuleState, evalFieldPredicate, resolveCa
 import type { FormSchema, FormField as FormFieldConfig, FormFieldTab, FormFieldPane, FieldCondition, SelectOption } from '@object-ui/types';
 import { useForm } from 'react-hook-form';
 import { Form, FormField, FormItem, FormLabel, FormControl, FormMessage, FormDescription } from '../../ui/form';
-import { Button } from '../../ui/button';
-import { Input } from '../../ui/input';
-import { Textarea } from '../../ui/textarea';
+import { Button, Input, Textarea, SelectTrigger, SelectItem } from '../../custom/profile-controls';
 import { Checkbox } from '../../ui/checkbox';
 import { Switch } from '../../ui/switch';
 import { 
   Select, 
-  SelectTrigger, 
   SelectValue, 
-  SelectContent, 
-  SelectItem 
+  SelectContent,
 } from '../../ui/select';
 import { renderChildren } from '../../lib/utils';
 import { toControlValue, matchOptionValue, type OptionValue } from './option-value';
@@ -58,13 +54,20 @@ function SectionDivider({ label, description, collapsible, collapsed, onToggle, 
   return (
     <div
       className={cn(
-        'col-span-full pt-4 pb-1 border-b border-border',
-        collapsible && 'cursor-pointer select-none',
+        'col-span-full pt-[var(--ui-section-padding-top,1rem)] pb-[var(--ui-section-padding-bottom,0.25rem)] border-b border-border',
+        collapsible && 'cursor-pointer select-none focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring',
         className
       )}
       onClick={collapsible ? onToggle : undefined}
       role={collapsible ? 'button' : undefined}
+      tabIndex={collapsible ? 0 : undefined}
       aria-expanded={collapsible ? !collapsed : undefined}
+      onKeyDown={collapsible ? (event) => {
+        if (event.key === 'Enter' || event.key === ' ') {
+          event.preventDefault();
+          onToggle?.();
+        }
+      } : undefined}
     >
       {label && (
         <div className="flex items-center gap-1.5">
@@ -73,7 +76,7 @@ function SectionDivider({ label, description, collapsible, collapsed, onToggle, 
               ? <ChevronRight className="h-3.5 w-3.5 text-muted-foreground" />
               : <ChevronDown className="h-3.5 w-3.5 text-muted-foreground" />
           )}
-          <span className="text-sm font-semibold text-foreground">{label}</span>
+          <span className="text-[length:var(--ui-section-font-size,0.875rem)] font-semibold text-foreground">{label}</span>
         </div>
       )}
       {/* A section's authored blurb. Carried on the divider because a sectioned
@@ -2453,8 +2456,8 @@ ComponentRegistry.register('form',
       'md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4';
     
     const gridClass = columns > 1
-      ? cn('grid gap-4', gridColsClass)
-      : 'space-y-4';
+      ? cn('grid gap-x-[var(--ui-form-column-gap,1rem)] gap-y-[var(--ui-form-row-gap,1rem)]', gridColsClass)
+      : 'space-y-[var(--ui-form-row-gap,1rem)]';
 
     // Every field container (flat, or one per tab panel) lays its fields out on
     // the same grid, so per-field `colSpan` means the same thing on every tab.
@@ -2897,13 +2900,13 @@ ComponentRegistry.register('form',
           rules={rules}
           render={({ field: formField, fieldState }) => (
             <FormItem
-              className={colSpanClass || undefined}
+              className={cn('[display:var(--ui-field-display,block)] gap-[var(--ui-field-stack-gap,0px)] space-y-[var(--ui-field-margin-gap,0.5rem)]', colSpanClass)}
               data-testid={fieldTestId}
               data-field={name}
             >
               {label && (
                 <FormLabel
-                  className="text-xs font-normal text-muted-foreground"
+                  className="text-[length:var(--ui-label-font-size,0.75rem)] leading-[var(--ui-label-line-height,1rem)] font-normal text-muted-foreground"
                   // A group-labelled widget (objectui#3961) is named by IDREF:
                   // publish the label's own `id` and drop the `for`. `htmlFor:
                   // undefined` is not a no-op — `<FormLabel>` sets
@@ -3080,7 +3083,7 @@ ComponentRegistry.register('form',
               {description && (
                 <FormDescription>{description}</FormDescription>
               )}
-              <FormMessage />
+              <FormMessage className="text-[length:var(--ui-control-font-size,0.875rem)]" />
             </FormItem>
           )}
         />
@@ -3189,7 +3192,7 @@ ComponentRegistry.register('form',
           {/* Form Fields */}
           {schema.children ? (
             // If children are provided directly, render them
-            <div className={schema.fieldContainerClass || 'space-y-4'}>
+            <div className={schema.fieldContainerClass || 'space-y-[var(--ui-form-row-gap,1rem)]'}>
               {renderChildren(schema.children)}
             </div>
           ) : fieldTabGroups && visibleFieldTabGroups ? (

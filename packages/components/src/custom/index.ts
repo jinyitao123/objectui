@@ -13,6 +13,17 @@ export * from './input-group';
 export * from './item';
 export * from './kbd';
 export * from './native-select';
+export * from './profile-controls';
+export {
+  Button,
+  buttonVariants,
+  Input,
+  Label,
+  NativeSelect,
+  SelectItem,
+  SelectTrigger,
+  Textarea,
+} from './profile-controls';
 export * from './navigation-overlay';
 export * from './resizable';
 export * from './section-header';

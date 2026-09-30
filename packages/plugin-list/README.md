@@ -2,6 +2,14 @@
 
 ListView plugin for ObjectUI - A unified view component with view type switching, filtering, sorting, and view configuration persistence.
 
+## Host geometry tokens
+
+`--ui-list-toolbar-gap` adjusts the shared list toolbar's spacing without
+changing filtering, sorting, search or view state. Grid geometry is delegated
+to the grid plugin's table tokens; metadata continues to own column widths,
+row density and pagination. The Console's optional `compact-enterprise`
+profile supplies candidate values for these tokens.
+
 ## Features
 
 - **View Type Switching**: Switch between Grid, Kanban, Gallery, Calendar,

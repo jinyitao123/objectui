@@ -9,6 +9,19 @@ The **Console** is the reference application for [ObjectUI](/docs/guide). It ren
 
 ## Quick Start
 
+### Optional geometry profile
+
+Use `VITE_UI_PROFILE=compact-enterprise` to enable the Console's compact host
+geometry tokens. Public controls use custom wrappers over unchanged Shadcn
+primitives; list, grid and form renderers consume the same host variables.
+Form metadata still owns field groups, explicit columns, validation and
+submission. A modal retains its fixed action footer and independently
+scrolling body. Collapsible form sections can be activated with Enter or Space.
+
+The profile is opt-in and keeps the existing dimensions as CSS fallbacks.
+It contains no business state or permission rules. Host apps may supply their
+own token values instead; authored `className` overrides remain available.
+
 ```bash
 # From the repository root
 pnpm install

@@ -17,6 +17,25 @@ The standard runtime UI for ObjectStack applications. This package provides the 
 
 ## Quick Start
 
+### Optional compact geometry
+
+Set `VITE_UI_PROFILE=compact-enterprise` when building or running the Console.
+The profile sets host CSS tokens in `src/index.css` for control, form, modal,
+toolbar and table geometry. It does not replace field metadata, validation,
+permissions or business actions. Without that build option, the token
+fallbacks keep the existing Console dimensions.
+
+The profile is a presentation baseline rather than a claim of page parity.
+Compare concrete controls and states at a fixed viewport before declaring a
+sample aligned. Color calibration is independent of these geometry tokens.
+
+The standalone component preview uses local in-memory fixtures and no platform
+login or business database: run `pnpm --filter @object-ui/console preview:geometry`
+and open the local address printed by Vite. It exercises the shared control,
+form, modal, list and dashboard renderers. Fixture interactions are presentation
+checks, not business acceptance evidence; the default Console imports no preview
+route.
+
 ```bash
 # From the repository root
 pnpm install

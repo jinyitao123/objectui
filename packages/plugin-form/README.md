@@ -1,5 +1,25 @@
 # @object-ui/plugin-form
 
+## Optional host geometry profile
+
+The Console can enable `compact-enterprise` with `VITE_UI_PROFILE` at build
+time. Form controls and inferred layout consume host CSS geometry tokens;
+explicit form/section columns and field spans still override inference.
+Default `FormView.columns` reaches the native record modal, and the profile
+caps only inferred columns at two.
+
+Modal header, scrollable body, fixed footer, title, maximum width/height and
+action gap consume `--ui-modal-*` and `--ui-dialog-*` tokens. The mobile
+fullscreen variant is retained. Shared field grids consume
+`--ui-form-row-gap`/`--ui-form-column-gap`; field label-to-control spacing uses
+`--ui-field-stack-gap`. Without the optional tokens, the existing dimensions
+remain the fallbacks.
+
+These seams change presentation only. Metadata still owns field groups,
+defaults, validation, permissions, relationships and submission. Keyboard
+collapsibility is covered by `src/__tests__/formSectionKeyboard.test.tsx`;
+metadata grouping and inferred layout have their existing regression suites.
+
 Form plugin for Object UI - Advanced form components with validation, multi-step forms, and field-level control.
 
 ## Features

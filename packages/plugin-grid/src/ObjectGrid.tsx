@@ -3834,25 +3834,43 @@ export const ObjectGrid: React.FC<ObjectGridComponentProps> = ({
   const hasUserPinnedColumns =
     userLeftPinnedCount > 0 || pinnedRightCols.some((c: any) => c.accessorKey !== '_actions');
 
-  // Density-driven cell padding/font (applied to every column so it actually reaches <td>).
+  // Density-driven vertical sizing stays tied to rowHeight. The named table
+  // variables only replace the fixed horizontal padding and font-size tokens;
+  // each var() fallback preserves the class this branch used to emit.
   // `h-*` enforces a minimum row height so the action-button column doesn't dictate it.
   const rowHeightCellClass =
     rowHeightMode === 'compact'
-      ? 'px-3 py-1 h-9 text-[13px] leading-tight'
+      ? 'px-[var(--ui-table-cell-padding-x,0.75rem)] py-1 h-9 text-[length:var(--ui-table-font-size,13px)] leading-tight'
       : rowHeightMode === 'short'
-        ? 'px-3 py-1 h-9 text-[13px] leading-normal'
+        ? 'px-[var(--ui-table-cell-padding-x,0.75rem)] py-1 h-9 text-[length:var(--ui-table-font-size,13px)] leading-normal'
         : rowHeightMode === 'tall'
-          ? 'px-3 py-2.5 h-14 text-sm'
+          ? 'px-[var(--ui-table-cell-padding-x,0.75rem)] py-2.5 h-14 text-[length:var(--ui-table-font-size,0.875rem)]'
           : rowHeightMode === 'extra_tall'
-            ? 'px-3 py-3.5 h-16 text-sm leading-relaxed'
-            : 'px-3 py-1.5 h-11 text-[13px] leading-normal';
+            ? 'px-[var(--ui-table-cell-padding-x,0.75rem)] py-3.5 h-16 text-[length:var(--ui-table-font-size,0.875rem)] leading-relaxed'
+            : 'px-[var(--ui-table-cell-padding-x,0.75rem)] py-1.5 h-11 text-[length:var(--ui-table-font-size,13px)] leading-normal';
 
-  // Body cells get `px-3` from rowHeightCellClass; give the header the same
-  // horizontal padding so header labels line up exactly with the cell content
-  // below them (the primitive <th> default is px-4, which is 4px wider).
+  // Body cells get horizontal padding from rowHeightCellClass; give headers
+  // the same value so labels line up with cell content. The inner label span
+  // in DataTable has a fixed `text-xs`, so scope its variable to that known
+  // header slot instead of overriding cell renderers throughout the table.
+  const headerCellClasses = [
+    'px-[var(--ui-table-cell-padding-x,0.75rem)]',
+    'text-[length:var(--ui-table-header-font-size,0.875rem)]',
+    '[&>div>div>span.text-xs]:text-[length:var(--ui-table-header-font-size,0.75rem)]',
+  ].join(' ');
+  // A few structural cells are authored inside the shared DataTable renderer
+  // rather than in ObjectGrid's column descriptors. Scope the same variables to
+  // those fixed slots without reaching typed field renderers or column widths.
+  const tableSlotClasses = [
+    '[&_thead>tr>th.w-10.bg-background.px-3]:px-[var(--ui-table-cell-padding-x,0.75rem)]',
+    '[&_thead>tr>th.w-10.bg-background.px-3>span.text-xs]:text-[length:var(--ui-table-header-font-size,0.75rem)]',
+    '[&_thead>tr>th.w-24.text-right]:text-[length:var(--ui-table-header-font-size,0.875rem)]',
+    '[&_tbody>tr>td:first-child.px-3]:px-[var(--ui-table-cell-padding-x,0.75rem)]',
+    '[&_tbody>tr>td.w-10>span.text-xs]:text-[length:var(--ui-table-font-size,0.75rem)]',
+  ].join(' ');
   const applyDensity = (col: any) => ({
     ...col,
-    className: ['px-3', col.className].filter(Boolean).join(' '),
+    className: [headerCellClasses, col.className].filter(Boolean).join(' '),
     cellClassName: [rowHeightCellClass, col.cellClassName].filter(Boolean).join(' '),
   });
 
@@ -3967,7 +3985,7 @@ export const ObjectGrid: React.FC<ObjectGridComponentProps> = ({
         ...unpinnedCols.map(applyColumnChrome),
         ...pinnedRightCols.map((col: any) => ({
           ...applyColumnChrome(col),
-          className: ['px-3', col.className, rightPinnedClasses].filter(Boolean).join(' '),
+          className: [headerCellClasses, col.className, rightPinnedClasses].filter(Boolean).join(' '),
           cellClassName: [rowHeightCellClass, col.cellClassName, rightPinnedClasses].filter(Boolean).join(' '),
         })),
       ]
@@ -4701,16 +4719,16 @@ export const ObjectGrid: React.FC<ObjectGridComponentProps> = ({
         }
       : undefined,
     singleClickEdit: schema.singleClickEdit ?? true,
-    className: schema.className,
+    className: [schema.className, tableSlotClasses].filter(Boolean).join(' '),
     cellClassName: rowHeightMode === 'compact'
-      ? 'px-3 py-1 text-[13px] leading-tight'
+      ? 'px-[var(--ui-table-cell-padding-x,0.75rem)] py-1 text-[length:var(--ui-table-font-size,13px)] leading-tight'
       : rowHeightMode === 'short'
-        ? 'px-3 py-1 text-[13px] leading-normal'
+        ? 'px-[var(--ui-table-cell-padding-x,0.75rem)] py-1 text-[length:var(--ui-table-font-size,13px)] leading-normal'
         : rowHeightMode === 'tall'
-          ? 'px-3 py-2.5 text-sm'
+          ? 'px-[var(--ui-table-cell-padding-x,0.75rem)] py-2.5 text-[length:var(--ui-table-font-size,0.875rem)]'
           : rowHeightMode === 'extra_tall'
-            ? 'px-3 py-3.5 text-sm leading-relaxed'
-            : 'px-3 py-1.5 text-[13px] leading-normal',
+            ? 'px-[var(--ui-table-cell-padding-x,0.75rem)] py-3.5 text-[length:var(--ui-table-font-size,0.875rem)] leading-relaxed'
+            : 'px-[var(--ui-table-cell-padding-x,0.75rem)] py-1.5 text-[length:var(--ui-table-font-size,13px)] leading-normal',
     showRowNumbers: true,
     // [#5148] The authored request ∧ the principal's verdict — the conjunction
     // #5143 spelled for `editable` and #4646 / PR #5145 spelled for the

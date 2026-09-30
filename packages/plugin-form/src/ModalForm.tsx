@@ -211,7 +211,7 @@ const modalSizeClasses: Record<string, string> = {
   default: 'sm:max-w-lg',
   lg: 'sm:max-w-2xl',
   xl: 'sm:max-w-5xl',
-  full: 'sm:max-w-[95vw] sm:w-full',
+  full: 'sm:max-w-[var(--ui-modal-full-max-width,95vw)] sm:w-full',
 };
 
 export const ModalForm: React.FC<ModalFormProps> = ({
@@ -839,10 +839,10 @@ export const ModalForm: React.FC<ModalFormProps> = ({
   if (subforms?.length && schema.mode !== 'view') {
     return (
       <Dialog open={isOpen} onOpenChange={schema.onOpenChange}>
-        <MobileDialogContent className={cn(sizeClass, 'flex flex-col h-[100dvh] sm:h-auto sm:max-h-[90vh] overflow-hidden p-0', className, schema.className)}>
+        <MobileDialogContent className={cn(sizeClass, 'flex flex-col h-[100dvh] sm:h-auto sm:max-h-[var(--ui-modal-max-height,90vh)] overflow-hidden p-0', className, schema.className)}>
           {(schema.title || schema.description) && (
-            <DialogHeader className="shrink-0 px-4 pt-4 sm:px-6 sm:pt-6 pb-2 border-b">
-              {schema.title && <DialogTitle>{schema.title}</DialogTitle>}
+            <DialogHeader className="shrink-0 px-4 pt-4 sm:px-[var(--ui-modal-padding-x,1.5rem)] sm:pt-[var(--ui-modal-header-padding-top,1.5rem)] pb-2 sm:pb-[var(--ui-modal-header-padding-bottom,0.5rem)] border-b">
+              {schema.title && <DialogTitle className="text-[length:var(--ui-dialog-title-font-size,1.125rem)] leading-[var(--ui-dialog-title-line-height,1)]">{schema.title}</DialogTitle>}
               {schema.description ? (
                 <DialogDescription>{schema.description}</DialogDescription>
               ) : (
@@ -850,7 +850,7 @@ export const ModalForm: React.FC<ModalFormProps> = ({
               )}
             </DialogHeader>
           )}
-          <div className="@container flex-1 overflow-y-auto px-4 sm:px-6 py-4">
+          <div className="@container flex-1 overflow-y-auto px-4 sm:px-[var(--ui-modal-padding-x,1.5rem)] py-4 sm:py-[var(--ui-modal-body-padding-y,1rem)] sm:max-h-[var(--ui-modal-body-max-height,none)]">
             <MasterDetailForm
               schema={{
                 type: 'object-master-detail-form',
@@ -891,10 +891,10 @@ export const ModalForm: React.FC<ModalFormProps> = ({
         attemptClose(false);
       }}
     >
-      <MobileDialogContent className={cn(sizeClass, 'flex flex-col h-[100dvh] sm:h-auto sm:max-h-[90vh] overflow-hidden p-0', className, schema.className)}>
+      <MobileDialogContent className={cn(sizeClass, 'flex flex-col h-[100dvh] sm:h-auto sm:max-h-[var(--ui-modal-max-height,90vh)] overflow-hidden p-0', className, schema.className)}>
         {(schema.title || schema.description) && (
-          <DialogHeader className="shrink-0 px-4 pt-4 sm:px-6 sm:pt-6 pb-2 border-b">
-            {schema.title && <DialogTitle>{schema.title}</DialogTitle>}
+          <DialogHeader className="shrink-0 px-4 pt-4 sm:px-[var(--ui-modal-padding-x,1.5rem)] sm:pt-[var(--ui-modal-header-padding-top,1.5rem)] pb-2 sm:pb-[var(--ui-modal-header-padding-bottom,0.5rem)] border-b">
+            {schema.title && <DialogTitle className="text-[length:var(--ui-dialog-title-font-size,1.125rem)] leading-[var(--ui-dialog-title-line-height,1)]">{schema.title}</DialogTitle>}
             {schema.description ? (
               <DialogDescription>{schema.description}</DialogDescription>
             ) : (
@@ -905,7 +905,7 @@ export const ModalForm: React.FC<ModalFormProps> = ({
           </DialogHeader>
         )}
 
-        <div className="@container flex-1 overflow-y-auto px-4 sm:px-6 py-4">
+        <div className="@container flex-1 overflow-y-auto px-4 sm:px-[var(--ui-modal-padding-x,1.5rem)] py-4 sm:py-[var(--ui-modal-body-padding-y,1rem)] sm:max-h-[var(--ui-modal-body-max-height,none)]">
           {/* Every upload widget below reports into this scope, however deep —
               a section, a tab, a subform row (objectui#10166). */}
           <UploadGateProvider gate={uploadGate}>{renderContent()}</UploadGateProvider>
@@ -913,12 +913,12 @@ export const ModalForm: React.FC<ModalFormProps> = ({
 
         {/* Sticky footer — always visible action buttons */}
         {hasFooter && (
-          <div className="shrink-0 border-t px-4 sm:px-6 py-3 bg-background" data-testid="modal-form-footer">
+          <div className="shrink-0 border-t px-4 sm:px-[var(--ui-modal-padding-x,1.5rem)] py-3 sm:py-[var(--ui-modal-footer-padding-y,0.75rem)] bg-background" data-testid="modal-form-footer">
             {/* The REASON the Save below is disabled (objectui#10166). Above the
                 row rather than inside it so it reads before the dead control,
                 and so a long sentence never squeezes the buttons. */}
             <UploadInFlightNotice gate={uploadGate} />
-            <div className="flex flex-col sm:flex-row gap-2 sm:justify-end">
+            <div className="flex flex-col sm:flex-row gap-[var(--ui-dialog-action-gap,0.5rem)] sm:justify-end">
               {showCancel && (
                 <Button
                   type="button"

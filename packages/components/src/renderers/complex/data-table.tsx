@@ -26,8 +26,7 @@ import {
   TableCell, 
   TableCaption 
 } from '../../ui/table';
-import { Button } from '../../ui/button';
-import { Input } from '../../ui/input';
+import { Button, Input } from '../../custom/profile-controls';
 import { Checkbox } from '../../ui/checkbox';
 import {
   Select,

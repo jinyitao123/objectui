@@ -1247,7 +1247,7 @@ export function DateTimeCellRenderer({ value, field }: CellRendererProps): React
   const isOverdue = isOverdueInstant(date, dueLike);
   // Spelled as the sibling spells it, one function up, for the same reason
   // every other guard in these two renderers is: one shape, one reading.
-  const cellClass = `tabular-nums text-sm whitespace-nowrap${isOverdue ? ' text-red-600' : ''}`;
+  const cellClass = `tabular-nums text-[length:var(--ui-table-font-size,0.875rem)] whitespace-nowrap${isOverdue ? ' text-red-600' : ''}`;
 
   if (style === 'relative') {
     return (
@@ -1861,7 +1861,7 @@ export function SelectCellRenderer({ value, field }: CellRendererProps): React.R
       // inner truncate can engage; title keeps the full label on hover
       // (objectui#3466, same class of bug as the badge branch below).
       return (
-        <span key={key} className="inline-flex max-w-full items-center gap-1.5 text-sm" title={label}>
+        <span key={key} className="inline-flex max-w-full items-center gap-1.5 text-[length:var(--ui-table-font-size,0.875rem)]" title={label}>
           <span
             className={cn('h-1.5 w-1.5 rounded-full shrink-0', dotClass)}
             style={hexDot?.style}
@@ -2090,8 +2090,8 @@ export function FileCellRenderer({ value, field }: CellRendererProps): React.Rea
     <FileValueAffordance
       key={key}
       view={view}
-      className="text-sm"
-      fallback={<TruncatedText text={view.name} className="text-sm" />}
+      className="text-[length:var(--ui-table-font-size,0.875rem)]"
+      fallback={<TruncatedText text={view.name} className="text-[length:var(--ui-table-font-size,0.875rem)]" />}
     />
   );
 
@@ -2124,7 +2124,7 @@ export function FileCellRenderer({ value, field }: CellRendererProps): React.Rea
       // — it is English — but it was equally unlocalized, and plural-safe for
       // English only: `ru` has four plural categories and `ar` six, so a
       // two-branch ternary cannot spell either.
-      return <span className="text-sm text-gray-600">{countLabel(views.length)}</span>;
+      return <span className="text-[length:var(--ui-table-font-size,0.875rem)] text-gray-600">{countLabel(views.length)}</span>;
     }
     return (
       <span className="flex min-w-0 max-w-full flex-wrap items-center gap-x-2 gap-y-0.5">
@@ -2608,7 +2608,7 @@ export function FormulaCellRenderer({ value }: CellRendererProps): React.ReactEl
   // same relation as `TextCellRenderer`, which this renderer's output mirrors.
   if (isEmptyValue(safe)) return <EmptyValue />;
   return (
-    <span className="text-gray-700 font-mono text-sm">
+    <span className="text-gray-700 font-mono text-[length:var(--ui-table-font-size,0.875rem)]">
       {String(safe)}
     </span>
   );
@@ -2806,13 +2806,13 @@ export function UserCellRenderer({ value }: CellRendererProps): React.ReactEleme
           // nothing. A multi-value `user` field must not be honest on its
           // single-value shape and silent on this one.
           if (typeof user !== 'object' || user === null) {
-            return <UnresolvedUserReference key={idx} className="text-sm" />;
+            return <UnresolvedUserReference key={idx} className="text-[length:var(--ui-table-font-size,0.875rem)]" />;
           }
           // An entry carrying nothing names no person (objectui#8596) — the
           // same ruling as the scalar branch below, one input-shape over.
           if (isPlainObjectValue(user) && Object.keys(user).length === 0) {
             return (
-              <TruncatedText key={idx} text={String(coerceToSafeValue(user))} className="text-sm" />
+              <TruncatedText key={idx} text={String(coerceToSafeValue(user))} className="text-[length:var(--ui-table-font-size,0.875rem)]" />
             );
           }
           const name = user.name || user.username || 'User';
@@ -2987,7 +2987,7 @@ export function ColorSwatchCellRenderer({ value }: CellRendererProps): React.Rea
   // with no colour is not a colour.
   if (isBlankCellText(color)) return <EmptyValue />;
   return (
-    <span className="inline-flex items-center gap-1.5 text-sm">
+    <span className="inline-flex items-center gap-1.5 text-[length:var(--ui-table-font-size,0.875rem)]">
       <span
         className="h-3.5 w-3.5 rounded border border-black/10 shrink-0"
         style={{ backgroundColor: color }}
@@ -3042,7 +3042,7 @@ export function LocationCellRenderer({ value }: CellRendererProps): React.ReactE
   }
   if (typeof lat === 'number' && typeof lng === 'number' && !isNaN(lat) && !isNaN(lng)) {
     return (
-      <span className="inline-flex items-center gap-1 text-sm tabular-nums">
+      <span className="inline-flex items-center gap-1 text-[length:var(--ui-table-font-size,0.875rem)] tabular-nums">
         <MapPin className="h-3.5 w-3.5 shrink-0 text-muted-foreground" aria-hidden="true" />
         {lat.toFixed(4)}, {lng.toFixed(4)}
       </span>
@@ -3089,10 +3089,10 @@ export function AddressCellRenderer({ value }: CellRendererProps): React.ReactEl
   // swallowed, and `[]` is an unknown shape here.
   if (isEmptyValue(value) && !Array.isArray(value)) return <EmptyValue />;
   // A plain string address (some apps store one) is already display-ready.
-  if (typeof value === 'string') return <TruncatedText text={value} className="text-sm" />;
+  if (typeof value === 'string') return <TruncatedText text={value} className="text-[length:var(--ui-table-font-size,0.875rem)]" />;
   if (typeof value === 'object' && !Array.isArray(value)) {
     const formatted = formatAddress(value as AddressValue, locale);
-    if (formatted) return <TruncatedText text={formatted} className="text-sm" />;
+    if (formatted) return <TruncatedText text={formatted} className="text-[length:var(--ui-table-font-size,0.875rem)]" />;
     // An object carrying no recognized part: `{}` reads as empty, while
     // `{ foo: 1 }` keeps its JSON so real data is never hidden.
     if (Object.keys(value as Record<string, unknown>).length === 0) return <EmptyValue />;

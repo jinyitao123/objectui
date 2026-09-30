@@ -3,14 +3,50 @@
 
 /* Optional geometry profile. The default Console retains its existing sizes. */
 :root[data-ui-profile='compact-enterprise'] {
+  --ui-root-font-size: 14px;
+  font-size: var(--ui-root-font-size);
   --ui-control-height: 28px;
   --ui-control-small-height: 28px;
   --ui-control-radius: 3.5px;
   --ui-control-font-size: 12.25px;
+  --ui-control-line-height: 17.5px;
+  --ui-control-large-height: 28px;
+  --ui-icon-button-size: 28px;
+  --ui-menu-item-padding-y: 7px;
   --ui-button-gap: 5.25px;
   --ui-button-padding-x: 14px;
+  --ui-button-padding-y: 0px;
   --ui-button-small-padding-x: 10.5px;
   --ui-input-padding-x: 10.5px;
+  --ui-input-padding-y: 3.5px;
+  --ui-label-font-size: 12.25px;
+  --ui-label-line-height: 12.25px;
+  --ui-invalid-border-color: hsl(var(--destructive));
+  --ui-textarea-min-height: 72px;
+  --ui-textarea-padding-y: 7px;
+  --ui-form-row-gap: 14px;
+  --ui-form-column-gap: 21px;
+  --ui-field-stack-gap: 5.25px;
+  --ui-field-display: grid;
+  --ui-field-margin-gap: 0px;
+  --ui-section-font-size: 14px;
+  --ui-section-padding-top: 7px;
+  --ui-section-padding-bottom: 7px;
+  --ui-dialog-title-font-size: 15.75px;
+  --ui-dialog-title-line-height: 24.5px;
+  --ui-dialog-action-gap: 7px;
+  --ui-modal-padding-x: 21px;
+  --ui-modal-header-padding-top: 17.5px;
+  --ui-modal-header-padding-bottom: 14px;
+  --ui-modal-body-padding-y: 17.5px;
+  --ui-modal-footer-padding-y: 14px;
+  --ui-modal-body-max-height: 76vh;
+  --ui-modal-max-height: calc(76vh + 116px);
+  --ui-modal-full-max-width: min(1120px, 95vw);
+  --ui-table-font-size: 10.5px;
+  --ui-table-header-font-size: 10.5px;
+  --ui-table-cell-padding-x: 10.5px;
+  --ui-list-toolbar-gap: 7px;
   --ui-toolbar-action-height: 28px;
   --ui-toolbar-action-large-height: 28px;
 }

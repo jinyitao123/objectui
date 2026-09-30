@@ -3897,8 +3897,8 @@ export const ListView = React.forwardRef<ListViewHandle, ListViewProps>(({
           The right-hand cluster is wrapped in a single rounded pill container
           with vertical dividers (Linear / Notion style) so utility buttons
           read as one segmented control rather than a loose bag of icons. */}
-      <div className="border-b px-2 sm:px-4 py-1.5 flex items-center justify-between gap-1 sm:gap-2 bg-background">
-        <div className="flex items-center gap-2 overflow-x-auto min-w-0">
+      <div className="border-b px-2 sm:px-4 py-1.5 flex items-center justify-between gap-[var(--ui-list-toolbar-gap,0.25rem)] sm:gap-[var(--ui-list-toolbar-gap,0.5rem)] bg-background">
+        <div className="flex items-center gap-[var(--ui-list-toolbar-gap,0.5rem)] overflow-x-auto min-w-0">
           {/* User Filters — filter elements (dropdown chips / preset tabs /
               toggles). Mutually exclusive with view tabs above, so at most
               one filter element group ever renders here. On mobile we keep
@@ -4502,7 +4502,7 @@ export const ListView = React.forwardRef<ListViewHandle, ListViewProps>(({
                     placeholder={t('table.search')}
                     value={searchTerm}
                     onChange={(e) => handleSearchChange(e.target.value)}
-                    className="pl-7 h-8 text-xs"
+                    className="pl-7 h-[var(--ui-control-height,2rem)] text-[length:var(--ui-control-font-size,0.75rem)]"
                     autoFocus
                   />
                   {searchTerm && (
@@ -4510,6 +4510,7 @@ export const ListView = React.forwardRef<ListViewHandle, ListViewProps>(({
                       variant="ghost"
                       size="sm"
                       className="absolute right-0.5 top-1/2 -translate-y-1/2 h-5 w-5 p-0 hover:bg-muted-foreground/20"
+                      aria-label={t('list.clear')}
                       onClick={() => handleSearchChange('')}
                     >
                       <X className="h-3 w-3" />

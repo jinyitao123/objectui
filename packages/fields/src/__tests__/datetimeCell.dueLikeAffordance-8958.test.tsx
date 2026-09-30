@@ -25,8 +25,8 @@
  * relative window), through the two cell renderers:
  *
  *   date     `dueLike: true` -> "Overdue 3d"  `tabular-nums text-red-600`
- *   datetime `dueLike: true` -> "3 days ago"  `tabular-nums text-sm whitespace-nowrap`
- *   datetime  no key at all  -> "3 days ago"  `tabular-nums text-sm whitespace-nowrap`
+ *   datetime `dueLike: true` -> "3 days ago"  `tabular-nums text-[length:var(--ui-table-font-size,0.875rem)] whitespace-nowrap`
+ *   datetime  no key at all  -> "3 days ago"  `tabular-nums text-[length:var(--ui-table-font-size,0.875rem)] whitespace-nowrap`
  *
  * Rows 2 and 3 were BYTE-IDENTICAL: the authored key changed nothing. That is
  * the silent-drop signature — the runtime accepts the key, parses it, drops
@@ -184,7 +184,7 @@ describe('CONTROLS — the populations that must NOT move', () => {
     const face = faceOf(dateTimeCell(OVERDUE_3D, PLAIN_DATETIME));
     expect(face.text).toBe('3 days ago');
     // The full class list, verbatim: no red, and nothing else added either.
-    expect(face.cls).toBe('tabular-nums text-sm whitespace-nowrap');
+    expect(face.cls).toBe('tabular-nums text-[length:var(--ui-table-font-size,0.875rem)] whitespace-nowrap');
   });
 
   it('a `dueLike` datetime that is NOT overdue paints no affordance', () => {

@@ -2,6 +2,27 @@
 
 Standard UI component library for Object UI, built with Shadcn UI + Tailwind CSS.
 
+## Host geometry tokens
+
+The public `Button`/`buttonVariants`, `Input`, `SelectTrigger`/`SelectItem`, `Textarea`,
+`Label`, and `NativeSelect` exports are wrappers in `src/custom/profile-controls.tsx`.
+They preserve the Shadcn props and refs while consuming optional host CSS
+variables. Upstream `src/ui` files stay untouched. With no variables supplied,
+the wrappers retain the primitive size defaults; caller `className` overrides
+still take priority.
+
+The host can declare `--ui-control-height`, `--ui-control-small-height`,
+`--ui-control-font-size`, `--ui-control-line-height`, `--ui-control-radius`,
+`--ui-button-gap`, button/input padding variables, `--ui-label-font-size`,
+and textarea height/padding variables. The Console's opt-in
+`compact-enterprise` profile supplies a candidate geometry set in
+`apps/console/src/index.css`; it changes no palette or data semantics.
+
+The form renderer also consumes `--ui-form-row-gap`, `--ui-form-column-gap`,
+`--ui-field-stack-gap`, and section heading variables. Explicit schema layout
+classes remain authoritative. Collapsible section headers support Enter and
+Space in addition to pointer activation.
+
 ## Features
 
 - 🎨 **Tailwind Native** - Built entirely with Tailwind CSS utility classes

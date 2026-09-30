@@ -2,6 +2,14 @@
 
 The standard field library and registry for Object UI.
 
+## Host geometry
+
+Table cell text uses `--ui-table-font-size` with the previous size as its
+fallback. This is a display-only token: value formatting, empty-value carriers
+and field metadata remain unchanged. Editable widgets use the components
+package's control wrappers, so host control geometry applies consistently to
+the object form and inline editor paths.
+
 ## Features
 
 - 📚 **Standard Fields** - Implementation of all ObjectStack protocol fields (Text, Number, Date, Lookup, etc.)
