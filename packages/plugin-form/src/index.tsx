@@ -571,3 +571,22 @@ ComponentRegistry.registerReactRuntimeComponent(
 ComponentRegistry.registerReactRuntimeComponent('CompositeDialog', CompositeDialog, {
   injectDataSource: false,
 });
+
+// A development module replacement creates new component constructors. Release
+// only this module's registrations before replacement; production collisions
+// remain errors and another owner's registration must never be removed.
+const formHot = (import.meta as ImportMeta & {
+  hot?: { dispose(callback: () => void): void };
+}).hot;
+formHot?.dispose(() => {
+  for (const [name, component] of [
+    ['RelationshipCollectionEditor', RelationshipCollectionEditor],
+    ['CompositeDialog', CompositeDialog],
+  ] as const) {
+    const registration = ComponentRegistry.getReactRuntimeComponents()
+      .find((entry) => entry.name === name);
+    if (registration?.component === component) {
+      ComponentRegistry.unregisterReactRuntimeComponent(name);
+    }
+  }
+});

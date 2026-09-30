@@ -1645,12 +1645,14 @@ const SimpleObjectForm: React.FC<SimpleObjectFormProps> = ({
         .map(f => {
           const def = sectionDefByName.get(f.name);
           if (!def || typeof def !== 'object') return f;
-          // Carry the section field def's layout/visibility overrides onto the
-          // resolved field — the name-only filter above would otherwise drop
-          // them. #2578: `span`/`colSpan` are how a section controls per-field
-          // width; #2212: `visibleOn`.
+          // Carry the section field def's widget/layout/visibility overrides
+          // onto the resolved field — the name-only filter above would
+          // otherwise drop them. `widget` is the Spec FormFieldSchema override;
+          // `span`/`colSpan` control per-field width, and `visibleOn` is the
+          // view-level predicate.
           const d = def as any;
           const merged: any = { ...f };
+          if (d.widget != null) merged.widget = d.widget;
           if (d.visibleOn != null) merged.visibleOn = d.visibleOn;
           if (d.colSpan != null) merged.colSpan = d.colSpan;
           if (d.span != null) merged.span = d.span;

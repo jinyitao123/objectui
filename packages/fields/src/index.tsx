@@ -3625,6 +3625,7 @@ const fieldWidgetMap = {
   'number': () => import('./widgets/NumberField.js').then(m => ({ default: m.NumberField })),
   'boolean': () => import('./widgets/BooleanField.js').then(m => ({ default: m.BooleanField })),
   'select': () => import('./widgets/SelectField.js').then(m => ({ default: m.SelectField })),
+  'declared-label-select': () => import('./widgets/DeclaredLabelSelectField.js').then(m => ({ default: m.DeclaredLabelSelectField })),
   'date': () => import('./widgets/DateField.js').then(m => ({ default: m.DateField })),
   'datetime': () => import('./widgets/DateTimeField.js').then(m => ({ default: m.DateTimeField })),
   'time': () => import('./widgets/TimeField.js').then(m => ({ default: m.TimeField })),
@@ -3821,6 +3822,7 @@ const FIELD_TYPES_SKIP_FALLBACK = new Set([
   'object-ref',
   'filter-condition',
   'recipient-picker',
+  'declared-label-select',
 ]);
 
 /**
@@ -3884,6 +3886,7 @@ export const FIELD_WIDGET_LABELLING: Record<
   number: 'control',
   boolean: 'control',
   select: 'control',
+  'declared-label-select': 'control',
   date: 'control',
   datetime: 'control',
   time: 'control',
@@ -4083,6 +4086,7 @@ export * from './widgets/TextField.js';
 export * from './widgets/NumberField.js';
 export * from './widgets/BooleanField.js';
 export * from './widgets/SelectField.js';
+export * from './widgets/DeclaredLabelSelectField.js';
 export * from './widgets/DateField.js';
 export * from './widgets/DateTimeField.js';
 export * from './widgets/TimeField.js';

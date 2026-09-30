@@ -193,6 +193,34 @@ Client-side hiding is UX only — gate authorization-sensitive values on the
 server too. See
 [`content/docs/fields/select.mdx`](../../content/docs/fields/select.mdx).
 
+### Label-stored text selects
+
+`widget: 'declared-label-select'` renders a text field as a dropdown while
+storing the selected option's original `label` string. The required option
+`value` remains the lowercase machine key used for `fieldOptions` translations;
+it is never written as the field value. For example:
+
+```ts
+Field.text({
+  label: 'Gender',
+  widget: 'declared-label-select',
+  options: [
+    { value: 'male', label: 'Male' },
+    { value: 'female', label: 'Female' },
+  ],
+});
+```
+
+The widget resolves labels with the form's object name and field name, so a
+locale can display a translated option while a selection still writes the
+authored label. Existing text values absent from the option list remain visible
+as an “Existing value” choice instead of being cleared. Configure plain string
+labels with unique machine values and unique labels, including after
+translation. `I18nLabel` objects, repeated labels, option `visibleWhen`, and
+option-level defaults are refused: the ObjectStack write path still treats the
+field as text and cannot enforce those select semantics. This is a UI control,
+not server-side membership validation. See the [fields guide](../../content/docs/guide/fields.md#label-stored-text-selects).
+
 ## Links
 
 - 📚 [Documentation](https://www.objectui.org/docs/guide/fields)

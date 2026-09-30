@@ -254,8 +254,15 @@ FormView variant or a persistence API.
 footer cancellation through `requestClose` to share the Escape/backdrop/Close
 guard. With `confirmOnDiscard`, closing requests confirmation and continuing
 editing preserves the mounted draft. The host sets this flag from its compound
-draft policy. `busy` disables Close and rejects cancellation while saving. The
+draft policy. `busy` disables Close, rejects cancellation, and disables the body
+form controls through a fieldset while saving. This keeps validate-only form
+values intact; do not turn model fields read-only merely to block busy input. The
 exported types are `CompositeDialogProps` and `CompositeDialogControls`.
+
+Trusted React Pages retain their runtime scope when normalization or metadata
+refresh clones the same Page payload. This preserves an open form and its draft.
+Changed metadata or a different adapter still rebuilds the page scope; opaque
+runtime values compare by identity.
 
 Register your own components:
 

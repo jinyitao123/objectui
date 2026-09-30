@@ -11,6 +11,7 @@ import { AdapterCtx, SchemaRenderer, SchemaRendererProvider } from '@object-ui/r
 import { MePermissionsProvider } from '@object-ui/permissions';
 import { registerAllFields, useUploadingSignal } from '@object-ui/fields';
 import '@object-ui/components';
+import { CompositeDialog } from '@object-ui/components';
 import { ObjectForm } from '../ObjectForm';
 import '../index';
 
@@ -189,6 +190,32 @@ afterAll(() => {
 });
 
 describe('controlled ObjectForm through the React Page SDK', () => {
+  it('keeps sanitized validation values available while a compound host disables interaction', async () => {
+    const adapter = makeAdapter();
+    let controller: import('@object-ui/components').ObjectFormController | null = null;
+    render(
+      <SchemaRendererProvider dataSource={adapter}>
+        <MePermissionsProvider initialPermissions={permissions}>
+          <CompositeDialog open busy title="Customer draft" onOpenChange={() => {}}>
+            <ObjectForm schema={{ type: 'object-form', objectName: 'controlled_runtime_record', mode: 'create', showSubmit: false }}
+              dataSource={adapter}
+              values={{ title: 'Draft title', expected_on: '2026-10-05', private_note: 'not writable' }}
+              onControllerReady={(next) => { controller = next; }} />
+          </CompositeDialog>
+        </MePermissionsProvider>
+      </SchemaRendererProvider>,
+    );
+    const title = await screen.findByRole('textbox', { name: /^Title/ });
+    expect(title).toBeDisabled();
+    await waitFor(() => expect(controller).toBeTruthy());
+    let result: import('@object-ui/components').ObjectFormValidationResult | undefined;
+    await act(async () => { result = await controller!.validate(); });
+    expect(result).toMatchObject({ valid: true, values: { title: 'Draft title', expected_on: '2026-10-05' } });
+    if (result?.valid) expect(result.values).not.toHaveProperty('private_note');
+    expect(adapter.create).not.toHaveBeenCalled();
+    expect(adapter.update).not.toHaveBeenCalled();
+  });
+
   it('returns an invalid validate-only result while object metadata is loading', async () => {
     let resolveSchema: ((value: typeof objectSchema) => void) | undefined;
     const pendingSchema = new Promise<typeof objectSchema>((resolve) => { resolveSchema = resolve; });

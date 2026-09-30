@@ -93,6 +93,7 @@ describe('FieldWidgetComponentProps is closed (objectui#3221)', () => {
       // hosts, and the registry adapter that maps `SchemaRenderer`'s SDUI node
       // onto it.
       field,
+      objectName: 'crm_contact',
       dataSource: {},
       dependentValues: { country: 'cn' },
       dependsOn: ['country'],

@@ -177,6 +177,28 @@ function CapabilityDisabledNotice(): React.ReactElement {
   );
 }
 
+// Normalization and metadata refresh may clone an unchanged Page. Preserve the
+// runner's scope for equal JSON payloads; opaque runtime values still compare
+// by identity, and genuinely changed metadata rebuilds the scope.
+function samePagePayload(left: unknown, right: unknown, visited = new WeakMap<object, object>()): boolean {
+  if (Object.is(left, right)) return true;
+  if (!left || !right || typeof left !== 'object' || typeof right !== 'object') return false;
+  if (Array.isArray(left) !== Array.isArray(right)) return false;
+  if (Array.isArray(left) && Array.isArray(right) && left.length !== right.length) return false;
+  const leftPrototype = Object.getPrototypeOf(left);
+  const rightPrototype = Object.getPrototypeOf(right);
+  if (leftPrototype !== rightPrototype) return false;
+  if (!Array.isArray(left) && leftPrototype !== Object.prototype && leftPrototype !== null) return false;
+  if (visited.has(left)) return visited.get(left) === right;
+  visited.set(left, right);
+  const leftRecord = left as Record<string, unknown>;
+  const rightRecord = right as Record<string, unknown>;
+  const keys = Object.keys(leftRecord);
+  return keys.length === Object.keys(rightRecord).length
+    && keys.every((key) => Object.prototype.hasOwnProperty.call(rightRecord, key)
+      && samePagePayload(leftRecord[key], rightRecord[key], visited));
+}
+
 export const ReactKindPage: React.FC<{ schema: any }> = ({ schema }) => {
   const source: string = typeof schema?.source === 'string' ? schema.source : '';
   // The live data source for the injected data blocks (and the page's own
@@ -229,8 +251,14 @@ export const ReactKindPage: React.FC<{ schema: any }> = ({ schema }) => {
   // need to — `buildComponentScope` already sees lazy blocks (objectui#2953).
   // Host runtime React components share this one-time scope build and therefore
   // must also be registered before a page mounts.
-  const scope = React.useMemo(
-    () => addRuntimeReactComponents({
+  const scopeCache = React.useRef<{
+    schema: unknown;
+    adapter: typeof adapter;
+    scope: ReturnType<typeof addRuntimeReactComponents>;
+  } | null>(null);
+  if (!scopeCache.current || scopeCache.current.adapter !== adapter
+    || !samePagePayload(scopeCache.current.schema, schema)) {
+    scopeCache.current = { schema, adapter, scope: addRuntimeReactComponents({
       ...buildComponentScope(adapter),
       // Live data access — `const adapter = useAdapter()` inside the page, then
       // adapter.find('object', {...}) / .create / .update. Hooks injected as
@@ -242,9 +270,9 @@ export const ReactKindPage: React.FC<{ schema: any }> = ({ schema }) => {
       data: schema?.data ?? schema?.variables ?? {},
       variables: schema?.variables ?? {},
       page: schema ?? {},
-    }, adapter),
-    [schema, adapter],
-  );
+    }, adapter) };
+  }
+  const scope = scopeCache.current.scope;
 
   // Capability gate — returned after all hooks above so hook order stays stable.
   if (!capabilityEnabled) {

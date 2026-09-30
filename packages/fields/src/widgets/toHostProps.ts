@@ -112,6 +112,9 @@ const HOST_PLUMBING_KEYS = [
   // the exclusion is named in the `FactoryOwnedKey` list below so the compiler
   // treats it as a decision rather than an omission.
   'dataSource',
+  // ObjectForm supplies its current object for field-option i18n; only the
+  // declared-label select reads this optional runtime context.
+  'objectName',
   'dependentValues',
   'dependsOn',
   'dependsOnLabels',

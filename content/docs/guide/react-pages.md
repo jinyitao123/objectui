@@ -143,6 +143,10 @@ for late registrations. By default the scope supplies its authenticated
 `dataSource` after page props so page source cannot replace that adapter. Pure
 presentation components can opt out with `{ injectDataSource: false }`.
 
+In development, module replacement releases that module's own runtime
+registrations before installing the replacement. Duplicate registration still
+fails in production.
+
 `@object-ui/plugin-form` registers `<RelationshipCollectionEditor>` and
 `<CompositeDialog>` this way. The former gets the authenticated adapter and
 keeps its function-valued `children` slot; the latter is presentation-only and
@@ -315,6 +319,11 @@ instead of invoking generic CRUD. Echoing `onValuesChange` values back does not
 reset the active form, and model defaults still fill keys omitted from the
 host's `values` object.
 
+While a host-owned save is pending, use a disabled fieldset or the dialog's
+busy guard to block editing. Do not use `readOnly` as a generic busy flag:
+field readonly semantics affect validation and the outbound values ObjectForm
+allows through.
+
 #### Composing relationship drafts in a native React host
 
 `RelationshipCollectionEditor` is directly imported by native React hosts and
@@ -324,10 +333,27 @@ relationship, renders each draft with the same ObjectForm, and exposes one
 aggregate validate-only controller. A React `children` slot composes another
 collection; it does not add recursive FormView metadata or change lookup
 ownership. See the package's
-[relationship draft API](../../../packages/plugin-form/README.md#relationship-collection-drafts)
+[relationship draft API](https://github.com/objectstack-ai/objectui/blob/main/packages/plugin-form/README.md#relationship-collection-drafts)
 for controlled rows, inclusion rules, and card/row presentation. The standalone
 Console preview at `?sample=relationships` exercises the host composition and
 does not persist records or prove transaction atomicity.
+
+The editor accepts existing React-only `sections` from
+`@objectstack/spec/ui` `FormSection[]` and passes them through ObjectForm's
+section pipeline. A `primaryField` names one declared boolean child field;
+its localized header checkbox stays in the same controlled row values and
+validation payload, while an optional `onPrimaryChange` lets the host enforce
+mutual exclusion. The header respects field read/write access, static and
+conditional readonly rules, and `visibleWhen`; pass the actual containing row
+as `parentRecord` when child rules reference `parent.*`. No new persistent
+field or relationship lifecycle is implied.
+
+For `presentation="rows"`, `fieldWidths` maps row fields to the fixed 112px or
+132px templates; unlisted fields fill the remaining space and order follows
+`fields`. Only the built-in supported width signatures are accepted, with
+unsupported combinations reported as configuration errors. At narrow
+containers the row form and its single header stack to one column. Omitting
+`fieldWidths` preserves the default layout.
 
 One collision to know about: `type` is both the schema's component
 discriminator and a legitimate prop name on some blocks (a chart's family, for
@@ -406,10 +432,12 @@ injected — use HTML) or a block outside the public contract (use `Block`).
 
 ### Page state
 
-A react page keeps its own `useState` across re-renders and across lazy plugin
-loads. Three things reset it, all intentional: a change to `source`, a change to
-the page's data/variables, and a **new data source** — the page is genuinely a
-different page then.
+A react page keeps its own `useState` across re-renders, lazy plugin loads, and
+metadata refreshes that clone an unchanged Page payload. The renderer retains
+the scope explicitly rather than relying on a React memo cache for correctness.
+Changed Page metadata (including `source` or data/variables) and a **new data
+source** rebuild the scope and reset page state. Opaque runtime values compare
+by identity; JSON metadata compares by content.
 
 That last one is a requirement on the **host**, not the author. The page is
 recompiled when the adapter's *identity* changes, because recompiling is the

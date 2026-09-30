@@ -33,11 +33,12 @@ describe('CompositeDialog', () => {
     render(
       <CompositeDialog open title="Saving draft" busy onOpenChange={onOpenChange}
         footer={({ requestClose }) => <button onClick={requestClose}>Cancel draft</button>}>
-        <p>Draft fields</p>
+        <label>Name<input aria-label="Name" defaultValue="Draft name" /></label>
       </CompositeDialog>,
     );
     const close = screen.getByRole('button', { name: /^Close$/ }) as HTMLButtonElement;
     expect(close.disabled).toBe(true);
+    expect(screen.getByRole('textbox', { name: 'Name' })).toBeDisabled();
     fireEvent.click(close);
     fireEvent.click(screen.getByRole('button', { name: 'Cancel draft' }));
     expect(onOpenChange).not.toHaveBeenCalled();

@@ -524,6 +524,7 @@ function needsDataSourceWiring(widgetType: string): boolean {
 function stripRendererOnlyProps<T extends Record<string, any>>(props: T): T {
   const {
     dataSource: _dataSource,
+    objectName: _objectName,
     inputType: _inputType,
     options: _options,
     field: _field,
@@ -845,6 +846,7 @@ function withReadonlyHostGroup(labelId: string | undefined, node: React.ReactNod
 function stripRegisteredFieldProps(type: string, props: RenderFieldProps): RenderFieldProps {
   const {
     dataSource,
+    objectName,
     inputType: _inputType,
     showActions: _showActions,
     fieldContainerClass: _fieldContainerClass,
@@ -875,6 +877,10 @@ function stripRegisteredFieldProps(type: string, props: RenderFieldProps): Rende
 
   return {
     ...fieldProps,
+    // Only the label-stored text select needs the current object's convention
+    // key to translate options. Keep it off every other registered widget's
+    // DOM pass-through surface.
+    ...(normalizedType === 'declared-label-select' && objectName ? { objectName } : null),
     // `dependsOnLabels` rides with `dependentValues`: the widgets that gate on
     // a sibling field's VALUE are exactly the ones that have to NAME that field
     // in the gate hint (objectstack#5407). Stripped for everything else for the
@@ -3205,6 +3211,7 @@ ComponentRegistry.register('form',
                   // metadata was stashed (standalone forms).
                   field: field.field || field,
                   ...formField,
+                  objectName: schema.objectName,
                   inputType: fieldProps.inputType,
                   // The field's label, forwarded explicitly because the
                   // destructure above takes it OFF `fieldProps` (objectui#3393).
@@ -3670,6 +3677,7 @@ ComponentRegistry.register('form',
 // Helper function to render field components with proper typing
 interface RenderFieldProps {
   inputType?: string;
+  objectName?: string;
   options?: SelectOption[];
   placeholder?: string;
   value?: any;

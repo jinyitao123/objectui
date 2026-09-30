@@ -132,8 +132,10 @@ export type FieldWidgetComponentProps<T = any> = {
    * `SchemaRenderer`'s SDUI node onto this contract (`withFieldCarrier` in
    * `packages/fields/src/withFieldCarrier.tsx`). A widget reads `props.field`
    * and nothing else; there is no second key to check.
-   */
+  */
   field: FieldMetadata;
+  /** Object whose field-option labels are being rendered; host runtime plumbing only. */
+  objectName?: string;
   readonly?: boolean;
   disabled?: boolean;
   className?: string;

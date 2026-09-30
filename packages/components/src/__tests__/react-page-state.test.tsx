@@ -11,7 +11,8 @@
  * compile — a new element TYPE, which React remounts. So the page's `useState`
  * survives only as long as nothing recompiles it, and that holds only while
  * BOTH links in the chain stay identity-stable: `ReactRunner` memoises on
- * `(code, scope)`, and `ReactKindPage` memoises `scope` on `[schema, adapter]`.
+ * `(code, scope)`, and `ReactKindPage` retains its scope for equal Page payloads
+ * and the same adapter. A cloned metadata object must not reset the page.
  *
  * Break either link and nothing fails loudly. Types check, every scope-contract
  * test still passes, the page still renders — it just silently drops whatever
@@ -79,6 +80,16 @@ describe('kind:\'react\' page state', () => {
     expect(getByTestId('tick').textContent).toBe('1');
     // '0' here means the page was remounted: something upstream handed
     // ReactRunner a new `code` or a new `scope` identity.
+    expect(getByTestId('counter').textContent).toBe('1');
+  });
+
+  it('keeps the draft when metadata refresh clones an unchanged page payload', async () => {
+    const original = { ...PLAIN_SCHEMA, context: { filters: ['active'] }, regions: [] };
+    const { findByTestId, getByTestId, rerender } = render(<Host tick={0} schema={original} />);
+    fireEvent.click(await findByTestId('counter'));
+    expect(getByTestId('counter').textContent).toBe('1');
+
+    rerender(<Host tick={1} schema={{ ...original, context: { filters: ['active'] }, regions: [] }} />);
     expect(getByTestId('counter').textContent).toBe('1');
   });
 

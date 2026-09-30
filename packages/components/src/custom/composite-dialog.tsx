@@ -78,7 +78,9 @@ export function CompositeDialog({
           </DialogDescription>
         </DialogHeader>
         <div className="@container min-h-0 flex-1 overflow-y-auto px-4 py-4 sm:px-[var(--ui-modal-padding-x,1.5rem)] sm:py-[var(--ui-modal-body-padding-y,1rem)] sm:max-h-[var(--ui-modal-body-max-height,none)]" aria-busy={busy}>
-          {children}
+          <fieldset disabled={busy} className="m-0 min-w-0 border-0 p-0">
+            {children}
+          </fieldset>
         </div>
         {footer != null && (
           <div className="shrink-0 border-t bg-background px-4 py-3 sm:px-[var(--ui-modal-padding-x,1.5rem)]" data-testid="composite-dialog-footer">

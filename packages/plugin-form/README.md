@@ -1143,6 +1143,10 @@ These registrations are code-only runtime entries, not schema registrations or
 package before mounting pages; late registrations do not refresh an existing
 scope. See the React Pages guide for the authoring-contract boundary.
 
+In development, module replacement releases this module's runtime
+registrations before installing the replacement. Production registration
+continues to reject duplicate component names.
+
 ## Relationship collection drafts
 
 `RelationshipCollectionEditor` is a directly imported React component for
@@ -1166,6 +1170,26 @@ draft values may still carry host-selected defaults; the mounted ObjectForm's
 outbound permissions and sanitization remain authoritative, including for
 values whose controls were omitted.
 
+`sections` optionally passes existing `@objectstack/spec/ui` `FormSection`
+definitions into each row's ObjectForm. Their Spec `field`, `widget`,
+`colSpan`, and section layout are consumed by ObjectForm's section pipeline;
+the collection removes its `primaryField` from the body field list and section
+members so the header control does not appear twice.
+
+For card rows, `primaryField` names one declared boolean child field and adds a
+localized checkbox to each card header. It uses the row's same controlled
+ObjectForm values and validate/sanitize path. A host may provide
+`onPrimaryChange(draftKey, checked)` to enforce its collection policy, such as
+making the selection exclusive; the editor always updates the selected row
+through `onChange`, and without that callback it changes only that row. The
+field must be a child field rather than the parent lookup. A field the caller
+cannot read has no header control; a field they cannot write, or whose static
+or conditional readonly rule is active, is disabled and its value is excluded
+from the validated draft. `visibleWhen: false` or `hidden: true` hides the
+header control while retaining the value under ObjectForm's existing
+visibility semantics. For a predicate using `parent.*`, pass the actual
+`parentRecord`; ambient predicate scope is preserved.
+
 `onControllerReady` supplies a `RelationshipCollectionEditorController` with
 `validate()`. The result is either `{ valid: true, draft }` or
 `{ valid: false, errors, draft? }`. Each validated row contains writable values
@@ -1187,8 +1211,17 @@ a persisted record. `createDraftValues` supplies documented local defaults.
 The default `presentation="cards"` uses Card/Header/Content for richer rows.
 `presentation="rows"` uses an inline form and a trailing remove action, useful
 for compact contact channels. `columns` controls the native ObjectForm grid;
-rows default to three columns. Both use the same mounted fields and validation
-controller. Public labels and `className` can be supplied by the host.
+rows default to three columns. For a compact unequal layout, `fieldWidths`
+maps selected field names to the static `112` or `132` pixel widths; unlisted
+fields fill the remaining space. The field order remains the `fields` order.
+The built-in templates cover the two fixed widths in either order followed by
+fill, a single fixed column beside fill, and the corresponding one- or
+two-column subsets. Other signatures return a configuration error rather than
+silently changing the requested widths. Compact rows stack at narrow container
+widths, and their one-time header and ObjectForm use the same template. Without
+`fieldWidths`, the existing rows geometry and default profile remain unchanged.
+Both presentations use the same mounted fields and validation controller.
+Public labels and `className` can be supplied by the host.
 
 The standalone Console preview at `?sample=relationships` demonstrates a
 customer, contact, and contact-channel draft composition. Its outer **Check
@@ -1244,7 +1277,7 @@ The plugin includes these field components:
 
 ## Links
 
-- 📚 [Documentation](https://www.objectui.org/docs/plugins/plugin-form)
+- 📚 [Documentation](https://github.com/objectstack-ai/objectui/blob/main/content/docs/guide/react-pages.md#composing-relationship-drafts-in-a-native-react-host)
 - 📦 [npm package](https://www.npmjs.com/package/@object-ui/plugin-form)
 - 📝 [Changelog](./CHANGELOG.md)
 - 🐛 [Report an issue](https://github.com/objectstack-ai/objectui/issues)

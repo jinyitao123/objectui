@@ -84,6 +84,39 @@ Object UI comes with built-in support for the standard [ObjectStack Protocol](ht
 | `user` | Person picker — searches the `sys_user` object (a lookup specialized to users) |
 | `owner` | Record owner — a `user` field, typically read-only and stamped with the current user |
 
+## Label-stored text selects
+
+Use the registered `declared-label-select` widget when a field must remain
+`text` while offering a fixed dropdown whose selected value is the exact,
+authored option label. The machine `value` identifies the translation key; the
+widget translates the display label by the form's object and field name, but
+stores the original label string regardless of the active locale.
+
+```ts
+Field.text({
+  label: 'Gender',
+  widget: 'declared-label-select',
+  options: [
+    { value: 'male', label: 'Male' },
+    { value: 'female', label: 'Female' },
+  ],
+});
+```
+
+The widget requires `type: 'text'`, non-empty options, unique machine values,
+and unique plain-string labels. It refuses repeated labels (including labels
+that collide after translation), `I18nLabel` objects, option `visibleWhen`, and
+option-level defaults. `visibleWhen` and option defaults are validated and
+applied against machine values by ObjectStack, while this widget stores labels;
+accepting them would make the display and write paths disagree. Use a normal
+`select` field when machine option values should be stored and enforced by the
+server.
+
+If a record already contains text absent from the declared labels, the widget
+shows it as an “Existing value” choice rather than clearing it on mount. This
+widget changes presentation only. ObjectStack still validates the field as
+text, so API writes are not restricted to the options.
+
 ## Editing date fields
 
 `DateField` keeps the browser's native `input[type=date]` unless the host sets

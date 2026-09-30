@@ -29,8 +29,15 @@ const schemas = [
       customer_id: Field.lookup(customerObject, { label: 'Customer', ...required }),
       name: Field.text({ label: 'Name', ...required }),
       job_title: Field.text({ label: 'Job title' }),
+      gender: Field.text({ label: 'Gender', widget: 'declared-label-select', options: [
+        { value: 'male', label: 'Male' }, { value: 'female', label: 'Female' },
+      ] }),
       department: Field.text({ label: 'Department' }),
-      remarks: Field.text({ label: 'Remarks' }),
+      decision_weight: Field.text({ label: 'Decision priority', widget: 'declared-label-select', options: [
+        { value: 'price', label: 'Price' }, { value: 'delivery', label: 'Delivery' },
+      ] }),
+      remarks: Field.textarea({ label: 'Remarks' }),
+      is_primary: Field.boolean({ label: 'Primary contact', defaultValue: false }),
     },
   }),
   ObjectSchema.create({
@@ -75,7 +82,7 @@ const hasText = (value: unknown) => typeof value === 'string' && value.trim().le
 export function RelationshipFixture() {
   const [dataSource] = useState(() => new RelationshipPreviewDataSource());
   const [customer, setCustomer] = useState<Record<string, unknown>>({});
-  const [contacts, setContacts] = useState<RelationshipDraftRow[]>([{ draftKey: 'initial-contact', values: {} }]);
+  const [contacts, setContacts] = useState<RelationshipDraftRow[]>([{ draftKey: 'initial-contact', values: { is_primary: true } }]);
   const [channels, setChannels] = useState<Record<string, RelationshipDraftRow[]>>({
     'initial-contact': initialChannels('initial-contact'),
   });
@@ -85,7 +92,10 @@ export function RelationshipFixture() {
   const [feedback, setFeedback] = useState('');
 
   const updateContacts = (nextRows: RelationshipDraftRow[]) => {
-    setContacts(nextRows);
+    const primary = nextRows.find((row) => row.values.is_primary === true
+      && contacts.find((old) => old.draftKey === row.draftKey)?.values.is_primary !== true)
+      ?? nextRows.find((row) => row.values.is_primary === true) ?? nextRows[0];
+    setContacts(nextRows.map((row) => ({ ...row, values: { ...row.values, is_primary: row.draftKey === primary?.draftKey } })));
     setChannels((current) => Object.fromEntries(nextRows.map((row) => [
       row.draftKey, current[row.draftKey] ?? initialChannels(row.draftKey),
     ])));
@@ -147,6 +157,13 @@ export function RelationshipFixture() {
             onChange={updateContacts}
             title="Contacts" itemLabel="Contact" addLabel="Add contact" removeLabel="Remove"
             columns={4}
+            fields={['name', 'job_title', 'gender', 'department', 'decision_weight', 'remarks', 'is_primary']}
+            primaryField="is_primary"
+            parentRecord={customer}
+            sections={[{ columns: 4, fields: [
+              'name', 'job_title', 'gender', 'department', 'decision_weight',
+              { field: 'remarks', widget: 'input', colSpan: 3 },
+            ] }]}
             canRemoveRow={() => contacts.length > 1}
             includeRow={(row) => Object.values(row.values).some(hasText)
               || (channels[row.draftKey] ?? []).some((channel) => hasText(channel.values.value))}
@@ -162,6 +179,9 @@ export function RelationshipFixture() {
                 }}
                 title="Contact information" itemLabel="Channel" addLabel="Add channel" removeLabel="Remove"
                 presentation="rows" columns={3}
+                fields={['channel_type', 'name', 'value']}
+                fieldWidths={{ channel_type: 132, name: 112 }}
+                parentRecord={row.values}
                 createDraftValues={() => ({ channel_type: 'mobile', name: 'Work mobile', value: '' })}
                 includeRow={(channel) => hasText(channel.values.value)}
                 onControllerReady={onControllerReady}
