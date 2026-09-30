@@ -14,6 +14,9 @@ governed query up to the disclosed platform ceiling.
 height (420px when omitted). The compact Console host uses zero so a short
 schedule can follow its rows instead of reserving a large empty canvas;
 explicitly sized hosts still supply their own available height.
+Toolbar groups wrap within their container; the period label stays on one line
+so a sidebar or narrow embed cannot compress it into vertical text or clip the
+remaining controls.
 
 Gantt chart plugin for Object UI - Visualize project timelines and task dependencies.
 

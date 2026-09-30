@@ -11,6 +11,11 @@ The **Console** is the reference application for [ObjectUI](/docs/guide). It ren
 
 ### Optional geometry profile
 
+Compact metric headers retain a decorative, aria-hidden corner mark separately
+from any configured drill action. Help sits beside the label, and the Gantt
+toolbar wraps to its available container width while keeping period labels
+readable.
+
 Use `VITE_UI_PROFILE=compact-enterprise` to enable the Console's compact host
 geometry tokens. Public controls use custom wrappers over unchanged Shadcn
 primitives; list, grid and form renderers consume the same host variables.

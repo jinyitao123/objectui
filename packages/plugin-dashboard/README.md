@@ -234,6 +234,13 @@ The renderer also supports ordered top-N dataset output through `options.sortBy`
 projected dimension or value; the renderer does not invent a numbered rank
 column, so a visible rank must come from the dataset itself.
 
+Compact metric headers can place a small, aria-hidden corner mark after the
+title and help. This is presentation only and never acts as a drill button.
+The declared drill action remains separate and requires a server-provided
+record source. `--ui-dashboard-metric-title-flex`,
+`--ui-dashboard-metric-icon-glyph-size` and
+`--ui-dashboard-metric-corner-mark-*` tune this header without adding metadata.
+
 KPI cards use separate `--ui-dashboard-metric-title-*` and
 `--ui-dashboard-metric-value-*` variables so a compact metric label does not
 inherit a chart heading's type scale. Their horizontal and vertical padding,

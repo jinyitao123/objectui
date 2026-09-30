@@ -5,7 +5,7 @@
 
 import React from 'react';
 import { cn, getLazyIcon, Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@object-ui/components';
-import { CircleHelp } from 'lucide-react';
+import { ArrowUpRight, CircleHelp } from 'lucide-react';
 import { VARIANT_ICON_CLASSES, type MetricColorVariant } from './colorVariants';
 
 export function MetricHelpTooltip({ description }: { description?: string }) {
@@ -64,11 +64,15 @@ export function MetricHeaderTitle({
           )}
         >
           {/* eslint-disable-next-line react-hooks/static-components -- getLazyIcon returns a module-cached component for each name. */}
-          <Icon className="h-4 w-4" />
+          <Icon className="h-[var(--ui-dashboard-metric-icon-glyph-size,1rem)] w-[var(--ui-dashboard-metric-icon-glyph-size,1rem)]" />
         </span>
       ) : null}
-      <div className="min-w-0 flex-1">{title}</div>
+      <div className="min-w-0 [flex:var(--ui-dashboard-metric-title-flex,1)]">{title}</div>
       <MetricHelpTooltip description={description} />
+      <ArrowUpRight
+        aria-hidden="true"
+        className="ml-auto shrink-0 h-[var(--ui-dashboard-metric-corner-mark-size,0.875rem)] w-[var(--ui-dashboard-metric-corner-mark-size,0.875rem)] text-muted-foreground opacity-50 [display:var(--ui-dashboard-metric-corner-mark-display,none)]"
+      />
     </div>
   );
 }

@@ -90,6 +90,10 @@
   --ui-dashboard-metric-delta-margin-top: 3px;
   --ui-dashboard-metric-header-border-width: 0px;
   --ui-dashboard-metric-header-gap: 7px;
+  --ui-dashboard-metric-title-flex: 0 1 auto;
+  --ui-dashboard-metric-icon-glyph-size: 14px;
+  --ui-dashboard-metric-corner-mark-display: block;
+  --ui-dashboard-metric-corner-mark-size: 13px;
   --ui-dashboard-metric-header-description-display: none;
   --ui-dashboard-metric-help-display: inline-flex;
   --ui-dashboard-metric-help-icon-size: 12px;
