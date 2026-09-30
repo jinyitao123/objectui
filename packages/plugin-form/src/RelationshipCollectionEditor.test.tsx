@@ -84,6 +84,7 @@ interface ContactHarnessProps {
   includeRow?: (row: RelationshipDraftRow) => boolean;
   presentation?: 'cards' | 'rows';
   columns?: number;
+  fields?: readonly string[];
 }
 
 function ContactHarness({
@@ -94,6 +95,7 @@ function ContactHarness({
   includeRow,
   presentation,
   columns,
+  fields,
 }: ContactHarnessProps) {
   const [rows, setRows] = useState(initialRows);
   return (
@@ -103,6 +105,7 @@ function ContactHarness({
       relationshipField="customer_id"
       dataSource={dataSource}
       value={rows}
+      fields={fields}
       onChange={(next) => {
         onDraftChange?.(next);
         setRows(next);
@@ -164,6 +167,48 @@ function NestedHarness({ dataSource, onControllerReady, includeContact }: Nested
 }
 
 describe('RelationshipCollectionEditor', () => {
+  it('orders selected controls and keeps model-bound hidden values subject to FLS', async () => {
+    const { dataSource, create, update } = makeDataSource();
+    let controller: RelationshipCollectionEditorController | null = null;
+    const { container } = render(
+      <PermissionProvider roles={[{ name: 'limited', label: 'Limited' }]}
+        permissions={[{ object: 'contact', roles: { limited: {
+          actions: ['create'], fieldPermissions: [{ field: 'manager_id', read: true, write: false }],
+        } } }]} userRoles={['limited']}>
+        <ContactHarness dataSource={dataSource} fields={['is_primary', 'full_name']}
+          initialRows={[{ draftKey: 'selected-contact', values: { full_name: 'Ada', is_primary: true, manager_id: 'user-1' } }]}
+          onControllerReady={(next) => { controller = next; }} />
+      </PermissionProvider>,
+    );
+    await screen.findByRole('textbox', { name: 'Full name' });
+    expect(Array.from(container.querySelectorAll('[data-field]'), (field) => field.getAttribute('data-field')))
+      .toEqual(['is_primary', 'full_name']);
+    expect(container.querySelector('[data-field="manager_id"]')).toBeNull();
+    const result = await controller!.validate();
+    expect(result.valid).toBe(true);
+    if (result.valid) {
+      expect(result.draft.rows[0].values).toMatchObject({ full_name: 'Ada', is_primary: true });
+      expect(result.draft.rows[0].values).not.toHaveProperty('manager_id');
+      expect(result.draft.rows[0].values).not.toHaveProperty('customer_id');
+    }
+    expect(create).not.toHaveBeenCalled();
+    expect(update).not.toHaveBeenCalled();
+  });
+
+  it('refuses unknown selected fields and does not silently render a partial field set', async () => {
+    const { dataSource, create } = makeDataSource();
+    let controller: RelationshipCollectionEditorController | null = null;
+    render(<ContactHarness dataSource={dataSource} fields={['full_name', 'missing_field']}
+      initialRows={[{ draftKey: 'bad-config', values: { full_name: 'Ada' } }]}
+      onControllerReady={(next) => { controller = next; }} />);
+    await screen.findByTestId('relationship-collection-error');
+    expect(screen.queryByRole('textbox', { name: 'Full name' })).toBeNull();
+    const result = await controller!.validate();
+    expect(result.valid).toBe(false);
+    if (!result.valid) expect(result.errors).toContainEqual(expect.objectContaining({ fieldName: 'missing_field' }));
+    expect(create).not.toHaveBeenCalled();
+  });
+
   it('renders metadata fields inline, keeps changes controlled, collects Enter locally, and validates once for the host', async () => {
     const { dataSource, create, update, remove } = makeDataSource();
     const changedRows: RelationshipDraftRow[][] = [];

@@ -1127,19 +1127,44 @@ anything.
 > there is ignored rather than mistaken for a binding. Pass adapters through the
 > provider above.
 
+## Trusted React Page runtime components
+
+The `@object-ui/plugin-form` package entry registers two reviewed direct
+components for the host's `kind:'react'` runtime scope:
+
+- `<RelationshipCollectionEditor>` receives the authenticated host adapter and
+  retains its controlled values and function-valued `children` slot.
+- `<CompositeDialog>` is a presentation frame from `@object-ui/components`;
+  its `children` and function-valued `footer` are passed through without
+  injecting a `dataSource` prop.
+
+These registrations are code-only runtime entries, not schema registrations or
+`PUBLIC_BLOCKS`/`REACT_BLOCKS` authoring declarations. The host imports this
+package before mounting pages; late registrations do not refresh an existing
+scope. See the React Pages guide for the authoring-contract boundary.
+
 ## Relationship collection drafts
 
 `RelationshipCollectionEditor` is a directly imported React component for
-editing unsaved rows of a metadata-declared child lookup or master-detail
-relationship. It does not introduce a JSON schema type, a React Page injected
-tag, or a recursive FormView contract. It preserves the existing relationship's
-ownership and uses ObjectForm for fields, permissions, and validation.
+native React hosts and a code-registered runtime component for trusted
+`kind:'react'` pages. The package entry injects it as
+`<RelationshipCollectionEditor>` before page scopes are built. This does not
+add a JSON schema type, a `PUBLIC_BLOCKS` entry, or a recursive FormView
+contract. The page's function-valued `children` slot stays a runtime React prop;
+the editor uses ObjectForm for fields, permissions, and validation.
 
 Provide `parentObjectName`, `childObjectName`, `dataSource`, controlled `value`
 rows (`{ draftKey, values }`), and `onChange`. The relationship field is inferred
 from the child's metadata or explicitly named with `relationshipField`; that
 foreign key is excluded from row controls and left for the host's transaction.
 `draftKey` is stable editor identity and is never record data.
+
+`fields` optionally selects declared child controls in host order, and the
+one-time row header uses the same selected set. Unknown fields and the
+transaction-supplied foreign key are configuration errors. Other model-bound
+draft values may still carry host-selected defaults; the mounted ObjectForm's
+outbound permissions and sanitization remain authoritative, including for
+values whose controls were omitted.
 
 `onControllerReady` supplies a `RelationshipCollectionEditorController` with
 `validate()`. The result is either `{ valid: true, draft }` or
@@ -1169,6 +1194,13 @@ The standalone Console preview at `?sample=relationships` demonstrates a
 customer, contact, and contact-channel draft composition. Its outer **Check
 draft** action validates all included rows. It never saves records and is not
 evidence of an atomic server transaction or of authoring/publish acceptance.
+
+The runtime component scope is assembled once when a React page mounts. Import
+`@object-ui/plugin-form` in the host before mounting pages; late registrations do
+not refresh a mounted scope. Its React-only `children`, draft callbacks, and
+controller props are not declared by `@objectstack/spec` `REACT_BLOCKS`, so
+this runtime availability does not mean `os validate` or publish validation
+accepts the tag or its props.
 
 ## TypeScript Support
 

@@ -183,6 +183,8 @@ export interface RelationshipCollectionEditorProps {
   dataSource: DataSource;
   /** Controlled local drafts. `draftKey` is stable UI identity, not record data. */
   value: readonly RelationshipDraftRow[];
+  /** Declared child fields to display, in host-selected order. Payload FLS still applies to all draft values. */
+  fields?: readonly string[];
   /** Replaces the caller's in-memory draft collection; never persists to a data source. */
   onChange: (rows: RelationshipDraftRow[]) => void;
   /** ObjectForm schema fields remain metadata-driven; this predicate lets the host omit blank rows. */
@@ -243,6 +245,7 @@ export function RelationshipCollectionEditor({
   relationshipField,
   dataSource,
   value,
+  fields: selectedFields,
   onChange,
   includeRow,
   createDraftValues,
@@ -316,9 +319,14 @@ export function RelationshipCollectionEditor({
   const objectSchema = currentLoadState?.status === 'ready' ? currentLoadState.schema : null;
   const resolvedRelationshipField = metadata?.ok ? metadata.relationshipField : null;
   const fieldNames = React.useMemo(() => metadata?.ok ? metadata.fieldNames : [], [metadata]);
+  const unknownSelectedField = selectedFields?.find((name) => !fieldNames.includes(name));
+  const formFieldNames = React.useMemo(
+    () => selectedFields ? Array.from(new Set(selectedFields)) : fieldNames,
+    [selectedFields, fieldNames],
+  );
   const visibleFieldNames = React.useMemo(() => {
     if (!objectSchema) return [];
-    const fieldPool = fieldNames.map((name) => ({ name })) as FormField[];
+    const fieldPool = formFieldNames.map((name) => ({ name })) as FormField[];
     const readableFields = applyFieldPermissions(fieldPool, {
       perms: permissions,
       objectName: childObjectName,
@@ -328,7 +336,7 @@ export function RelationshipCollectionEditor({
       filterSystemFields(readableFields, objectSchema),
       objectSchema,
     ).map((field) => field.name);
-  }, [fieldNames, objectSchema, permissions, childObjectName]);
+  }, [formFieldNames, objectSchema, permissions, childObjectName]);
   const effectiveMinRows = Number.isFinite(minRows) ? Math.max(0, Math.floor(minRows)) : 0;
   const requiresNestedController = nestedEditorRequired ?? Boolean(children);
   const createAllowed = objectSchema
@@ -435,6 +443,9 @@ export function RelationshipCollectionEditor({
         ? metadata.error.message
         : 'The relationship metadata is not ready.';
       return { valid: false, errors: [{ rowKeys: [], objectName: childObjectName, message }] };
+    }
+    if (unknownSelectedField) {
+      return { valid: false, errors: [{ rowKeys: [], objectName: childObjectName, fieldName: unknownSelectedField, message: 'A requested field is not declared as an editable child field.' }] };
     }
 
     const includedRows: RelationshipDraftRow[] = [];
@@ -566,6 +577,7 @@ export function RelationshipCollectionEditor({
     metadata,
     resolvedRelationshipField,
     fieldNames,
+    unknownSelectedField,
     effectiveMinRows,
     requiresNestedController,
     createAllowed,
@@ -586,9 +598,11 @@ export function RelationshipCollectionEditor({
     );
   }
 
-  if (currentLoadState.status === 'error' || !metadata?.ok || !objectSchema || !resolvedRelationshipField) {
+  if (currentLoadState.status === 'error' || !metadata?.ok || !objectSchema || !resolvedRelationshipField || unknownSelectedField) {
     const message = currentLoadState.status === 'error'
       ? `Could not load fields for ${childObjectName}: ${currentLoadState.message}`
+      : unknownSelectedField
+        ? `Field "${unknownSelectedField}" is not declared as an editable child field.`
       : metadata && !metadata.ok
         ? metadata.error.message
         : `No lookup or master_detail field references "${parentObjectName}".`;
@@ -670,7 +684,7 @@ export function RelationshipCollectionEditor({
               objectName: childObjectName,
               mode: 'create',
               formType: 'simple',
-              fields: fieldNames,
+              fields: formFieldNames,
               columns: rowColumns,
               className: presentation === 'rows' ? '[&_label]:sr-only' : undefined,
               showSubmit: false,

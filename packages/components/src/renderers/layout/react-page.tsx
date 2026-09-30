@@ -59,11 +59,12 @@ function toPascal(tag: string): string {
     .join('');
 }
 
-// Build the component scope from the curated PUBLIC contract. We inject the
-// data/leaf blocks (non-containers) as prop-driven wrappers; layout containers
-// are intentionally left out — in react mode the author composes layout with
-// real HTML and inline `style` objects, not our schema-children renderers (and
-// not Tailwind classes — see the styling note in this file's header).
+// Build the base component scope from the curated PUBLIC contract. We inject
+// the data/leaf blocks (non-containers) as prop-driven wrappers; layout
+// containers are intentionally left out — in react mode the author composes
+// layout with real HTML and inline `style` objects, not our schema-children
+// renderers (and not Tailwind classes — see the styling note in this file's
+// header). Trusted direct React components are added separately below.
 //
 // Lazily-registered blocks (`object-kanban`, `object-map`, `markdown`, … — see
 // apps/console/src/main.tsx) are in here too: `getPublicConfigs()` resolves
@@ -107,6 +108,35 @@ function buildComponentScope(dataSource: unknown): Record<string, React.Componen
     React.createElement(SchemaRenderer as any, { schema: { type, dataSource, ...props } });
   Block.displayName = 'Block';
   scope.Block = Block;
+  return scope;
+}
+
+function addRuntimeReactComponents(
+  scope: Record<string, unknown>,
+  dataSource: unknown,
+): Record<string, unknown> {
+  for (const { name, component, injectDataSource } of ComponentRegistry.getReactRuntimeComponents()) {
+    if (Object.prototype.hasOwnProperty.call(scope, name)) {
+      throw new Error(`React runtime component "${name}" collides with an existing page scope name.`);
+    }
+
+    const RuntimeComponent = component as React.ElementType;
+    const Wrapper: React.FC<Record<string, unknown>> = (props) => React.createElement(
+      RuntimeComponent,
+      injectDataSource
+        ? {
+            ...props,
+            // The authenticated host adapter is authoritative. Page source may
+            // supply a conflicting prop, but must not replace this boundary.
+            dataSource,
+          }
+        // Spreading the complete prop bag also preserves ReactNode children and
+        // function-valued render slots; runtime components are not schema blocks.
+        : props,
+    );
+    Wrapper.displayName = name;
+    scope[name] = Wrapper;
+  }
   return scope;
 }
 
@@ -197,8 +227,10 @@ export const ReactKindPage: React.FC<{ schema: any }> = ({ schema }) => {
   // plugin finishing its registration notifies the registry, and rebuilding the
   // scope there would reset every interactive page on the screen. It doesn't
   // need to — `buildComponentScope` already sees lazy blocks (objectui#2953).
+  // Host runtime React components share this one-time scope build and therefore
+  // must also be registered before a page mounts.
   const scope = React.useMemo(
-    () => ({
+    () => addRuntimeReactComponents({
       ...buildComponentScope(adapter),
       // Live data access — `const adapter = useAdapter()` inside the page, then
       // adapter.find('object', {...}) / .create / .update. Hooks injected as
@@ -210,7 +242,7 @@ export const ReactKindPage: React.FC<{ schema: any }> = ({ schema }) => {
       data: schema?.data ?? schema?.variables ?? {},
       variables: schema?.variables ?? {},
       page: schema ?? {},
-    }),
+    }, adapter),
     [schema, adapter],
   );
 

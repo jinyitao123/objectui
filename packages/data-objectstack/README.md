@@ -684,6 +684,16 @@ The hierarchical wire shape (`{ transactionalBatch: { enabled: true } }`) and th
 flat form the client SDK normalizes to (`{ transactionalBatch: true }`) are both
 accepted.
 
+Hosts that require atomic compound creation should first call
+`await dataSource.supportsTransactionalBatch()`. This read-only probe loads the
+same discovery declaration and returns true only for an explicit guarantee;
+false or an absent declaration returns false. It never executes a batch or a
+single-object write. If the probe is missing or does not return true, such a
+host must refuse Save rather than invoke the compatibility fallback. Once true,
+`batchTransaction` retains its existing hard-error behaviour on any batch
+failure. A declaration is not a substitute for verifying actual rollback in the
+target deployment.
+
 ### Non-atomic fallback
 
 When the capability is `false` or absent, the adapter degrades to a client-side
@@ -840,6 +850,7 @@ new ObjectStackAdapter(config: {
 - `delete(resource, id)` - Delete a record
 - `bulk(resource, operation, data)` - Batch operations (create/update/delete)
 - `batchTransaction(operations)` - Cross-object atomic batch (master-detail); atomic when the backend advertises `transactionalBatch`, else non-atomic client-side fallback
+- `supportsTransactionalBatch()` - Read the explicit discovery guarantee without writing; strict compound-save hosts require true
 - `getObjectSchema(objectName)` - Get schema metadata (cached)
 - `getCacheStats()` - Get cache statistics
 - `invalidateCache(key?)` - Invalidate cache entries

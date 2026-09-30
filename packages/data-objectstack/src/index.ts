@@ -4011,6 +4011,12 @@ export class ObjectStackAdapter<T = unknown> implements DataSource<T> {
     return emitBulk(succeeded);
   }
 
+  /** Discover the same guarantee used by batchTransaction; never starts a write. */
+  async supportsTransactionalBatch(): Promise<boolean> {
+    await this.connect();
+    return this.atomicBatchCapability === true;
+  }
+
   /**
    * Bulk operations with optimized batch processing and error handling.
    * Emits progress events for tracking operation status.

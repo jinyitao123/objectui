@@ -189,9 +189,13 @@ Adapters without a
 transactional endpoint don't need to hand-write orchestration: call
 `emulateBatchTransaction(dataSource, operations)` from `@object-ui/core`, which
 executes the operations sequentially (resolving `$ref`s) with best-effort
-compensation on failure. UI components never branch on atomicity — they call
+compensation on failure. Compatibility hosts call
 `runBatchTransaction(dataSource, operations)` (also from `@object-ui/core`),
-which uses the adapter's method when present and emulates otherwise.
+which uses the adapter's method when present and emulates otherwise. Hosts
+whose business contract requires all-or-none creation must instead require
+`await dataSource.supportsTransactionalBatch?.() === true` before invoking
+`batchTransaction`; a missing probe, false, or unknown capability prevents Save.
+The ObjectStack adapter's probe reads discovery only and performs no writes.
 
 The `@object-ui/data-objectstack` adapter decides whether it can trust server
 atomicity **declaratively**, at connect time: it reads the

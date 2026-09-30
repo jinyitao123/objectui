@@ -243,6 +243,20 @@ All components accept `className` for Tailwind classes:
 
 ### Custom Components
 
+`CompositeDialog` is a native React frame for compound forms. Its controlled
+`open`, `onOpenChange`, `title`, optional `description`, and `children` compose
+multiple sibling ObjectForms without nested HTML forms. It uses the same
+MobileDialogContent, modal geometry tokens, accessible title/description, and
+independent body scrolling as the form containers. It is not a serialized
+FormView variant or a persistence API.
+
+`footer` accepts a React node or `({ requestClose, busy }) => ReactNode`. Route
+footer cancellation through `requestClose` to share the Escape/backdrop/Close
+guard. With `confirmOnDiscard`, closing requests confirmation and continuing
+editing preserves the mounted draft. The host sets this flag from its compound
+draft policy. `busy` disables Close and rejects cancellation while saving. The
+exported types are `CompositeDialogProps` and `CompositeDialogControls`.
+
 Register your own components:
 
 ```tsx

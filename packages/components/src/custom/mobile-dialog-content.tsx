@@ -108,8 +108,8 @@ export function usePopperAwareInteractOutside(
 
 export const MobileDialogContent = React.forwardRef<
   React.ElementRef<typeof DialogPrimitive.Content>,
-  React.ComponentPropsWithoutRef<typeof DialogPrimitive.Content>
->(({ className, children, onInteractOutside, ...props }, ref) => {
+  React.ComponentPropsWithoutRef<typeof DialogPrimitive.Content> & { closeDisabled?: boolean }
+>(({ className, children, onInteractOutside, closeDisabled = false, ...props }, ref) => {
   const handleInteractOutside = usePopperAwareInteractOutside(onInteractOutside);
   return (
   <DialogPortal>
@@ -136,6 +136,7 @@ export const MobileDialogContent = React.forwardRef<
     >
       {children}
       <DialogPrimitive.Close
+        disabled={closeDisabled}
         className={cn(
           'absolute right-4 top-4 rounded-sm opacity-70 ring-offset-background transition-opacity',
           'hover:opacity-100 focus:outline-none focus:ring-2 focus:ring-ring focus:ring-offset-2',

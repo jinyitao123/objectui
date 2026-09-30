@@ -91,6 +91,40 @@ describe('Registry', () => {
     });
   });
 
+  describe('trusted React runtime components', () => {
+    it('keeps code-registered React components outside schema and public registries', () => {
+      const component = () => null;
+      const publicConfigsBefore = registry.getPublicConfigs();
+      const knownTypesBefore = registry.getKnownTypes();
+      const versionBefore = registry.getVersion();
+      registry.registerReactRuntimeComponent('RuntimeProbe', component);
+
+      expect(registry.getReactRuntimeComponents()).toEqual([
+        { name: 'RuntimeProbe', component, injectDataSource: true },
+      ]);
+      expect(registry.getConfig('RuntimeProbe')).toBeUndefined();
+      expect(registry.getKnownTypes()).toEqual(knownTypesBefore);
+      expect(registry.getPublicConfigs()).toEqual(publicConfigsBefore);
+      expect(registry.getAllConfigs()).toEqual([]);
+      expect(registry.getVersion()).toBe(versionBefore);
+    });
+
+    it('rejects reserved names, non-Pascal names, non-components, and conflicting registrations', () => {
+      const component = () => null;
+      for (const name of ['React', 'Block', 'useAdapter', 'navigate', 'data', 'variables', 'page', 'lowercase-name']) {
+        expect(() => registry.registerReactRuntimeComponent(name, component)).toThrow();
+      }
+      expect(() => registry.registerReactRuntimeComponent('RuntimeProbe', {})).toThrow(/React component type/);
+
+      registry.registerReactRuntimeComponent('RuntimeProbe', component);
+      expect(() => registry.registerReactRuntimeComponent('RuntimeProbe', () => null)).toThrow(/already registered/);
+      expect(() => registry.registerReactRuntimeComponent('RuntimeProbe', component, { injectDataSource: false })).toThrow(/already registered/);
+      expect(() => registry.registerReactRuntimeComponent('RuntimeProbe', component)).not.toThrow();
+      expect(registry.unregisterReactRuntimeComponent('RuntimeProbe')).toBe(true);
+      expect(registry.unregisterReactRuntimeComponent('RuntimeProbe')).toBe(false);
+    });
+  });
+
   describe('Namespace Lookup with Fallback', () => {
     it('should not fallback when namespace is explicitly specified', () => {
       const component = () => 'test';

@@ -437,9 +437,29 @@ export function withElementDataSourceInput<T>(
   return { ...(meta ?? {}), inputs: [...inputs, injected] };
 }
 
+/** A trusted, non-serializable component injected into a React page scope. */
+export interface ReactRuntimeComponentRegistration {
+  readonly name: string;
+  readonly component: unknown;
+  /** Defaults to true; set false for pure UI that does not consume the host adapter. */
+  readonly injectDataSource: boolean;
+}
+
+export interface ReactRuntimeComponentOptions {
+  /** Defaults to true so data-bound runtime components receive the host adapter. */
+  injectDataSource?: boolean;
+}
+
 export class Registry<T = any> {
   private components = new Map<string, RegistryComponentConfig<T>>();
   private lazyEntries = new Map<string, LazyEntry>();
+  /**
+   * Trusted React components injected into `kind:'react'` page scopes. This is
+   * deliberately separate from schema registrations: these entries have no
+   * serializable config, are not authorable in JSON, and do not notify schema
+   * renderers when changed. Hosts register them during application startup.
+   */
+  private reactRuntimeComponents = new Map<string, ReactRuntimeComponentRegistration>();
   /**
    * Notifies subscribers that the registry has changed (new components
    * registered). Used by SchemaRenderer to re-render after a lazy plugin
@@ -635,6 +655,56 @@ export class Registry<T = any> {
     }
     if (removed) this.notify();
     return removed;
+  }
+
+  /**
+   * Register a trusted React component for direct use in the `kind:'react'`
+   * runtime scope. This API does not add a schema type or publish authoring
+   * metadata. Register code-owned components before React pages mount; the
+   * page scope intentionally stays identity-stable after its first build.
+   */
+  registerReactRuntimeComponent(
+    name: string,
+    component: unknown,
+    options: ReactRuntimeComponentOptions = {},
+  ): void {
+    const reservedNames = new Set(['React', 'Block', 'useAdapter', 'navigate', 'data', 'variables', 'page']);
+    if (!/^[A-Z][A-Za-z0-9]*$/.test(name) || reservedNames.has(name)) {
+      throw new Error(`Invalid or reserved React runtime component name "${name}".`);
+    }
+
+    const isComponent = typeof component === 'function' || (
+      typeof component === 'object'
+      && component !== null
+      && '$$typeof' in component
+    );
+    if (!isComponent) {
+      throw new Error(`React runtime component "${name}" must be a React component type.`);
+    }
+
+    const registration: ReactRuntimeComponentRegistration = {
+      name,
+      component,
+      injectDataSource: options.injectDataSource ?? true,
+    };
+    const existing = this.reactRuntimeComponents.get(name);
+    if (
+      existing
+      && (existing.component !== component || existing.injectDataSource !== registration.injectDataSource)
+    ) {
+      throw new Error(`React runtime component "${name}" is already registered.`);
+    }
+    this.reactRuntimeComponents.set(name, registration);
+  }
+
+  /** Remove a runtime-only React component registration, primarily for host teardown and tests. */
+  unregisterReactRuntimeComponent(name: string): boolean {
+    return this.reactRuntimeComponents.delete(name);
+  }
+
+  /** Return a snapshot; runtime components never appear in schema registry reads. */
+  getReactRuntimeComponents(): ReactRuntimeComponentRegistration[] {
+    return Array.from(this.reactRuntimeComponents.values());
   }
 
   /**

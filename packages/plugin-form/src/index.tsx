@@ -16,8 +16,9 @@ import {
   type ElementDataSourceMapping,
 } from '@object-ui/react';
 import type { DataSource, ObjectFormSchema } from '@object-ui/types';
-import type { ObjectFormController } from '@object-ui/components';
+import { CompositeDialog, type ObjectFormController } from '@object-ui/components';
 import { ObjectForm } from './ObjectForm';
+import { RelationshipCollectionEditor } from './RelationshipCollectionEditor';
 
 export { ObjectForm };
 export type { ObjectFormComponentProps } from './ObjectForm';
@@ -558,4 +559,15 @@ ComponentRegistry.register('line_items', LineItemsPanelRenderer, {
     { name: 'totalField', type: 'string' },
     { name: 'amountField', type: 'string' },
   ],
+});
+
+// Direct React-page components are code-registered runtime capabilities, not
+// serializable schema blocks. Register before any React page builds its stable
+// scope; this editor intentionally receives the host's authenticated adapter.
+ComponentRegistry.registerReactRuntimeComponent(
+  'RelationshipCollectionEditor',
+  RelationshipCollectionEditor,
+);
+ComponentRegistry.registerReactRuntimeComponent('CompositeDialog', CompositeDialog, {
+  injectDataSource: false,
 });

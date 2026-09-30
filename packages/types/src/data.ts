@@ -570,6 +570,13 @@ export interface DataSource<T = any> {
   ): Promise<{ results: any[] }>;
 
   /**
+   * Read the backend's explicit transactional-batch guarantee without writing.
+   * Strict compound-save hosts must require true before calling batchTransaction.
+   * Missing support, false, and unknown declarations are not an atomic guarantee.
+   */
+  supportsTransactionalBatch?(): Promise<boolean>;
+
+  /**
    * Cancel (recall) the active pending approval request for a record.
    * Returns the recalled request id and final status. Throws when no
    * pending request exists or when the caller is not the submitter.

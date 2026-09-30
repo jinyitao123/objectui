@@ -75,7 +75,7 @@ pages are unaffected.
 
 ### What is in scope
 
-Nothing is imported. These identifiers are injected as closure variables:
+Page source imports nothing. The host injects these identifiers as closure variables:
 
 | In scope | What it is |
 |---|---|
@@ -85,6 +85,7 @@ Nothing is imported. These identifiers are injected as closure variables:
 | `useAdapter` | The live data source — query/create/update. |
 | `navigate` | Navigate to an in-app path through the host router. In ObjectUI Console this keeps navigation inside the mounted app and respects its basename. |
 | `data`, `variables`, `page` | The page's own data, local variables, and schema. |
+| Trusted runtime components | Direct React components explicitly registered by host code; they are outside the schema block list described below. |
 
 Use `navigate` for internal buttons and actions. It calls the host's SPA
 navigation bridge; in a standalone host without that bridge it falls back to a
@@ -130,6 +131,25 @@ Everything in the runtime scope but outside the contract still resolves and
 renders — its props simply are not part of the react-tier contract. Reach those
 through the contract instead: a kanban / calendar / gantt / timeline / map of an
 object is `<ListView viewType="kanban" …>`, or `<Block type="object-kanban" …>`.
+
+#### Host-registered React runtime components
+
+A trusted host can add reviewed React components to this scope with
+`ComponentRegistry.registerReactRuntimeComponent(name, component)`. This is a
+code-only runtime extension: it does not add a `PUBLIC_BLOCKS` or
+`REACT_BLOCKS` member, JSON component type, or authorable props. The host must
+register the component before mounting pages; React page scopes do not refresh
+for late registrations. By default the scope supplies its authenticated
+`dataSource` after page props so page source cannot replace that adapter. Pure
+presentation components can opt out with `{ injectDataSource: false }`.
+
+`@object-ui/plugin-form` registers `<RelationshipCollectionEditor>` and
+`<CompositeDialog>` this way. The former gets the authenticated adapter and
+keeps its function-valued `children` slot; the latter is presentation-only and
+does not receive an injected `dataSource`. These tags and their runtime props
+are not part of the generated `@objectstack/spec` React Page authoring contract.
+Runtime availability does not mean `os validate` or publish validation accepts
+them.
 
 #### The `record:*` family is excluded from this tier
 
@@ -297,12 +317,13 @@ host's `values` object.
 
 #### Composing relationship drafts in a native React host
 
-`RelationshipCollectionEditor` is a directly imported React component from
-`@object-ui/plugin-form`, not an injected React Page tag or JSON component type.
-It resolves a declared child lookup or master-detail relationship, renders each
-draft with the same ObjectForm, and exposes one aggregate validate-only
-controller. A React `children` slot composes another collection; it does not add
-recursive FormView metadata or change lookup ownership. See the package's
+`RelationshipCollectionEditor` is directly imported by native React hosts and
+is also injected into trusted React Page scopes when the host eagerly imports
+`@object-ui/plugin-form`. It resolves a declared child lookup or master-detail
+relationship, renders each draft with the same ObjectForm, and exposes one
+aggregate validate-only controller. A React `children` slot composes another
+collection; it does not add recursive FormView metadata or change lookup
+ownership. See the package's
 [relationship draft API](../../../packages/plugin-form/README.md#relationship-collection-drafts)
 for controlled rows, inclusion rules, and card/row presentation. The standalone
 Console preview at `?sample=relationships` exercises the host composition and
