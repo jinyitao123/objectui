@@ -241,7 +241,7 @@ function ChartContainer({
           // content width (0) on first paint inside react-grid-layout, so
           // Recharts measured width(-1) and rendered nothing until a later
           // resize fired its ResizeObserver — leaving dashboard charts blank.
-          "block w-full h-[350px] text-xs [&_.recharts-cartesian-axis-tick_text]:fill-muted-foreground",
+          "block w-full h-[var(--ui-chart-height,350px)] text-xs [&_.recharts-cartesian-axis-tick_text]:fill-muted-foreground",
           className
         )}
         // Merged above, NOT here: `style` is destructured out of `props`, so the

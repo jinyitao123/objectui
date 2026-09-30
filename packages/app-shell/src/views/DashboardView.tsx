@@ -117,7 +117,7 @@ export function DashboardView({ dataSource }: { dataSource?: any }) {
   const { app: activeApp } = useExpressionContext();
   const dashboard = preferLocal(dashboards as any[], dashboardName, (activeApp as any)?._packageId);
   const widgetObjectNames = Array.isArray((dashboard as any)?.widgets)
-    ? (dashboard as any).widgets
+    ? dashboard.widgets
         .map((widget: any) => widget?.requiresObject ?? widget?.object)
         .filter((name: unknown): name is string => typeof name === 'string' && name.length > 0)
     : [];
@@ -138,7 +138,7 @@ export function DashboardView({ dataSource }: { dataSource?: any }) {
     // Defer pruning until metadata has actually loaded — otherwise the
     // empty Set would hide every object-bound widget on first render.
     if (registeredObjectNamesForFilter.size === 0) return dashboard;
-    const widgets = (dashboard as any).widgets;
+    const widgets = dashboard.widgets;
     if (!Array.isArray(widgets) || widgets.length === 0) return dashboard;
     const filtered = widgets.filter((w: any) => {
       const required = w?.requiresObject ?? w?.object;
@@ -170,60 +170,39 @@ export function DashboardView({ dataSource }: { dataSource?: any }) {
     );
   }
 
+  // DashboardSchema's display name is `label`; DashboardHeaderSchema toggles
+  // this host text. Its `actions` remain owned by DashboardRenderer below.
+  const dashboardHeader = dashboard.header;
+  const showDashboardTitle = dashboardHeader?.showTitle !== false;
+  const showDashboardDescription = dashboardHeader?.showDescription !== false;
+  const resolvedLabel = resolveKeyedI18nLabel(dashboard.label, t);
+  const pageTitle = dashboardLabel({ name: dashboard.name, label: resolvedLabel }) || dashboard.name;
+  const headerSrc = (previewSchema as any) || dashboard;
+  const rawDescription = headerSrc.description ?? dashboard.description;
+  const pageDescription = dashboardDescription({
+    name: dashboard.name,
+    description: resolveKeyedI18nLabel(rawDescription, t),
+  });
+  const hasPageHeaderText = showDashboardTitle || (showDashboardDescription && !!pageDescription);
 
   return (
     <div className="flex flex-col h-full overflow-hidden bg-background">
       {/* ── Header ───────────────────────────────────────────────── */}
-      <div className="flex flex-col sm:flex-row justify-between sm:items-center gap-3 sm:gap-4 p-4 sm:p-6 border-b shrink-0">
-        <div className="min-w-0 flex-1">
-          {(() => {
-            // Header source: `label`, then the raw `name`. There is no `title`
-            // arm — the legacy root `title` read RETIRED here under ADR-0049
-            // (objectui#7509, maintainer ruling 2026-09-04), together with the
-            // four sibling arms in `DashboardRenderer`, `DashboardGridLayout`,
-            // `DashboardEditor` and `DashboardDesignPage`, so one spelling
-            // answers on every surface instead of two disagreeing.
-            //
-            // Measured on @objectstack/spec 17.2.0: `DashboardSchema` refuses
-            // `title` BY NAME (`unrecognized_keys(title)` at the document root)
-            // and spells the display name `label`, which is REQUIRED; `header`
-            // declares `showTitle` / `showDescription` / `actions` only, so it
-            // TOGGLES a title and never carries one. Writing `title` earns a
-            // `422 INVALID_METADATA` from the save route before persistence
-            // (see `MetadataService`), not a header — so no authored document
-            // can acquire the key, and what retired is legacy-document
-            // compatibility only. A spec-valid stored document always carries
-            // `label`, so a legacy document holding BOTH now shows its `label`;
-            // one holding `title` and no `label` was already invalid and falls
-            // through to `name`.
-            //
-            // ⛔ Widget-level `widget.title` is a DIFFERENT, DECLARED key
-            // (`DashboardWidget.title`, the spec's `I18nLabel`) and is
-            // untouched. Root and widget arms are told apart by RECEIVER.
-            //
-            // `previewSchema` was never a host-supplied preview channel — it is
-            // this view's own widget-pruned copy of `dashboard` (above) — so
-            // the retired arm read the same stored document either way, which
-            // is why it is gone rather than re-pointed.
-            const resolvedLabel = resolveKeyedI18nLabel(dashboard.label, t);
-            const display = dashboardLabel({ name: dashboard.name, label: resolvedLabel }) || dashboard.name;
-            return (
-              <h1 className="text-lg sm:text-xl md:text-2xl font-bold tracking-tight truncate">{display}</h1>
-            );
-          })()}
-          {(() => {
-            const headerSrc = (previewSchema as any) || dashboard;
-            const rawDesc = headerSrc.description ?? dashboard.description;
-            const desc = dashboardDescription({
-              name: dashboard.name,
-              description: resolveKeyedI18nLabel(rawDesc, t),
-            });
-            return desc ? (
-              <p className="text-sm text-muted-foreground mt-1 line-clamp-2">{desc}</p>
-            ) : null;
-          })()}
+      {hasPageHeaderText && (
+        <div
+          data-dashboard-page-header=""
+          className="flex flex-col sm:flex-row justify-between sm:items-center gap-3 sm:gap-4 shrink-0 min-h-[var(--ui-dashboard-page-header-min-height,0px)] mx-[var(--ui-dashboard-page-header-margin-inline,0px)] mt-[var(--ui-dashboard-page-header-margin-top,0px)] p-[var(--ui-dashboard-page-header-padding,1rem)] sm:p-[var(--ui-dashboard-page-header-padding-sm,1.5rem)] bg-[var(--ui-dashboard-chrome-background,transparent)] rounded-[var(--ui-dashboard-chrome-radius,0px)] [border-style:solid] [border-color:var(--ui-dashboard-chrome-border-color,currentColor)] [border-width:var(--ui-dashboard-chrome-border-width,0px)] [border-bottom-width:var(--ui-dashboard-page-header-border-bottom-width,var(--ui-dashboard-chrome-border-width,1px))]"
+        >
+          <div className="min-w-0 flex-1">
+            {showDashboardTitle && (
+              <h1 className="text-lg sm:text-xl md:text-2xl font-bold tracking-tight truncate">{pageTitle}</h1>
+            )}
+            {showDashboardDescription && pageDescription ? (
+              <p className="text-sm text-muted-foreground mt-1 line-clamp-2">{pageDescription}</p>
+            ) : null}
+          </div>
         </div>
-      </div>
+      )}
 
       {/* ── Main area ────────────────────────────────────────────── */}
       <div className="flex-1 overflow-hidden flex flex-col sm:flex-row relative">

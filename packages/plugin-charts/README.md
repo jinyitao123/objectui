@@ -2,6 +2,15 @@
 
 A lazy-loaded charting component for Object UI based on Recharts.
 
+## Host plot height
+
+The shared advanced chart container consumes `--ui-chart-height`, with its
+existing 350px fallback. An authored `height` or caller height utility still
+takes precedence; the non-zero measurement floor remains unchanged. Native
+Dataset dashboard charts scope this variable through
+`--ui-dashboard-chart-height`, so a compact host can size the plot separately
+from the card heading and content inset without changing data or queries.
+
 ## Features
 
 - **Internal Lazy Loading**: Recharts is loaded on-demand using `React.lazy()` and `Suspense`

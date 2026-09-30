@@ -2,6 +2,15 @@
 
 Dashboard plugin for Object UI - Create beautiful dashboards with metrics, charts, and widgets.
 
+## Host workspace chrome
+
+The filter bar consumes optional host surface, border, radius and padding
+tokens. Its heading remains hidden and controls stay left-aligned by default;
+compact hosts can show the translated heading, align controls to the right and
+wrap at narrow widths. Controls, filter values, reset behavior and Dataset
+bindings retain their existing contract. Chart plot height is separate from
+the card heading and inset through `--ui-dashboard-chart-height`.
+
 ## Features
 
 - **Dashboard Layouts** - Grid-based dashboard layouts

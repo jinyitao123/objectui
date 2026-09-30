@@ -1640,7 +1640,7 @@ export function DatasetWidget({ widget, dataSource, subCaption }: { widget: any;
   // pass both so the segment click drills regardless of which is registered.
   const chartDrill = canDrill ? handleChartDrill : undefined;
   return (
-    <div className={cn('relative h-full w-full min-h-[220px]')}>
+    <div className={cn('relative h-full w-full min-h-[220px] [--ui-chart-height:var(--ui-dashboard-chart-height,350px)]')}>
       <SchemaRenderer
         // isAnimationActive: false — dashboard charts render at final geometry on
         // the FIRST committed frame. Recharts' entrance animation is a rAF tween

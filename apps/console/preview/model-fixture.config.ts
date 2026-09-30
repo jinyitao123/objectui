@@ -104,7 +104,7 @@ const ComponentPreviewDashboard = DashboardSchema.parse({
   label: 'Component Preview Analytics',
   description: 'Native Dataset widgets over static development fixture rows.',
   header: { showTitle: true, showDescription: true },
-  columns: 12,
+  columns: 24,
   gap: 4,
   dateRange: { field: 'requested_on', defaultRange: 'this_year', allowCustomRange: true },
   globalFilters: [{
@@ -125,7 +125,7 @@ const ComponentPreviewDashboard = DashboardSchema.parse({
       dimensions: [],
       values: ['request_count'],
       filterBindings: { dateRange: 'requested_on', request_status: 'request_status' },
-      layout: { x: 0, y: 0, w: 3, h: 2 },
+      layout: { x: 0, y: 0, w: 6, h: 2 },
     },
     {
       id: 'fixture_amount_total',
@@ -135,7 +135,7 @@ const ComponentPreviewDashboard = DashboardSchema.parse({
       dimensions: [],
       values: ['amount_sum'],
       filterBindings: { dateRange: 'requested_on', request_status: 'request_status' },
-      layout: { x: 3, y: 0, w: 3, h: 2 },
+      layout: { x: 6, y: 0, w: 6, h: 2 },
     },
     {
       id: 'fixture_amount_average',
@@ -145,7 +145,7 @@ const ComponentPreviewDashboard = DashboardSchema.parse({
       dimensions: [],
       values: ['amount_average'],
       filterBindings: { dateRange: 'requested_on', request_status: 'request_status' },
-      layout: { x: 6, y: 0, w: 3, h: 2 },
+      layout: { x: 12, y: 0, w: 6, h: 2 },
     },
     {
       id: 'fixture_amount_maximum',
@@ -155,7 +155,7 @@ const ComponentPreviewDashboard = DashboardSchema.parse({
       dimensions: [],
       values: ['amount_maximum'],
       filterBindings: { dateRange: 'requested_on', request_status: 'request_status' },
-      layout: { x: 9, y: 0, w: 3, h: 2 },
+      layout: { x: 18, y: 0, w: 6, h: 2 },
     },
     {
       id: 'fixture_month_trend',
@@ -167,7 +167,7 @@ const ComponentPreviewDashboard = DashboardSchema.parse({
       chartConfig: { type: 'line', xAxis: { field: 'request_month' }, yAxis: [{ field: 'amount_sum' }] },
       options: { dateGranularity: 'month', sortBy: 'request_month', sortOrder: 'asc' },
       filterBindings: { dateRange: 'requested_on', request_status: 'request_status' },
-      layout: { x: 0, y: 2, w: 8, h: 6 },
+      layout: { x: 0, y: 2, w: 15, h: 6 },
     },
     {
       id: 'fixture_status_distribution',
@@ -178,7 +178,7 @@ const ComponentPreviewDashboard = DashboardSchema.parse({
       values: ['request_count'],
       chartConfig: { type: 'donut', xAxis: { field: 'request_status' }, yAxis: [{ field: 'request_count' }] },
       filterBindings: { dateRange: 'requested_on', request_status: 'request_status' },
-      layout: { x: 8, y: 2, w: 4, h: 6 },
+      layout: { x: 15, y: 2, w: 9, h: 6 },
     },
     {
       id: 'fixture_supplier_ranking',
@@ -190,7 +190,7 @@ const ComponentPreviewDashboard = DashboardSchema.parse({
       chartConfig: { type: 'horizontal-bar', xAxis: { field: 'supplier_name' }, yAxis: [{ field: 'amount_sum' }] },
       options: { sortBy: 'amount_sum', sortOrder: 'desc', limit: 5 },
       filterBindings: { dateRange: 'requested_on', request_status: 'request_status' },
-      layout: { x: 0, y: 8, w: 8, h: 6 },
+      layout: { x: 0, y: 8, w: 15, h: 6 },
     },
     {
       id: 'fixture_empty_state',
@@ -202,7 +202,7 @@ const ComponentPreviewDashboard = DashboardSchema.parse({
       chartConfig: { type: 'bar', xAxis: { field: 'request_status' }, yAxis: [{ field: 'request_count' }] },
       filter: { request_status: '__no_fixture_match__' },
       filterBindings: { dateRange: 'requested_on' },
-      layout: { x: 8, y: 8, w: 4, h: 6 },
+      layout: { x: 15, y: 8, w: 9, h: 6 },
     },
   ],
 });

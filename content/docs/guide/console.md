@@ -34,6 +34,18 @@ inside an existing modal. The Details gallery supplies that boundary explicitly.
 The compact modal asks before a dirty Cancel when `confirmOnDiscard` is enabled;
 Keep editing preserves the draft. Default-host cancellation is unchanged.
 
+Dataset chart plots consume `--ui-dashboard-chart-height` through the shared
+`--ui-chart-height` seam. The compact candidate uses a 280.25px plot; the card's
+own heading and insets bring the complete chart panel to 365.75px. The default
+plot remains 350px, and explicit chart dimensions keep precedence. This changes
+presentation only: selection, filters, security context and aggregation remain
+on the native Dataset path.
+The Dashboard page host and filter bar also consume workspace-chrome tokens:
+title panel margin/padding/minimum height, surface/border/radius, and filter
+panel spacing. Header text follows the model's showTitle/showDescription
+flags. Header actions still execute in DashboardRenderer; no duplicate action
+runner or undeclared organization/search control is introduced.
+
 The profile is opt-in and keeps the existing dimensions as CSS fallbacks.
 It contains no business state or permission rules. Host apps may supply their
 own token values instead; authored `className` overrides remain available.

@@ -399,31 +399,44 @@ export function DashboardFilterBar({ defs, values, onChange, onReset, dataSource
     if (isEmpty(a) && isEmpty(b)) return false;
     return JSON.stringify(a ?? null) !== JSON.stringify(b ?? null);
   });
+  const filtersLabel = tt('dashboard.filters.label', 'Dashboard filters');
 
   return (
     <div
-      className={cn('col-span-full flex flex-wrap gap-[var(--ui-dashboard-toolbar-gap,0.5rem)] items-center', className)}
-      data-testid="dashboard-filter-bar"
-      role="group"
-      aria-label={tt('dashboard.filters.label', 'Dashboard filters')}
-    >
-      {defs.map((def) => {
-        const value = values[def.name];
-        const set = (v: any) => onChange(def.name, v);
-        if (def.type === 'dateRange' || def.type === 'date') {
-          return <DateRangeFilter key={def.name} def={def} value={value} onChange={set} />;
-        }
-        if (def.type === 'select' || def.type === 'lookup') {
-          return <SelectFilter key={def.name} def={def} value={value} onChange={set} dataSource={dataSource} />;
-        }
-        return <TextFilter key={def.name} def={def} value={value} onChange={set} />;
-      })}
-      {onReset && isDirty && (
-        <Button variant="ghost" size="sm" onClick={onReset} className="text-muted-foreground">
-          <RotateCcw className="size-3.5" />
-          {tt('dashboard.filters.reset', 'Reset')}
-        </Button>
+      className={cn(
+        'col-span-full flex flex-wrap items-center gap-[var(--ui-dashboard-filter-heading-gap,0px)] rounded-[var(--ui-dashboard-chrome-radius,0px)] bg-[var(--ui-dashboard-chrome-background,transparent)] [border-style:solid] [border-color:var(--ui-dashboard-chrome-border-color,transparent)] [border-width:var(--ui-dashboard-chrome-border-width,0px)] px-[var(--ui-dashboard-filter-panel-padding-x,0px)] py-[var(--ui-dashboard-filter-panel-padding-y,0px)]',
+        className,
       )}
+      data-testid="dashboard-filter-bar"
+      data-dashboard-filter-panel=""
+      role="group"
+      aria-label={filtersLabel}
+    >
+      <span
+        className="shrink-0 text-sm font-semibold [display:var(--ui-dashboard-filter-heading-display,none)]"
+        data-dashboard-filter-heading=""
+      >
+        {filtersLabel}
+      </span>
+      <div className="flex min-w-0 flex-1 flex-wrap items-center gap-[var(--ui-dashboard-toolbar-gap,0.5rem)] [justify-content:var(--ui-dashboard-filter-controls-justify,flex-start)]">
+        {defs.map((def) => {
+          const value = values[def.name];
+          const set = (v: any) => onChange(def.name, v);
+          if (def.type === 'dateRange' || def.type === 'date') {
+            return <DateRangeFilter key={def.name} def={def} value={value} onChange={set} />;
+          }
+          if (def.type === 'select' || def.type === 'lookup') {
+            return <SelectFilter key={def.name} def={def} value={value} onChange={set} dataSource={dataSource} />;
+          }
+          return <TextFilter key={def.name} def={def} value={value} onChange={set} />;
+        })}
+        {onReset && isDirty && (
+          <Button variant="ghost" size="sm" onClick={onReset} className="text-muted-foreground">
+            <RotateCcw className="size-3.5" />
+            {tt('dashboard.filters.reset', 'Reset')}
+          </Button>
+        )}
+      </div>
     </div>
   );
 }

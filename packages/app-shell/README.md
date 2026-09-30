@@ -4,6 +4,15 @@
 
 A lightweight, framework-agnostic rendering engine that enables third-party systems to integrate ObjectUI components without inheriting the full console infrastructure.
 
+## Dashboard host geometry
+
+DashboardView reads the model's header showTitle/showDescription flags. Header
+actions remain on the existing DashboardRenderer execution path. Optional host
+tokens control the page-header inset, padding, minimum height, border, radius
+and surface; the compact host uses a light title panel. With no tokens, the
+existing padding and bottom divider remain the defaults. Closing both text
+flags removes the empty title panel without suppressing actions.
+
 ## Purpose
 
 This package provides the essential building blocks for rendering ObjectUI schemas:
