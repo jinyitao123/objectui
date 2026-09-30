@@ -117,6 +117,9 @@ shows it as an “Existing value” choice rather than clearing it on mount. Thi
 widget changes presentation only. ObjectStack still validates the field as
 text, so API writes are not restricted to the options.
 
+The named React export is lazy. Use a `Suspense` boundary when rendering it
+directly; metadata-backed forms provide their existing loading boundary.
+
 ## Editing date fields
 
 `DateField` keeps the browser's native `input[type=date]` unless the host sets

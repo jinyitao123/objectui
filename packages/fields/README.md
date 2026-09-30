@@ -221,6 +221,10 @@ option-level defaults are refused: the ObjectStack write path still treats the
 field as text and cannot enforce those select semantics. This is a UI control,
 not server-side membership validation. See the [fields guide](../../content/docs/guide/fields.md#label-stored-text-selects).
 
+The named React export `DeclaredLabelSelectField` uses the same lazy loader as
+the widget registry. Direct React consumers render it inside `Suspense`; it
+does not add the widget implementation to the Console's initial chunk.
+
 ## Links
 
 - 📚 [Documentation](https://www.objectui.org/docs/guide/fields)

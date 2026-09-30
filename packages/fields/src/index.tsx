@@ -8,6 +8,7 @@
 
 import React from 'react';
 import type { DateFieldMetadata, DateTimeFieldMetadata, FieldMetadata, SelectOptionMetadata } from '@object-ui/types';
+import type { FieldWidgetComponentProps } from './widgets/types.js';
 import { ComponentRegistry, percentDisplayValue, getRecordDisplayName, isDatabaseKeyDisplay, humanizeLabel, isEmptyValue, isMissingForRequired, formatDate, formatDateTime, formatDateTimeCompactParts, formatRelativeDate, extractRecords, type ComponentMeta, type DateDisplayOptions } from '@object-ui/core';
 // The platform's own value-shape contract, asked rather than restated
 // (objectui#6744). See `locationStoredValueSchemaFor` below for why this is a
@@ -4086,7 +4087,9 @@ export * from './widgets/TextField.js';
 export * from './widgets/NumberField.js';
 export * from './widgets/BooleanField.js';
 export * from './widgets/SelectField.js';
-export * from './widgets/DeclaredLabelSelectField.js';
+// Keep the public React entry point without defeating the registry's lazy chunk.
+export const DeclaredLabelSelectField: React.ComponentType<FieldWidgetComponentProps<string>> =
+  getLazyFieldWidget('declared-label-select');
 export * from './widgets/DateField.js';
 export * from './widgets/DateTimeField.js';
 export * from './widgets/TimeField.js';
