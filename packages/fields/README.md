@@ -1,5 +1,9 @@
 # @object-ui/fields
 
+Grid date cells in the `compact-enterprise` profile use the same `DateField`
+calendar as ordinary forms. Edits retain sibling cell values; the default profile
+keeps its existing native date, datetime, and time adapters.
+
 The standard field library and registry for Object UI.
 
 ## Host geometry
@@ -157,6 +161,52 @@ or photo per row without opening the row form (objectui#2360). Columns accept
 exported as `FileCell`). Auto-derived subform columns map `file`/`image`/
 `avatar` fields to file columns instead of dropping them.
 
+### Controlled row selection in GridField
+
+`GridField` adds a row-selection column when a direct React host supplies
+`renderSelectionToolbar`. The slot receives selected rows, their current
+indices, the total row count, mutation eligibility, and `patchSelected`,
+`removeSelected`, and `clearSelection`. Use `getRowKey` if the controlled host
+may clone rows; it must return a stable, unique key. Without it, selection stays
+with rows across GridField's own edits, insertions, deletes and reorders, and is
+cleared when an external replacement cannot be matched safely.
+
+```tsx
+<GridField
+  field={gridField}
+  value={rows}
+  onChange={setRows}
+  getRowKey={(row) => String(row.id)}
+  renderSelectionToolbar={(selection) => (
+    <div>
+      <span>{selection.selectedRows.length}/{selection.totalRows}</span>
+      <button
+        type="button"
+        disabled={selection.disabled || !selection.canPatchSelected}
+        onClick={() => selection.patchSelected({ status: 'ready' })}
+      >
+        Mark selected
+      </button>
+      <button
+        type="button"
+        disabled={selection.disabled || !selection.canRemoveSelected}
+        onClick={selection.removeSelected}
+      >
+        Remove selected
+      </button>
+    </div>
+  )}
+/>
+```
+
+Batch patches ignore unconfigured, computed and `readonlyWhen` columns, recompute
+computed cells, and emit one updated array through `onChange`. Removal respects
+`allow_delete` and `min_rows`; the existing `max_rows`, `readonly`, and
+`disabled` rules remain in force. These callbacks are React-only props, not
+ObjectStack field or column metadata. A React Page host must expose GridField as
+a direct React runtime component; do not put callback functions into `<Block>`
+schema props or persisted JSON.
+
 ### Multi-value selects
 
 A `select` field declared `multiple: true` selects zero-or-more values (spec
@@ -224,6 +274,83 @@ not server-side membership validation. See the [fields guide](../../content/docs
 The named React export `DeclaredLabelSelectField` uses the same lazy loader as
 the widget registry. Direct React consumers render it inside `Suspense`; it
 does not add the widget implementation to the Console's initial chunk.
+
+### Select choice cards
+
+Set `widget: 'choice-cards'` on a single-value `select` field to present its
+options as descriptive cards. Each option keeps its machine `value` as the
+stored field value; the option `label` is displayed (and translated through
+the form's object and field names), while the optional plain-text `description`
+appears below it:
+
+```ts
+Field.select({
+  label: 'Display mode',
+  widget: 'choice-cards',
+  options: [
+    { value: 'basic', label: 'Basic view', description: 'Show a concise summary.' },
+    { value: 'guided', label: 'Guided view', description: 'Include explanatory detail.' },
+  ],
+});
+```
+
+The cards use the native radio-group keyboard, disabled, readonly, validation,
+and field-level accessibility behavior. Existing `dependsOn` and option
+`visibleWhen` rules are resolved by the shared select-option evaluator. This
+widget is single-value; use `multiselect` for multiple selections.
+
+The cards default to a 68px minimum height. The title stays on one visual line
+and the description is clamped to two lines so ordinary source choices keep
+that height. Hosts can tune the geometry with `--ui-choice-card-min-height`,
+`--ui-choice-card-gap`, `--ui-choice-card-padding-x`,
+`--ui-choice-card-padding-y`, `--ui-choice-card-icon-size`,
+`--ui-choice-card-icon-gap`, `--ui-choice-card-title-font-size`,
+`--ui-choice-card-title-line-height`, `--ui-choice-card-description-font-size`,
+`--ui-choice-card-description-line-height`, and
+`--ui-choice-card-content-gap`.
+
+## Code-owned choice icons
+
+ObjectStack Spec 17.3 does not permit `icon` on `Field.options`. Keep icons in
+application code and pass the typed React-only `renderOptionIcon` slot through
+a registered widget adapter. This does not add a serializable metadata key or
+change the stored machine value:
+
+```tsx
+import type { ComponentType } from 'react';
+import { ComponentRegistry } from '@object-ui/core';
+import { ChoiceCardsField, type ChoiceCardsFieldProps } from '@object-ui/fields';
+import { BookOpen, Layers } from 'lucide-react';
+
+const iconsByValue: Record<string, ComponentType<{ className?: string }>> = {
+  basic: Layers,
+  guided: BookOpen,
+};
+
+function RuntimeChoiceCards(props: ChoiceCardsFieldProps) {
+  return (
+    <ChoiceCardsField
+      {...props}
+      renderOptionIcon={(option) => {
+        const Icon = iconsByValue[option.value];
+        return Icon ? <Icon className="size-3.5" /> : null;
+      }}
+    />
+  );
+}
+
+ComponentRegistry.register('choice-cards', RuntimeChoiceCards, {
+  namespace: 'field',
+  labelling: 'group',
+  skipFallback: true,
+});
+```
+
+Register the adapter after the fields package initializes and before mounting
+the native `ObjectForm`. The ObjectStack field still declares only
+`widget: 'choice-cards'`, `value`, `label`, and optional `description`; the
+adapter supplies icons by machine value in runtime code. The named React export
+is lazy and should be rendered inside `Suspense` when used directly.
 
 ## Links
 

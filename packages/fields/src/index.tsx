@@ -3626,6 +3626,7 @@ const fieldWidgetMap = {
   'number': () => import('./widgets/NumberField.js').then(m => ({ default: m.NumberField })),
   'boolean': () => import('./widgets/BooleanField.js').then(m => ({ default: m.BooleanField })),
   'select': () => import('./widgets/SelectField.js').then(m => ({ default: m.SelectField })),
+  'choice-cards': () => import('./widgets/ChoiceCardsField.js').then(m => ({ default: m.ChoiceCardsField })),
   'declared-label-select': () => import('./widgets/DeclaredLabelSelectField.js').then(m => ({ default: m.DeclaredLabelSelectField })),
   'date': () => import('./widgets/DateField.js').then(m => ({ default: m.DateField })),
   'datetime': () => import('./widgets/DateTimeField.js').then(m => ({ default: m.DateTimeField })),
@@ -3818,6 +3819,9 @@ const FIELD_TYPES_SKIP_FALLBACK = new Set([
   // same "bare-name fallback overwritten" warning at every boot regardless.
   'time',
   'address',
+  // Choice-card presentation override — resolved solely via `field:<widget>`;
+  // there is no bare-key renderer for this hint.
+  'choice-cards',
   // Widget-hint-only pickers — resolved solely via `field:<widget>`, so the
   // bare-key fallback is never wanted.
   'object-ref',
@@ -3887,6 +3891,7 @@ export const FIELD_WIDGET_LABELLING: Record<
   number: 'control',
   boolean: 'control',
   select: 'control',
+  'choice-cards': 'group',
   'declared-label-select': 'control',
   date: 'control',
   datetime: 'control',
@@ -4087,9 +4092,17 @@ export * from './widgets/TextField.js';
 export * from './widgets/NumberField.js';
 export * from './widgets/BooleanField.js';
 export * from './widgets/SelectField.js';
+export type {
+  ChoiceCardsFieldProps,
+  ChoiceCardsOptionIconRenderer,
+} from './widgets/ChoiceCardsField.js';
 // Keep the public React entry point without defeating the registry's lazy chunk.
 export const DeclaredLabelSelectField: React.ComponentType<FieldWidgetComponentProps<string>> =
   getLazyFieldWidget('declared-label-select');
+// Keep the public React entry on the registry's lazy loader so the widget does
+// not join the fields package's eager module graph.
+export const ChoiceCardsField: React.ComponentType<import('./widgets/ChoiceCardsField.js').ChoiceCardsFieldProps> =
+  getLazyFieldWidget('choice-cards');
 export * from './widgets/DateField.js';
 export * from './widgets/DateTimeField.js';
 export * from './widgets/TimeField.js';

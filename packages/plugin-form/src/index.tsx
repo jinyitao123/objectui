@@ -16,7 +16,8 @@ import {
   type ElementDataSourceMapping,
 } from '@object-ui/react';
 import type { DataSource, ObjectFormSchema } from '@object-ui/types';
-import { CompositeDialog, type ObjectFormController } from '@object-ui/components';
+import { CompositeDialog, DocumentWorkspace, DocumentSection, type ObjectFormController } from '@object-ui/components';
+import { GridField } from '@object-ui/fields';
 import { ObjectForm } from './ObjectForm';
 import { RelationshipCollectionEditor } from './RelationshipCollectionEditor';
 
@@ -571,6 +572,9 @@ ComponentRegistry.registerReactRuntimeComponent(
 ComponentRegistry.registerReactRuntimeComponent('CompositeDialog', CompositeDialog, {
   injectDataSource: false,
 });
+ComponentRegistry.registerReactRuntimeComponent('DocumentWorkspace', DocumentWorkspace, { injectDataSource: false });
+ComponentRegistry.registerReactRuntimeComponent('DocumentSection', DocumentSection, { injectDataSource: false });
+ComponentRegistry.registerReactRuntimeComponent('GridField', GridField);
 
 // A development module replacement creates new component constructors. Release
 // only this module's registrations before replacement; production collisions
@@ -582,6 +586,9 @@ formHot?.dispose(() => {
   for (const [name, component] of [
     ['RelationshipCollectionEditor', RelationshipCollectionEditor],
     ['CompositeDialog', CompositeDialog],
+    ['DocumentWorkspace', DocumentWorkspace],
+    ['DocumentSection', DocumentSection],
+    ['GridField', GridField],
   ] as const) {
     const registration = ComponentRegistry.getReactRuntimeComponents()
       .find((entry) => entry.name === name);

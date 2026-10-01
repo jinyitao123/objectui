@@ -31,9 +31,11 @@
 import { describe, it, expect } from 'vitest';
 import { render, screen } from '@testing-library/react';
 import '@testing-library/jest-dom';
+import { I18nProvider } from '@object-ui/i18n';
 
 import { TextField } from '../widgets/TextField';
 import { BooleanField } from '../widgets/BooleanField';
+import { ChoiceCardsField } from '../widgets/ChoiceCardsField';
 import type { FieldWidgetComponentProps } from '../widgets/types';
 import type { FieldMetadata } from '@object-ui/types';
 
@@ -140,5 +142,52 @@ describe('closing the type kept the pass-through behaviour', () => {
       />,
     );
     expect(screen.getByTestId('active-switch')).toBeDisabled();
+  });
+
+  it('uses the host object name for choice-card translation without leaking it to the DOM', () => {
+    const objectName = 'widget_props_choice_cards';
+    render(
+      <I18nProvider
+        config={{
+          defaultLanguage: 'en',
+          detectBrowserLanguage: false,
+          resources: {
+            en: {
+              fields: {
+                choiceCards: {
+                  selectOnly: 'Choice cards require a select field.',
+                  singleValueOnly: 'Choice cards support one selected value. Use a multi-value widget for this field.',
+                },
+              },
+              crm: {
+                objects: { [objectName]: { label: 'Test object' } },
+                fieldOptions: {
+                  [objectName]: { status: { active: 'Active, localized' } },
+                },
+              },
+            },
+          },
+        }}
+      >
+        <ChoiceCardsField
+          field={{
+            name: 'status',
+            label: 'Status',
+            type: 'select',
+            options: [{ value: 'active', label: 'Active', description: 'Currently in use.' }],
+          } as unknown as FieldMetadata}
+          objectName={objectName}
+          value="active"
+          onChange={() => {}}
+          data-testid="choice-cards-status"
+        />
+      </I18nProvider>,
+    );
+
+    const group = screen.getByTestId('choice-cards-status');
+    const radio = screen.getByRole('radio', { name: 'Active, localized' });
+    expect(radio).toHaveAttribute('aria-describedby');
+    expect(group).not.toHaveAttribute('objectname');
+    expect(radio).not.toHaveAttribute('objectname');
   });
 });

@@ -112,8 +112,8 @@ function SingleSelectField({
     if (readonly) return;
     // Never configured → nothing to prune against; see `MultiSelectField`'s
     // copy of this guard for the measured failure (objectui#4220). Kept
-    // identical across the four option widgets: an authored list is what the
-    // cascade prunes, and all four render the same `OptionsEmptyState` when
+    // identical across the fixed-option widgets: an authored list is what the
+    // cascade prunes, and all render the same `OptionsEmptyState` when
     // there is none.
     if (rawOptions.length === 0) return;
     // Gated → the authored list is withheld until the `dependsOn` parent is

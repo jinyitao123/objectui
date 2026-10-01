@@ -155,6 +155,26 @@ are not part of the generated `@objectstack/spec` React Page authoring contract.
 Runtime availability does not mean `os validate` or publish validation accepts
 them.
 
+The host also registers `<DocumentWorkspace>` and `<DocumentSection>` from
+`@object-ui/components` as presentation-only runtime components. A workspace
+receives `main` and `sidebar` React nodes and an optional `sidebarLabel`; it
+stacks them according to the content container width and does not add a resize
+control. A section receives `title`, optional `stepNumber`, `headingId` and
+`actions`, plus body `children`. The section renders an `h2` linked to its
+containing section and uses the public host-aware Card geometry. Their props are
+React composition slots, not serialized component schema or business actions.
+The ObjectUI package ships their styling, so page source should not add Tailwind
+classes for these layouts. Hosts can tune section geometry with the
+`--ui-document-section-*` CSS variables; the `@object-ui/components` README
+lists their defaults and root-font scaling.
+
+The form plugin also registers `<GridField>` as a direct React component. Use
+this tag for a controlled line editor with `getRowKey` and
+`renderSelectionToolbar` callbacks. The toolbar receives selected rows and safe
+draft mutation helpers; it does not write records. Keep callback props out of
+`<Block type="field:grid">` and serialized metadata. See the field guide for the
+runtime toolbar contract and readonly rules.
+
 #### The `record:*` family is excluded from this tier
 
 The tag derivation above is real — `<RecordDetails>` and `<RecordHighlights>`

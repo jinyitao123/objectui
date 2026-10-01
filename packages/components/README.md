@@ -43,6 +43,61 @@ must compose a Card around a workspace that needs a panel boundary; field
 controls do not manufacture page-level cards. Solid Dashboard surfaces opt in
 through the compact host; default-host transparency and blur remain intact.
 
+## Document workspaces
+
+`DocumentWorkspace` composes a primary document and a complementary sidebar.
+It measures its content container: narrow containers stack the two regions,
+while wider containers use a flexible main column and a supporting column with
+a 15rem minimum. At a 1020px content width the default 2.3:1 tracks land near
+the 680px/300px proportions used by the purchase-entry reference. The default
+gap is 18px and can be supplied by `--ui-document-workspace-gap`; there is no
+resize handle to operate or announce.
+
+`DocumentSection` wraps a title, optional visible step number, optional header
+actions and body in the public host-aware Card family. It renders a real `h2`
+and labels its section from that heading. Its divider defaults to the full card
+width; a section-local token changes its inset without changing other cards.
+The other section tokens control title and step typography, step-circle size,
+header and body spacing, and action gaps. Tokens inherit from the section's
+host, and the rem-based defaults remain proportional when the compact profile
+uses a 14px root font.
+
+| Token | Default | At a 14px root font |
+|---|---:|---:|
+| `--ui-document-section-divider-inset` | `0px` | full-width divider |
+| `--ui-document-section-title-font-size` | `0.875rem` | `12.25px` |
+| `--ui-document-section-title-line-height` | `1.25rem` | `17.5px` |
+| `--ui-document-section-title-font-weight` | `700` | `700` |
+| `--ui-document-section-step-size` | `1.25rem` | `17.5px` |
+| `--ui-document-section-step-font-size` | `0.75rem` | `10.5px` |
+| `--ui-document-section-step-font-weight` | `700` | `700` |
+| `--ui-document-section-heading-gap` | `0.5rem` | `7px` |
+| `--ui-document-section-action-gap` | `0.5rem` | `7px` |
+| `--ui-document-section-header-padding-top` | `var(--ui-card-padding, 1.5rem)` | host Card padding |
+| `--ui-document-section-header-padding-bottom` | `var(--ui-card-header-padding-bottom, 1.5rem)` | host Card header padding |
+| `--ui-document-section-body-padding-top` | `var(--ui-card-content-padding-top, 1.25rem)` | host Card content padding |
+
+These are React composition components, not serialized schema nodes; they own
+layout and semantics, never document data or actions.
+
+```tsx
+import { DocumentSection, DocumentWorkspace } from '@object-ui/components';
+
+<DocumentWorkspace
+  sidebarLabel="Document summary"
+  main={
+    <DocumentSection title="Document details" stepNumber={1}>
+      <p>Document fields</p>
+    </DocumentSection>
+  }
+  sidebar={
+    <DocumentSection title="Summary">
+      <p>Supporting information</p>
+    </DocumentSection>
+  }
+/>
+```
+
 ## Features
 
 - 🎨 **Tailwind Native** - Built entirely with Tailwind CSS utility classes

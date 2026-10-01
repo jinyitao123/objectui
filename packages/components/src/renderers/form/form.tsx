@@ -877,10 +877,10 @@ function stripRegisteredFieldProps(type: string, props: RenderFieldProps): Rende
 
   return {
     ...fieldProps,
-    // Only the label-stored text select needs the current object's convention
-    // key to translate options. Keep it off every other registered widget's
-    // DOM pass-through surface.
-    ...(normalizedType === 'declared-label-select' && objectName ? { objectName } : null),
+    // The label-stored text select and choice-card select need the current
+    // object's convention key to translate options. Keep it off every other
+    // registered widget's DOM pass-through surface.
+    ...((normalizedType === 'declared-label-select' || normalizedType === 'choice-cards') && objectName ? { objectName } : null),
     // `dependsOnLabels` rides with `dependentValues`: the widgets that gate on
     // a sibling field's VALUE are exactly the ones that have to NAME that field
     // in the gate hint (objectstack#5407). Stripped for everything else for the

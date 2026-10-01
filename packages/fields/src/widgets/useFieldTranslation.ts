@@ -39,11 +39,13 @@ const FIELD_DEFAULTS: Record<string, string> = {
   'lookup.jumpToPage': 'Jump to page',
   'lookup.retry': 'Retry',
   // objectui#3231 — the empty / dependency-gated state of the fixed-option
-  // widgets (select, multiselect, radio, checkboxes). Only used when the host
+  // widgets (select, choice-cards, multiselect, radio, checkboxes). Only used when the host
   // supplies no `emptyHint`; the gate sentence shares its key with the form
   // renderer so both cannot drift apart in a locale.
   'fields.options.empty': 'No options available',
   'fields.options.selectFirst': 'Select {{fields}} first',
+  'fields.choiceCards.selectOnly': 'Choice cards require a select field.',
+  'fields.choiceCards.singleValueOnly': 'Choice cards support one selected value. Use a multi-value widget for this field.',
   // objectui#4026 — the separator between the controlling-field names that
   // fill `{{fields}}` of the two gate sentences above/below (`lookup.
   // selectFirst`, `fields.options.selectFirst`). It is a LOCALE property, not

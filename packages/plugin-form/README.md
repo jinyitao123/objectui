@@ -1,5 +1,16 @@
 # @object-ui/plugin-form
 
+## Direct React page composition
+
+Loading this plugin registers `DocumentWorkspace`, `DocumentSection`,
+`CompositeDialog`, `RelationshipCollectionEditor`, and `GridField` in the trusted
+React page runtime. Workspace and section slots are presentation-only. A direct
+`GridField` accepts the fields package's React-only `getRowKey` and
+`renderSelectionToolbar` callbacks, retaining controlled draft edits and readonly
+rules. These functions are not serialized schema properties and must not be
+passed through a `Block` field schema. Runtime registration does not add new
+ObjectStack Page metadata.
+
 ## Optional host geometry profile
 
 The Console can enable `compact-enterprise` with `VITE_UI_PROFILE` at build

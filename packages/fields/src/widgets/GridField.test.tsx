@@ -13,6 +13,33 @@ const columns = [
 const field = { columns, total_field: 'amount' } as any;
 
 describe('GridField / LineItemsField — editable line items', () => {
+  it('uses the shared calendar in compact date cells and preserves sibling dates', async () => {
+    const previousProfile = document.documentElement.dataset.uiProfile;
+    document.documentElement.dataset.uiProfile = 'compact-enterprise';
+    try {
+      const onChange = vi.fn();
+      render(<GridField
+        value={[{ expected: '2026-10-12', confirmed: '2026-10-14' }]}
+        onChange={onChange}
+        field={{ name: 'dates', type: 'grid', columns: [
+          { name: 'expected', label: 'Expected date', type: 'date' },
+          { name: 'confirmed', label: 'Confirmed date', type: 'date' },
+        ], allow_add: false }}
+      />);
+      const expected = screen.getByRole('textbox', { name: 'Expected date' });
+      expect(expected.getAttribute('type')).toBe('text');
+      fireEvent.change(expected, { target: { value: '2026-10-17' } });
+      fireEvent.blur(expected);
+      await waitFor(() => expect(onChange).toHaveBeenCalledWith([
+        { expected: '2026-10-17', confirmed: '2026-10-14' },
+      ]));
+      expect(screen.getAllByRole('button', { name: /calendar/i })).toHaveLength(2);
+    } finally {
+      if (previousProfile === undefined) delete document.documentElement.dataset.uiProfile;
+      else document.documentElement.dataset.uiProfile = previousProfile;
+    }
+  });
+
   it('is exported under both names', () => {
     expect(LineItemsField).toBe(GridField);
   });

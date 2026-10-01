@@ -5,6 +5,7 @@ export * from './config-row';
 export * from './config-field-renderer';
 export * from './config-panel-renderer';
 export * from './date-picker';
+export * from './document-workspace';
 export * from './empty';
 export * from './field';
 export * from './filter-builder';

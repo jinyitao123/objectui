@@ -4,6 +4,9 @@ title: "Field Registry"
 
 Object UI uses a **Field Registry** system to decouple the core engine from specific UI implementations of fields. This allows for rich extensibility and plugin support.
 
+In the compact enterprise profile, editable grid date cells reuse the standard
+`DateField` calendar. The default profile retains its native temporal adapters.
+
 ## Concept
 
 The `@object-ui/fields` package serves as the "Universal Language" for rendering values. 
@@ -119,6 +122,68 @@ text, so API writes are not restricted to the options.
 
 The named React export is lazy. Use a `Suspense` boundary when rendering it
 directly; metadata-backed forms provide their existing loading boundary.
+
+## Select choice cards
+
+Use `widget: 'choice-cards'` on a single-value `select` field when each choice
+needs a short description. The option's machine `value` remains the stored
+value; the `label` is translated for display using the owning object and field,
+and `description` remains the declared plain text.
+
+```ts
+Field.select({
+  label: 'Purchase reason',
+  widget: 'choice-cards',
+  options: [
+    { value: 'stock', label: 'Stock replenishment', description: 'Restock materials for normal operations.' },
+    { value: 'project', label: 'Project purchase', description: 'Buy items for a defined project.' },
+  ],
+});
+```
+
+Choice cards retain the shared select-option `dependsOn` and `visibleWhen`
+behavior, and inherit the form's disabled, readonly, validation, and accessible
+field-label handling. Use a multi-value widget when the field allows more than
+one selection. The named React export is lazy; render it inside `Suspense` when
+using the component outside metadata-backed forms.
+
+## Controlled GridField row selection
+
+Direct React hosts can opt into row selection by passing a
+`renderSelectionToolbar` slot to `GridField`. Its typed context contains
+`selectedRows`, their current `selectedIndices`, `totalRows`, `disabled`, and
+`canPatchSelected` / `canRemoveSelected`, plus `patchSelected` and
+`removeSelected` mutators and `clearSelection`.
+
+```tsx
+<GridField
+  field={gridField}
+  value={rows}
+  onChange={setRows}
+  getRowKey={(row) => String(row.id)}
+  renderSelectionToolbar={(selection) => (
+    <button
+      type="button"
+      disabled={selection.disabled || !selection.canPatchSelected}
+      onClick={() => selection.patchSelected({ status: 'ready' })}
+    >
+      Mark selected
+    </button>
+  )}
+/>
+```
+
+`getRowKey` should return a stable, unique identity when the controlled host
+clones rows. Without it, the grid keeps selection through its own row edits,
+insertion, deletion and reorder, then clears selection if an external row
+replacement cannot be matched. Batch patches pass only configured editable
+columns through the shared computed-row path; computed and `readonlyWhen`
+columns are skipped. `removeSelected` respects `allow_delete` and `min_rows`,
+and both mutators are inert in disabled or readonly context. Changes go through
+the field's single controlled `onChange` array; the widget performs no CRUD.
+These callbacks are React-only. Register `GridField` as a direct React runtime
+component for trusted React Pages rather than passing functions through
+`<Block>` schema or field metadata.
 
 ## Editing date fields
 

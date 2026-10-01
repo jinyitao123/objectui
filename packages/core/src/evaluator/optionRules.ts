@@ -282,7 +282,7 @@ export function resolveCascadingOptions<T extends OptionLike>(
  * The members are WIDGET keys — `resolveFormWidgetType` output in the two
  * dialogs, `normalizeFieldType` output (the `field:` prefix stripped) in the
  * form — not authored `type` spellings. Each consumer keeps its own
- * normalization; the two normalizations agree on these four members, which is
+ * normalization; the two normalizations agree on these five members, which is
  * what makes one shared set safe to read from both.
  *
  * `select` + `multiple: true` is not listed separately: `SelectField` delegates
@@ -291,6 +291,7 @@ export function resolveCascadingOptions<T extends OptionLike>(
  */
 export const CASCADE_OPTION_WIDGET_TYPES: ReadonlySet<string> = new Set([
   'select',
+  'choice-cards',
   'multiselect',
   'radio',
   'checkboxes',
