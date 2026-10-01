@@ -13,6 +13,26 @@ const columns = [
 const field = { columns, total_field: 'amount' } as any;
 
 describe('GridField / LineItemsField — editable line items', () => {
+  it('formats compact currency cells with their authored prefix and scale', () => {
+    const previousProfile = document.documentElement.dataset.uiProfile;
+    document.documentElement.dataset.uiProfile = 'compact-enterprise';
+    try {
+      render(<GridField
+        readonly
+        value={[{ amount: 300 }]}
+        onChange={() => {}}
+        columns={[
+          { name: 'amount', label: 'Amount', type: 'currency', prefix: 'US$', scale: 2 },
+        ]}
+        field={{ name: 'lines', type: 'grid' }}
+      />);
+      expect(screen.getByText('US$300.00')).toBeTruthy();
+    } finally {
+      if (previousProfile === undefined) delete document.documentElement.dataset.uiProfile;
+      else document.documentElement.dataset.uiProfile = previousProfile;
+    }
+  });
+
   it('uses the shared calendar in compact date cells and preserves sibling dates', async () => {
     const previousProfile = document.documentElement.dataset.uiProfile;
     document.documentElement.dataset.uiProfile = 'compact-enterprise';

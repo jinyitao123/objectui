@@ -198,6 +198,8 @@ export type GridSelectionToolbarRenderer = (
  * field metadata: a React callback cannot be authored in ObjectStack JSON.
  */
 export interface GridFieldRuntimeProps {
+  /** Code-derived columns for direct React composition, separate from field metadata. */
+  columns?: GridColumn[];
   /**
    * Stable, unique identity for rows that may be cloned by a controlled host.
    * Without it, GridField keeps selection through its own edits/reorders using
@@ -471,6 +473,14 @@ function displayText(c: GridColumn, value: any, locale: string): string {
   }
   if (isNumeric(c.type)) {
     const n = Number(value);
+    if (Number.isFinite(n) && c.type === 'currency' && typeof document !== 'undefined' &&
+      document.documentElement.dataset.uiProfile === 'compact-enterprise') {
+      const digits = c.scale ?? 2;
+      return `${c.prefix || '¥'}${n.toLocaleString(locale, {
+        minimumFractionDigits: digits,
+        maximumFractionDigits: digits,
+      })}`;
+    }
     if (Number.isFinite(n)) return c.type === 'currency' ? `${c.prefix || '¥'}${n.toLocaleString()}` : n.toLocaleString();
   }
   if (Array.isArray(value)) return value.join(', ');
@@ -514,6 +524,7 @@ export function GridField({
   onRowExpand,
   displayMode,
   onAdd,
+  columns: runtimeColumns,
   getRowKey,
   renderSelectionToolbar,
   ...props
@@ -536,7 +547,7 @@ export function GridField({
   contextRecord?: Record<string, unknown>;
 }) {
   const cfg = (field || {}) as any;
-  const allColumns: GridColumn[] = cfg.columns || [];
+  const allColumns: GridColumn[] = runtimeColumns ?? cfg.columns ?? [];
   const rows: Row[] = Array.isArray(value) ? value : [];
   const [selectedRowKeys, setSelectedRowKeys] = React.useState<Set<string>>(() => new Set());
   const localRowKeys = useRef(new WeakMap<Row, string>());
@@ -995,7 +1006,9 @@ export function GridField({
                           readonly
                           field={{ reference: c.reference, displayField: c.displayField, idField: c.idField } as any}
                         />
-                      ) : c.type === 'file' || isTemporal(c.type) ? (
+                      ) : c.type === 'file' || isTemporal(c.type) ||
+                        (c.type === 'currency' && typeof document !== 'undefined' &&
+                          document.documentElement.dataset.uiProfile === 'compact-enterprise') ? (
                         // A temporal column printed with `String(value)` puts
                         // the raw stored ISO on screen — `2026-06-17T00:00:00.000Z`
                         // for a date, and for a datetime it would ALSO have been

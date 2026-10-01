@@ -364,3 +364,7 @@ is lazy and should be rendered inside `Suspense` when used directly.
 ## License
 
 MIT — see [LICENSE](./LICENSE).
+
+Compact currency grid cells display the authored `prefix` and `scale` (two decimal places when unspecified). The default profile retains its existing formatting.
+
+Direct React `GridField` composition accepts typed runtime `columns` (`GridColumn[]`) for code-derived lookup options, calculations, conditional cell rules and currency presentation. These columns are not new members of serialized `GridFieldMetadata` or `GridColumnDefinition`; keep field metadata on its published shape.
