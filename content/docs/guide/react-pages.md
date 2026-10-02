@@ -155,6 +155,17 @@ are not part of the generated `@objectstack/spec` React Page authoring contract.
 Runtime availability does not mean `os validate` or publish validation accepts
 them.
 
+`CompositeDialog` can also receive a read-only `sidebar` React node and its
+`sidebarLabel`. It places a profile summary to the left of the form on desktop
+and above it on narrow screens. The host may set `--ui-dialog-sidebar-width`;
+the default is 236px. Keep editable model fields in `children` so validation,
+busy disabling and the discard guard continue to use the same mounted draft.
+
+For compact related rows, `RelationshipCollectionEditor` renders a declared
+boolean `primaryField` as a pressed star action beside removal. The field's
+permissions and readonly predicates remain authoritative. `onPrimaryChange`
+can update sibling draft rows when the host requires one primary item.
+
 The host also registers `<DocumentWorkspace>` and `<DocumentSection>` from
 `@object-ui/components` as presentation-only runtime components. A workspace
 receives `main` and `sidebar` React nodes and an optional `sidebarLabel`; it

@@ -527,6 +527,24 @@ describe('RelationshipCollectionEditor', () => {
     expect(remove).not.toHaveBeenCalled();
   });
 
+  it('renders a primary row action with the same controlled boolean and no persistence', async () => {
+    const { dataSource, create, update, remove } = makeDataSource();
+    const changed = vi.fn();
+    const primaryIntent = vi.fn();
+    render(<ContactHarness dataSource={dataSource} fields={['full_name']} presentation="rows"
+      primaryField="is_primary" onPrimaryChange={primaryIntent} onDraftChange={changed}
+      initialRows={[{ draftKey: 'contact-primary-row', values: { full_name: 'Ada', is_primary: false } }]} />);
+    const action = await screen.findByRole('button', { name: 'Primary' });
+    expect(action).toHaveAttribute('aria-pressed', 'false');
+    fireEvent.click(action);
+    await waitFor(() => expect(action).toHaveAttribute('aria-pressed', 'true'));
+    expect(primaryIntent).toHaveBeenCalledWith('contact-primary-row', true);
+    expect(changed.mock.calls.at(-1)?.[0][0].values.is_primary).toBe(true);
+    expect(create).not.toHaveBeenCalled();
+    expect(update).not.toHaveBeenCalled();
+    expect(remove).not.toHaveBeenCalled();
+  });
+
   it('uses one row ObjectForm value for the header primary control and outbound draft', async () => {
     const { dataSource, create, update, remove } = makeDataSource();
     let controller: RelationshipCollectionEditorController | null = null;

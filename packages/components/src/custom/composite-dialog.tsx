@@ -34,6 +34,10 @@ export interface CompositeDialogProps {
   /** The host decides whether its compound draft needs discard confirmation. */
   confirmOnDiscard?: boolean;
   children?: React.ReactNode;
+  /** Optional read-only profile or document summary beside the form. */
+  sidebar?: React.ReactNode;
+  /** Accessible name for the complementary summary landmark. */
+  sidebarLabel?: string;
   footer?: React.ReactNode | ((controls: CompositeDialogControls) => React.ReactNode);
   className?: string;
 }
@@ -41,7 +45,7 @@ export interface CompositeDialogProps {
 /** Shared dialog frame for multiple sibling, metadata-driven form sections. */
 export function CompositeDialog({
   open, title, description, onOpenChange, busy = false,
-  confirmOnDiscard = false, children, footer, className,
+  confirmOnDiscard = false, children, sidebar, sidebarLabel, footer, className,
 }: CompositeDialogProps): React.ReactElement {
   const { t } = useDialogTranslation();
   const [closeState, setCloseState] = React.useState({ open, confirming: false });
@@ -77,10 +81,15 @@ export function CompositeDialog({
             {description || t('form.dialogDescriptionFallback')}
           </DialogDescription>
         </DialogHeader>
-        <div className="@container min-h-0 flex-1 overflow-y-auto px-4 py-4 sm:px-[var(--ui-modal-padding-x,1.5rem)] sm:py-[var(--ui-modal-body-padding-y,1rem)] sm:max-h-[var(--ui-modal-body-max-height,none)]" aria-busy={busy}>
+        <div className="min-h-0 flex-1 overflow-y-auto sm:max-h-[var(--ui-modal-body-max-height,none)]" aria-busy={busy} data-slot="composite-dialog-body">
+          <div className={cn('min-w-0', sidebar != null && 'grid grid-cols-1 md:grid-cols-[var(--ui-dialog-sidebar-width,236px)_minmax(0,1fr)]')}>
+          {sidebar != null && <aside aria-label={sidebarLabel} className="min-w-0 border-b bg-muted/30 p-[var(--ui-modal-padding-x,1.5rem)] md:border-r md:border-b-0" data-slot="composite-dialog-sidebar">{sidebar}</aside>}
+          <div className="@container min-w-0 px-4 py-4 sm:px-[var(--ui-modal-padding-x,1.5rem)] sm:py-[var(--ui-modal-body-padding-y,1rem)]" data-slot="composite-dialog-main">
           <fieldset disabled={busy} className="m-0 min-w-0 border-0 p-0">
             {children}
           </fieldset>
+          </div>
+          </div>
         </div>
         {footer != null && (
           <div className="shrink-0 border-t bg-background px-4 py-3 sm:px-[var(--ui-modal-padding-x,1.5rem)]" data-testid="composite-dialog-footer">

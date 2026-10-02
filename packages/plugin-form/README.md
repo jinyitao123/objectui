@@ -2,6 +2,13 @@
 
 ## Direct React page composition
 
+In `RelationshipCollectionEditor`, a declared boolean `primaryField` is a
+checkbox in card headers and a pressed star action in the rows presentation.
+Both use the same field permission, readonly predicate and controlled draft;
+the action never writes a record. `onPrimaryChange` lets the host enforce its
+own exclusivity rule. See `RelationshipCollectionEditor.test.tsx` for the
+controlled row-action regression.
+
 Loading this plugin registers `DocumentWorkspace`, `DocumentSection`,
 `CompositeDialog`, `RelationshipCollectionEditor`, and `GridField` in the trusted
 React page runtime. Workspace and section slots are presentation-only. A direct

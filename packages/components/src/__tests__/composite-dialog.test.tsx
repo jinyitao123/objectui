@@ -6,6 +6,22 @@ import { CompositeDialog } from '../custom/composite-dialog';
 afterEach(cleanup);
 
 describe('CompositeDialog', () => {
+  it('keeps the optional summary beside the same controlled draft through discard cancellation', async () => {
+    const onOpenChange = vi.fn();
+    render(<CompositeDialog open title="Contact draft" sidebarLabel="Contact summary"
+      sidebar={<p>Draft contact</p>} onOpenChange={onOpenChange} confirmOnDiscard
+      footer={({ requestClose }) => <button onClick={requestClose}>Cancel draft</button>}>
+      <input aria-label="Contact name" defaultValue="" />
+    </CompositeDialog>);
+    expect(screen.getByRole('complementary', { name: 'Contact summary' })).toHaveTextContent('Draft contact');
+    const input = screen.getByRole('textbox', { name: 'Contact name' });
+    fireEvent.change(input, { target: { value: 'Aster' } });
+    fireEvent.click(screen.getByRole('button', { name: 'Cancel draft' }));
+    fireEvent.click(await screen.findByRole('button', { name: 'Keep editing' }));
+    expect(screen.getByRole('textbox', { name: 'Contact name' })).toBe(input);
+    expect(input).toHaveValue('Aster');
+    expect(onOpenChange).not.toHaveBeenCalled();
+  });
   it('guards footer cancellation and preserves the mounted draft when editing continues', async () => {
     const onOpenChange = vi.fn();
     render(

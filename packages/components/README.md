@@ -4,6 +4,14 @@ Standard UI component library for Object UI, built with Shadcn UI + Tailwind CSS
 
 ## Host geometry tokens
 
+`CompositeDialog` accepts an optional React `sidebar` and `sidebarLabel` for a
+profile or document summary. On desktop the summary precedes the form in a
+236px column (`--ui-dialog-sidebar-width`); narrow dialogs stack it above the
+form. Both columns share body scrolling while the footer stays outside the
+scroll region. The sidebar is presentation-only; controlled fields and discard
+handling remain in the existing main form. See
+`src/__tests__/composite-dialog.test.tsx` for draft preservation during cancellation.
+
 The public `Button`/`buttonVariants`, `Input`, `SelectTrigger`/`SelectItem`, `Textarea`,
 `Label`, and `NativeSelect` exports are wrappers in `src/custom/profile-controls.tsx`.
 They preserve the Shadcn props and refs while consuming optional host CSS
