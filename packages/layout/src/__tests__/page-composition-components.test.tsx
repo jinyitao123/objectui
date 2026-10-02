@@ -113,10 +113,15 @@ describe('PageHeader action slot', () => {
 describe('React Page runtime registration', () => {
   it('registers the composition components as data-source-free runtime capabilities', () => {
     const registrations = ComponentRegistry.getReactRuntimeComponents();
-    const registered = ['PageHeader', 'ListSummary', 'StatusTabs'].map((name) =>
+    const registered = ['WorkspaceHeader', 'ListSummary', 'StatusTabs'].map((name) =>
       registrations.find((entry) => entry.name === name),
     );
 
+    // The record plugin exposes page:header as the schema-derived PageHeader name.
+    const schemaDerivedNames = new Set(['PageHeader']);
+    expect(registered.every(entry => entry && !schemaDerivedNames.has(entry.name))).toBe(true);
+    expect(registrations.find(entry => entry.name === 'PageHeader')).toBeUndefined();
+    expect(registered[0]?.component).toBe(PageHeader);
     expect(registered.every(Boolean)).toBe(true);
     expect(registered.every((entry) => entry?.injectDataSource === false)).toBe(true);
     expect(ComponentRegistry.getConfig('ListSummary')).toBeUndefined();

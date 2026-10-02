@@ -26,7 +26,7 @@ export * from './AppSchemaRenderer';
 // Keep these registrations in this entry module: `package.json` explicitly
 // marks the package entry as side-effectful so production bundlers preserve them.
 const reactPageRuntimeComponents = [
-  ['PageHeader', PageHeader],
+  ['WorkspaceHeader', PageHeader],
   ['ListSummary', ListSummary],
   ['StatusTabs', StatusTabs],
 ] as const;

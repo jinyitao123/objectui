@@ -155,10 +155,10 @@ are not part of the generated `@objectstack/spec` React Page authoring contract.
 Runtime availability does not mean `os validate` or publish validation accepts
 them.
 
-Importing `@object-ui/layout` registers `<PageHeader>`, `<ListSummary>` and
+Importing `@object-ui/layout` registers `<WorkspaceHeader>`, `<ListSummary>` and
 `<StatusTabs>` as presentation-only runtime components. They receive no
 `dataSource`, add no schema type or Spec authoring props, and must be registered
-before the first React Page mounts. `PageHeader` accepts its action controls as
+before the first React Page mounts. `WorkspaceHeader` uses the existing `PageHeader` React implementation and accepts its action controls as
 React children. `ListSummary` renders only the label/value items supplied by the
 host. `StatusTabs` is controlled: the host supplies its current value, tab
 labels and counts, and the `onValueChange` handler that updates the page's
@@ -181,9 +181,9 @@ function ContactsPage() {
 
   return (
     <>
-      <PageHeader title="Contacts">
+      <WorkspaceHeader title="Contacts">
         <button type="button" onClick={() => openContactForm()}>New contact</button>
-      </PageHeader>
+      </WorkspaceHeader>
       <ListSummary aria-label="Contact summary" items={stats} />
       <StatusTabs
         aria-label="Contact status"

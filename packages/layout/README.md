@@ -171,7 +171,7 @@ host's `role="tabpanel"` list region. `listClassName`, `tabClassName` and
 `countClassName` expose styling slots; hosts can set `--ui-status-tabs-height`,
 `--ui-status-tabs-padding-inline` and `--ui-status-tabs-radius` per surface.
 
-Importing `@object-ui/layout` also registers `PageHeader`, `ListSummary` and
+Importing `@object-ui/layout` also registers `WorkspaceHeader`, `ListSummary` and
 `StatusTabs` as presentation-only React Page runtime components. This is a
 code-only runtime capability: the names are not schema component keys or
 `@objectstack/spec` authoring props. The registration happens when the package
