@@ -155,6 +155,60 @@ are not part of the generated `@objectstack/spec` React Page authoring contract.
 Runtime availability does not mean `os validate` or publish validation accepts
 them.
 
+Importing `@object-ui/layout` registers `<PageHeader>`, `<ListSummary>` and
+`<StatusTabs>` as presentation-only runtime components. They receive no
+`dataSource`, add no schema type or Spec authoring props, and must be registered
+before the first React Page mounts. `PageHeader` accepts its action controls as
+React children. `ListSummary` renders only the label/value items supplied by the
+host. `StatusTabs` is controlled: the host supplies its current value, tab
+labels and counts, and the `onValueChange` handler that updates the page's
+filter state.
+
+```jsx
+function ContactsPage() {
+  const [status, setStatus] = React.useState('all');
+  const stats = [
+    { id: 'all', label: 'All contacts', value: 128 },
+    { id: 'active', label: 'Active', value: 96 },
+    { id: 'inactive', label: 'Inactive', value: 32 },
+    { id: 'prospect', label: 'Prospect', value: 14 },
+  ];
+  const statuses = [
+    { value: 'all', label: 'All', count: 128 },
+    { value: 'active', label: 'Active', count: 96 },
+    { value: 'inactive', label: 'Inactive', count: 32 },
+  ];
+
+  return (
+    <>
+      <PageHeader title="Contacts">
+        <button type="button" onClick={() => openContactForm()}>New contact</button>
+      </PageHeader>
+      <ListSummary aria-label="Contact summary" items={stats} />
+      <StatusTabs
+        aria-label="Contact status"
+        panelId="contact-results"
+        items={statuses}
+        value={status}
+        onValueChange={setStatus}
+      />
+      <section id="contact-results" role="tabpanel" aria-label="Contact results" tabIndex={0}>
+        {/* Render the host's already-filtered list here. */}
+      </section>
+    </>
+  );
+}
+```
+
+Counts and filters must use the same scope when the host provides both. The
+summary grid uses container queries and shrinks from four columns to two or one
+as the available width narrows; its cards have no fixed width. `StatusTabs`
+requires an accessible tab-list label and the id of its matching `tabpanel`.
+The three components expose `className` or named slot class props for host
+styling. Their
+geometry can also be set with the public `--ui-page-title-*`,
+`--ui-list-summary-*` and `--ui-status-tabs-*` CSS custom properties.
+
 `CompositeDialog` can also receive a read-only `sidebar` React node and its
 `sidebarLabel`. It places a profile summary to the left of the form on desktop
 and above it on narrow screens. The host may set `--ui-dialog-sidebar-width`;

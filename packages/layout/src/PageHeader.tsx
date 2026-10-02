@@ -47,6 +47,9 @@ export interface PageHeaderComponentProps extends React.HTMLAttributes<HTMLDivEl
      * pre-rendered React node.
      */
     icon?: React.ReactNode | string;
+    /** Optional class overrides for the title and subtitle elements. */
+    titleClassName?: string;
+    subtitleClassName?: string;
     action?: React.ReactNode;
     /**
      * Show a back arrow at the left of the header that navigates one level
@@ -125,6 +128,8 @@ export function PageHeader({
     actions,
     showBack,
     schema,
+    titleClassName,
+    subtitleClassName,
     className,
     children,
     ...props
@@ -214,7 +219,7 @@ export function PageHeader({
     const slot = action || children || actionsSlot || schemaChildren;
 
     return (
-        <div className={cn('flex flex-col gap-3 pb-4 border-b', className)} {...props}>
+        <div data-slot="page-header" className={cn('flex min-w-0 flex-col gap-3 pb-4 border-b border-border', className)} {...props}>
             <div className="flex flex-wrap items-center gap-x-4 gap-y-2">
                 {shouldShowBack && (
                     <Button
@@ -233,13 +238,28 @@ export function PageHeader({
                         {typeof icon === 'string' ? <LazyIcon name={icon} className="size-5" /> : icon}
                     </div>
                 )}
-                <div className="flex flex-col min-w-48 flex-1">
+                <div className="flex min-w-0 flex-1 flex-col">
                     {resolvedTitle ? (
-                        <h1 className="text-2xl font-bold tracking-tight md:text-3xl truncate">{resolvedTitle}</h1>
+                        <h1 className={cn(
+                            'truncate text-[length:var(--ui-page-title-font-size,1.5rem)] leading-[var(--ui-page-title-line-height,1.3333)] font-[weight:var(--ui-page-title-font-weight,700)] tracking-tight md:text-[length:var(--ui-page-title-font-size,1.875rem)] md:leading-[var(--ui-page-title-line-height,1.2)]',
+                            titleClassName,
+                        )}>{resolvedTitle}</h1>
                     ) : null}
-                    {resolvedSecondary && <p className="text-sm text-muted-foreground truncate">{resolvedSecondary}</p>}
+                    {resolvedSecondary && (
+                        <p className={cn('truncate text-sm text-muted-foreground', subtitleClassName)}>
+                            {resolvedSecondary}
+                        </p>
+                    )}
                 </div>
-                {slot && <div className="flex items-center gap-2 ml-auto">{slot}</div>}
+                {slot && (
+                    <div
+                        data-slot="page-header-actions"
+                        className="ml-auto flex max-w-full flex-wrap items-center justify-end gap-2"
+                        onClick={(event) => event.stopPropagation()}
+                    >
+                        {slot}
+                    </div>
+                )}
             </div>
         </div>
     );

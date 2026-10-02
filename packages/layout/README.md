@@ -98,6 +98,85 @@ alias this component used to read as well was retired in objectui#3789; stored
 metadata still carrying it is rewritten to `subtitle` at load time by the
 ADR-0087 D2 conversion `page-header-subtitle-alias`.
 
+Pass action controls as React children. They render in the right-aligned action
+slot, and clicks in that slot do not bubble to a clickable page container.
+`titleClassName` and `subtitleClassName` provide element-level overrides. The
+title also consumes `--ui-page-title-font-size`, `--ui-page-title-line-height`
+and `--ui-page-title-font-weight`, with CSS fallbacks for hosts without a
+profile.
+
+```tsx
+<PageHeader title="Contacts" subtitle="Manage customer contacts">
+  <button type="button" onClick={createContact}>New contact</button>
+</PageHeader>
+```
+
+### ListSummary
+
+`ListSummary` renders a host-provided collection of labels and values as a
+responsive one-, two- or four-column summary. It does not read a data source or
+derive business counts.
+
+```tsx
+import { ListSummary, type ListSummaryItem } from '@object-ui/layout';
+
+const summary: ListSummaryItem[] = [
+  { id: 'all', label: 'All contacts', value: 128 },
+  { id: 'active', label: 'Active', value: 96 },
+];
+
+<ListSummary aria-label="Contact summary" items={summary} />
+```
+
+Each item's `id` is the stable React key. `className`, `itemClassName`,
+`labelClassName` and `valueClassName` are Tailwind override points. Hosts may
+also tune the geometry with `--ui-list-summary-gap`,
+`--ui-list-summary-item-gap`, `--ui-list-summary-card-height`,
+`--ui-list-summary-card-radius`,
+`--ui-list-summary-padding-inline`, `--ui-list-summary-padding-block`,
+`--ui-list-summary-label-*` and `--ui-list-summary-value-*` custom properties.
+The responsive grid uses its own container width, so four cards do not depend
+on a fixed card width.
+
+### StatusTabs
+
+`StatusTabs` is a controlled status filter strip. The host supplies the selected
+value, status counts and change handler; the tab component does not translate a
+status into a query.
+
+```tsx
+import { StatusTabs, type StatusTabItem } from '@object-ui/layout';
+
+const statuses: StatusTabItem[] = [
+  { value: 'all', label: 'All', count: 128 },
+  { value: 'active', label: 'Active', count: 96 },
+  { value: 'inactive', label: 'Inactive', count: 32 },
+];
+
+<StatusTabs
+  aria-label="Contact status"
+  panelId="contact-results"
+  items={statuses}
+  value={status}
+  onValueChange={setStatus}
+/>
+<section id="contact-results" role="tabpanel" aria-label="Contact results" tabIndex={0}>
+  {/* Render the host's already-filtered list here. */}
+</section>
+```
+
+The existing Radix Tabs primitive supplies tab roles, roving focus and arrow-key
+navigation. `aria-label` names the tab list; `panelId` must match the id of the
+host's `role="tabpanel"` list region. `listClassName`, `tabClassName` and
+`countClassName` expose styling slots; hosts can set `--ui-status-tabs-height`,
+`--ui-status-tabs-padding-inline` and `--ui-status-tabs-radius` per surface.
+
+Importing `@object-ui/layout` also registers `PageHeader`, `ListSummary` and
+`StatusTabs` as presentation-only React Page runtime components. This is a
+code-only runtime capability: the names are not schema component keys or
+`@objectstack/spec` authoring props. The registration happens when the package
+loads, before a React Page builds its stable component scope.
+
 > **Rendering a whole `page` node?** That belongs to `PageRenderer` in
 > `@object-ui/components`, which is what the `page` component key resolves to —
 > it handles page types (record/home/app/utility), named regions and page
