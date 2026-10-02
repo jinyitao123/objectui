@@ -180,11 +180,12 @@ classes for these layouts. Hosts can tune section geometry with the
 lists their defaults and root-font scaling.
 
 `RecordTable` is the standard `data-table` renderer exposed to trusted React
-Pages through its existing `schema` prop. A host may compose React cell callbacks
-for related business data and pass controlled server paging/sorting. This does
-not introduce another table schema or a data-fetching service. Ordinary object
-lists continue to use `ListView`; callbacks belong to React source, not persisted
-JSON metadata.
+pages through its existing `schema` prop. A host may compose React cell callbacks
+for related business data and pass controlled server paging/sorting. Custom
+cell callbacks own their visible content and tooltips; the table does not add
+the raw backing value as a hover title to those cells. This introduces no second
+table schema or data-fetching service. Ordinary object lists continue to use
+`ListView`; callbacks belong to React source, not persisted JSON metadata.
 
 The form plugin also registers `<GridField>` as a direct React component. Use
 this tag for a controlled line editor with `getRowKey` and

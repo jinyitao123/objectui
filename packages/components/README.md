@@ -10,7 +10,7 @@ as a runtime-only component so React cell callbacks remain callable. It accepts
 the same manual paging/sorting contract and performs no data requests itself.
 Use model `ListView` for ordinary object lists; this direct surface is for
 composite records whose cells combine authorized related data. The runtime
-regression is `src/__tests__/record-table-runtime.test.tsx`.
+regression is `src/__tests__/record-table-runtime.test.tsx`. Custom cell callbacks own their display labels and tooltips; raw backing values are not added as hover titles to those cells.
 
 `CompositeDialog` accepts an optional React `sidebar` and `sidebarLabel` for a
 profile or document summary. On desktop the summary precedes the form in a

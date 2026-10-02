@@ -2664,7 +2664,9 @@ const DataTableRenderer = ({ schema }: { schema: DataTableSchema }) => {
                                       ? 'w-full whitespace-normal break-words'
                                       : 'truncate w-full'
                                 }
-                                title={!isFit && cellValue != null && typeof cellValue !== 'object' ? String(cellValue) : undefined}
+                                // A custom renderer owns its visible label and tooltip;
+                                // its backing value may be an internal relation key.
+                                title={!col.cell && !isFit && cellValue != null && typeof cellValue !== 'object' ? String(cellValue) : undefined}
                               >
                                 {typeof col.cell === 'function'
                                   ? col.cell(cellValue, row)

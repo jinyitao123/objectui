@@ -18,6 +18,8 @@ describe('RecordTable runtime composition', () => {
       onRowClick:open,searchable:false,exportable:false,selectable:false,
     }} />);
     expect(screen.getByRole('table')).toHaveTextContent('Aster');
+    expect(screen.getByText('Aster').closest('[title]')).toHaveAttribute('title', 'Aster');
+    expect(screen.getByRole('button',{name:'Edit Aster'}).closest('[title]')).toBeNull();
     fireEvent.click(screen.getByRole('button',{name:'Edit Aster'}));
     expect(edit).toHaveBeenCalledWith('r1');
     expect(open).not.toHaveBeenCalled();
