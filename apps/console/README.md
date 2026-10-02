@@ -30,6 +30,16 @@ The profile is a presentation baseline rather than a claim of page parity.
 Compare concrete controls and states at a fixed viewport before declaring a
 sample aligned. Color calibration is independent of these geometry tokens.
 
+The profile also lists RISEMAP measurements in `--ui-page-*` and
+`--ui-surface-*` custom properties. Shared control and typography tokens are
+consumed by existing renderers. Forge's host-scoped contact list and profile
+dialog already read selected surface values; generic ObjectUI renderers do not
+infer a page from them. Quote and project measurements remain available for
+future consumers. Keep each measured row, header and tab size attached to its
+surface instead of applying one table density to every list. See the
+[Console guide](/docs/guide/console#optional-geometry-profile) for component
+boundaries and current gaps.
+
 The standalone component preview uses local in-memory fixtures and no platform
 login or business database: run `pnpm --filter @object-ui/console preview:geometry`
 and open the local address printed by Vite. It exercises the shared control,

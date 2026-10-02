@@ -65,6 +65,18 @@ The profile is opt-in and keeps the existing dimensions as CSS fallbacks.
 It contains no business state or permission rules. Host apps may supply their
 own token values instead; authored `className` overrides remain available.
 
+The profile also publishes measurements under `--ui-page-*` and
+`--ui-surface-*`. The standard body, control and table-heading tokens describe
+shared values; quote, contact-list and project-list row heights, tabs and
+contact summary cards stay scoped to their measured surfaces. Forge's
+host-scoped contact list and profile dialog consume selected surface values;
+generic ObjectUI renderers do not infer a page from them. Quote and project
+values remain available for future consumers. `ListView` remains the
+model-backed list API, while the trusted React `RecordTable` composes the
+existing `data-table` schema and leaves fetching and server paging to its host.
+See the Forge page-polish baseline for the observed dimensions and the
+component-by-component handoff.
+
 ```bash
 # From the repository root
 pnpm install
