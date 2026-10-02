@@ -27,6 +27,7 @@ import {
 } from '@object-ui/components';
 import { ChevronDown, ChevronRight, Copy, Check, Eye, EyeOff, Pencil } from 'lucide-react';
 import { SchemaRenderer, toRenderableSchema, useInlineEdit } from '@object-ui/react';
+import { usePermissions } from '@object-ui/permissions';
 import { getCellRenderer, resolveCellRendererType } from '@object-ui/fields';
 import { isDatabaseKeyField } from '@object-ui/core';
 import type { DetailViewSection as DetailViewSectionType, DetailViewField, FieldMetadata } from '@object-ui/types';
@@ -147,6 +148,10 @@ export const DetailSection: React.FC<DetailSectionProps> = ({
   const [showEmptyOverride, setShowEmptyOverride] = React.useState(false);
   const { t } = useDetailTranslation();
   const { fieldLabel, translateOptions } = useSafeFieldLabel();
+  const permissions = usePermissions();
+  const hasResolvedPermissions = permissions.isLoaded;
+  const objectAllowsInlineUpdate =
+    !hasResolvedPermissions || (!!objectName && permissions.can(objectName, 'update'));
   const displayFields = React.useMemo(
     () => section.fields.filter((field) => !isDatabaseKeyField(field.name)),
     [section.fields],
@@ -369,7 +374,16 @@ export const DetailSection: React.FC<DetailSectionProps> = ({
     // (objectui#4221) already holds the WRITE direction of it.
     const isMaskedField = isMaskedDetailFieldType(field.type, objectDefField?.type);
     const fieldEditable = !isReadonly && !isComputedField && !isSystemField && !isInlineExcluded;
-    const canInlineEditField = fieldEditable && !!onEnterInlineEdit;
+    // Field metadata may make a value available to a controlled action form;
+    // generic record editing still needs the resolved principal's object and
+    // field-write grants below.
+    const fieldAllowsInlineWrite =
+      !hasResolvedPermissions ||
+      (!!objectName &&
+        objectAllowsInlineUpdate &&
+        permissions.checkField(objectName, field.name, 'write'));
+    const canEditField = fieldEditable && fieldAllowsInlineWrite;
+    const canInlineEditField = canEditField && !!onEnterInlineEdit;
 
     const displayValue = (() => {
       // Per-field widget override (ADR-0056 P1) — a facet designed in Studio
@@ -456,7 +470,7 @@ export const DetailSection: React.FC<DetailSectionProps> = ({
     // hairline-separated rows inside the section card. The native-feeling
     // settings/detail form for the mobile target. Editing falls back to the
     // stacked layout below so inputs have room.
-    if (isMobile && !(isEditing && fieldEditable)) {
+    if (isMobile && !(isEditing && canEditField)) {
       return (
         <div
           key={field.name}
@@ -487,7 +501,7 @@ export const DetailSection: React.FC<DetailSectionProps> = ({
         <div className="text-xs font-medium text-muted-foreground uppercase tracking-wide">
           {fieldLabel(objectName || '', field.name, field.label || field.name)}
         </div>
-        {isEditing && fieldEditable ? (
+        {isEditing && canEditField ? (
           <div className="min-h-[44px] sm:min-h-0">
             <InlineFieldInput
               field={enrichedField}

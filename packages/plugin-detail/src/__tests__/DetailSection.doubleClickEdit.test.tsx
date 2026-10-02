@@ -8,6 +8,8 @@
 
 import { describe, it, expect, vi, beforeAll } from 'vitest';
 import { render, screen, fireEvent } from '@testing-library/react';
+import type { ReactElement } from 'react';
+import { MePermissionsProvider, PermissionProvider } from '@object-ui/permissions';
 import { DetailSection } from '../DetailSection';
 import type { DetailViewSection } from '@object-ui/types';
 
@@ -182,5 +184,123 @@ describe('DetailSection inline-edit — object-readonly & system-field gate', ()
     expect(screen.getByDisplayValue('Hello')).toBeInTheDocument();
     expect(screen.queryByDisplayValue('EXT-9')).toBeNull();
     expect(screen.queryByDisplayValue('CR-1')).toBeNull();
+  });
+});
+
+describe('DetailSection inline edit — resolved object and field write permissions', () => {
+  beforeAll(() => {
+    Object.defineProperty(window, 'innerWidth', { configurable: true, value: 1280 });
+  });
+
+  const section: DetailViewSection = {
+    fields: [
+      { name: 'description', label: 'Description' },
+      { name: 'owner', label: 'Owner' },
+    ],
+  } as DetailViewSection;
+  const objectSchema = { fields: { description: { type: 'textarea', editable: true }, owner: { type: 'text', editable: true } } };
+  const data = { description: 'Current description', owner: 'A. Seller' };
+
+  function renderWithPermissions(
+    ui: ReactElement,
+    allowEdit: boolean,
+    fields: Record<string, { readable?: boolean; editable?: boolean }> = {},
+  ) {
+    return render(
+      <MePermissionsProvider
+        initialPermissions={{
+          authenticated: true,
+          userId: 'seller-1',
+          tenantId: 'org-1',
+          roles: ['sales_owner'],
+          permissionSets: ['sales-owner'],
+          objects: { account: { allowRead: true, allowEdit } },
+          fields,
+        }}
+      >
+        {ui}
+      </MePermissionsProvider>,
+    );
+  }
+
+  it('hides generic inline edit when object update is denied, even if the field is editable', () => {
+    const onEnter = vi.fn();
+    renderWithPermissions(
+      <DetailSection
+        section={section}
+        objectName="account"
+        data={data}
+        objectSchema={objectSchema}
+        onEnterInlineEdit={onEnter}
+      />,
+      false,
+      { 'account.description': { readable: true, editable: true } },
+    );
+
+    fireEvent.doubleClick(screen.getByText('Current description'));
+    expect(onEnter).not.toHaveBeenCalled();
+  });
+
+  it('honors a loaded role matrix with userId=null when object update is denied', () => {
+    const onEnter = vi.fn();
+    render(
+      <PermissionProvider
+        roles={[{ name: 'sales', label: 'Sales', description: 'Sales access' }]}
+        userRoles={['sales']}
+        permissions={[{
+          object: 'account',
+          roles: { sales: { actions: ['read'], fieldPermissions: [{ field: 'description', read: true, write: true }] } },
+        }]}
+      >
+        <DetailSection
+          section={section}
+          objectName="account"
+          data={data}
+          objectSchema={objectSchema}
+          onEnterInlineEdit={onEnter}
+        />
+      </PermissionProvider>,
+    );
+
+    fireEvent.doubleClick(screen.getByText('Current description'));
+    expect(onEnter).not.toHaveBeenCalled();
+  });
+
+  it('hides only fields denied by field write permission', () => {
+    const onEnter = vi.fn();
+    renderWithPermissions(
+      <DetailSection
+        section={section}
+        objectName="account"
+        data={data}
+        objectSchema={objectSchema}
+        onEnterInlineEdit={onEnter}
+      />,
+      true,
+      { 'account.description': { readable: true, editable: false } },
+    );
+
+    fireEvent.doubleClick(screen.getByText('Current description'));
+    fireEvent.doubleClick(screen.getByText('A. Seller'));
+    expect(onEnter).toHaveBeenCalledTimes(1);
+    expect(onEnter).toHaveBeenCalledWith('owner');
+  });
+
+  it('does not render an editor for a denied field after edit mode has opened', () => {
+    renderWithPermissions(
+      <DetailSection
+        section={section}
+        objectName="account"
+        data={data}
+        objectSchema={objectSchema}
+        isEditing
+        onFieldChange={vi.fn()}
+      />,
+      true,
+      { 'account.description': { readable: true, editable: false } },
+    );
+
+    expect(screen.queryByDisplayValue('Current description')).toBeNull();
+    expect(screen.getByDisplayValue('A. Seller')).toBeInTheDocument();
   });
 });

@@ -358,6 +358,12 @@ for controlled rows, inclusion rules, and card/row presentation. The standalone
 Console preview at `?sample=relationships` exercises the host composition and
 does not persist records or prove transaction atomicity.
 
+Row form edits merge against the editor's latest local draft collection. A
+late value event from an existing row therefore preserves a sibling added
+while the host is still applying an earlier `onChange`; hosts that defer their
+controlled `value` updates should apply emitted snapshots in order or use
+latest-state semantics.
+
 The editor accepts existing React-only `sections` from
 `@objectstack/spec/ui` `FormSection[]` and passes them through ObjectForm's
 section pipeline. A `primaryField` names one declared boolean child field;

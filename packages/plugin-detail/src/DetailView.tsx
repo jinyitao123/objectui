@@ -305,6 +305,12 @@ export const DetailView: React.FC<DetailViewProps> = ({
   // PermissionProvider is mounted, `perms.isLoaded` is false and the
   // schema passes through unchanged.
   const perms = usePermissions();
+  // Record IDs are developer diagnostics, not an affordance for ordinary
+  // business users. Require a reported metadata-development capability; an
+  // unreported/standalone context is not enough to expose the copy action.
+  const canCopyRecordId =
+    Array.isArray(perms.systemPermissions) &&
+    (perms.hasCapabilities(['studio.access']) || perms.hasCapabilities(['setup.access']));
   const gatedSchema = React.useMemo<DetailViewSchema>(() => {
     if (!perms?.isLoaded || !rawSchema.objectName) return rawSchema;
     const canRead = (fieldName: string) =>
@@ -1378,7 +1384,7 @@ export const DetailView: React.FC<DetailViewProps> = ({
               {schema.objectName && (
                 <p className="text-sm text-muted-foreground mt-1 flex items-center gap-1">
                   <span className="font-medium">{objectLabel || schema.objectName}</span>
-                  {schema.resourceId && (
+                  {schema.resourceId && canCopyRecordId && (
                     <Tooltip>
                       <TooltipTrigger asChild>
                         <Button

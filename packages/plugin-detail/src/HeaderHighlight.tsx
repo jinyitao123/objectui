@@ -20,6 +20,7 @@ import type { HighlightField } from '@object-ui/types';
 import { EXPANDABLE_FIELD_TYPES } from '@object-ui/core';
 import { getCellRenderer, resolveCellRendererType } from '@object-ui/fields';
 import { useSafeFieldLabel, useInlineEdit } from '@object-ui/react';
+import { usePermissions } from '@object-ui/permissions';
 import { Check, X, Pencil } from 'lucide-react';
 import { InlineFieldInput } from './InlineFieldInput';
 import {
@@ -58,7 +59,11 @@ export const HeaderHighlight: React.FC<HeaderHighlightProps> = ({
   // read-only, exactly as before.
   const inline = useInlineEdit();
   const editing = inline?.editing ?? false;
-  const canEdit = inline?.canEdit ?? false;
+  const permissions = usePermissions();
+  const hasResolvedPermissions = permissions.isLoaded;
+  const objectAllowsInlineUpdate =
+    !hasResolvedPermissions || (!!objectName && permissions.can(objectName, 'update'));
+  const canEdit = (inline?.canEdit ?? false) && objectAllowsInlineUpdate;
 
   if (!fields.length || !data) return null;
 
@@ -128,7 +133,12 @@ export const HeaderHighlight: React.FC<HeaderHighlightProps> = ({
               objectDefField?.type,
             );
             const fieldEditable = !isComputed && !isReadonly && !isSystem && !isInlineExcluded;
-            const canInlineEditField = canEdit && fieldEditable;
+            const fieldAllowsInlineWrite =
+              !hasResolvedPermissions ||
+              (!!objectName &&
+                objectAllowsInlineUpdate &&
+                permissions.checkField(objectName, field.name, 'write'));
+            const canInlineEditField = canEdit && fieldEditable && fieldAllowsInlineWrite;
             const editorActive = editing && canInlineEditField;
 
             // Use type-aware cell renderer — all renderers coerce values via

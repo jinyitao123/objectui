@@ -123,6 +123,18 @@ carries the active `objectName`, so `params` may be omitted entirely:
 | Back button closes form | n/a | ✅ |
 | Best for | quick edits | long / multi-section forms |
 
+## Permission gates
+
+`editMode` chooses where a record form opens; it does not grant write access.
+With a loaded permission context, the console's generic inline edit requires
+the object-level `allowEdit` permission, an effective API `update` operation,
+an editable record verdict, and write permission for each edited field. A field
+marked `editable: true` does not override a denied object-level update grant.
+Use a controlled business action when a user should change a field without
+receiving generic record-update access. Hosts without a reported permission
+context retain their existing standalone UI behavior, while the server remains the
+authority for writes.
+
 ## Migrating an existing object
 
 The change is additive — existing apps continue to work unchanged. To

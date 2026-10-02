@@ -474,6 +474,10 @@ export function RelationshipCollectionEditor({
   const objectSchema = currentLoadState?.status === 'ready' ? currentLoadState.schema : null;
   const resolvedRelationshipField = metadata?.ok ? metadata.relationshipField : null;
   const fieldNames = React.useMemo(() => metadata?.ok ? metadata.fieldNames : [], [metadata]);
+  const fieldNamesRef = useRef(fieldNames);
+  useLayoutEffect(() => {
+    fieldNamesRef.current = fieldNames;
+  }, [fieldNames]);
   const unknownSelectedField = selectedFields?.find((name) => !fieldNames.includes(name));
   const primaryFieldError = primaryField == null
     ? undefined
@@ -598,11 +602,25 @@ export function RelationshipCollectionEditor({
     };
   }, [value, includeRow, effectiveMinRows, createAllowed, requiresNestedController, primaryField, primaryFieldReadable, primaryFieldWriteDisabled, parentRecord, presentation, sections, visibleFieldNames]);
 
-  const replaceRows = (nextRows: RelationshipDraftRow[]) => {
+  const replaceRows = React.useCallback((nextRows: RelationshipDraftRow[]) => {
     revisionRef.current += 1;
     valuesRef.current = nextRows;
     onChangeRef.current(nextRows);
-  };
+  }, []);
+
+  const mergeRowValues = React.useCallback((draftKey: string, nextValues: Record<string, unknown>) => {
+    const currentRows = valuesRef.current;
+    if (!currentRows.some((candidate) => candidate.draftKey === draftKey)) return;
+    const projectedValues = projectRelationshipDraftValues(nextValues, fieldNamesRef.current);
+    replaceRows(currentRows.map((candidate) =>
+      candidate.draftKey === draftKey
+        ? {
+            ...candidate,
+            values: projectRelationshipDraftValues({ ...candidate.values, ...projectedValues }, fieldNamesRef.current),
+          }
+        : candidate,
+    ));
+  }, [replaceRows]);
 
   const reportFormController = (draftKey: string, controller: ObjectFormController | null) => {
     if (formControllers.current.get(draftKey) === controller) return;
@@ -903,7 +921,8 @@ export function RelationshipCollectionEditor({
 
   const changePrimary = (draftKey: string, checked: boolean) => {
     if (!primaryField) return;
-    const row = value.find((candidate) => candidate.draftKey === draftKey);
+    const currentRows = valuesRef.current;
+    const row = currentRows.find((candidate) => candidate.draftKey === draftKey);
     if (!row) return;
     const state = resolvePrimaryFieldState(row, {
       childObjectName,
@@ -916,13 +935,13 @@ export function RelationshipCollectionEditor({
       predicateScope: rowPredicateScope,
     });
     if (!state.visible || state.readonly) return;
-    onChange(value.map((candidate) => candidate.draftKey === draftKey
+    replaceRows(currentRows.map((candidate) => candidate.draftKey === draftKey
       ? {
           ...candidate,
           values: projectRelationshipDraftValues({
             ...candidate.values,
             [primaryField]: checked,
-          }, fieldNames),
+          }, fieldNamesRef.current),
         }
       : candidate));
     onPrimaryChange?.(draftKey, checked);
@@ -969,6 +988,7 @@ export function RelationshipCollectionEditor({
               <span className="sr-only">{removeLabel ?? 'Remove'}</span>
             </div>
           )}
+          {/* eslint-disable-next-line react-hooks/refs -- ObjectForm invokes these row handlers after render. */}
           {value.map((row, index) => {
             const rowTitle = `${itemLabel} ${index + 1}`;
             const primaryState = resolvePrimaryFieldState(row, {
@@ -1003,15 +1023,9 @@ export function RelationshipCollectionEditor({
               showSubmit: false,
               showCancel: false,
               showReset: false,
-              submitHandler: (submitted) => {
-                // Enter may submit this inner form; collect only its local values.
-                // The explicit host Save remains the sole persistence boundary.
-                onChange(value.map((candidate) =>
-                  candidate.draftKey === row.draftKey
-                    ? { ...candidate, values: projectRelationshipDraftValues({ ...candidate.values, ...projectRelationshipDraftValues(submitted, fieldNames) }, fieldNames) }
-                    : candidate,
-                ));
-              },
+              // Enter may submit this inner form; collect only its local values.
+              // The explicit host Save remains the sole persistence boundary.
+              submitHandler: (submitted) => mergeRowValues(row.draftKey, submitted),
             };
             const removeDisabled = canRemoveRow ? !canRemoveRow(row, index) : false;
             const rowId = `${reactId}-${encodeURIComponent(row.draftKey)}`;
@@ -1028,13 +1042,7 @@ export function RelationshipCollectionEditor({
                 schema={rowSchema}
                 dataSource={dataSource}
                 values={projectRelationshipDraftValues(row.values, fieldNames)}
-                onValuesChange={(nextValues) => {
-                  onChange(value.map((candidate) =>
-                    candidate.draftKey === row.draftKey
-                      ? { ...candidate, values: projectRelationshipDraftValues({ ...candidate.values, ...projectRelationshipDraftValues(nextValues, fieldNames) }, fieldNames) }
-                      : candidate,
-                  ));
-                }}
+                onValuesChange={(nextValues) => mergeRowValues(row.draftKey, nextValues)}
                 onControllerReady={(controller) => reportFormController(row.draftKey, controller)}
               />
             );

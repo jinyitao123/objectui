@@ -22,6 +22,12 @@ This package provides the essential building blocks for rendering ObjectUI schem
 - Zero console-specific dependencies
 - Bring-your-own-router design
 
+`RecordDetailView` gates generic inline edits with a loaded permission
+context's object update permission, the effective API operation set, the
+record verdict, and field write permissions. With no reported permission
+context, the host's existing standalone behavior remains; server authorization
+is still authoritative.
+
 ## Installation
 
 ```bash

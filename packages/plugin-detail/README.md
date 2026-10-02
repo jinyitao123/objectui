@@ -526,6 +526,18 @@ shared draft (`InlineEditProvider` from `@object-ui/react`), committed by
 `<InlineEditSaveBar>` as a single atomic OCC-guarded update. Polish shipped in
 #2572:
 
+When the permission context has loaded, inline editing requires the object's
+`allowEdit` grant and the edited field's write permission. The host also
+intersects the record-level verdict and effective API operations. Field
+metadata such as `editable: true` does not grant generic record updates; it
+cannot reopen editing when the object permission denies it. Hosts without a
+reported permission context keep their existing standalone behavior, and the
+server continues to enforce every write.
+
+The detail header's **Copy record ID** tool is shown only when reported system
+capabilities include `studio.access` or `setup.access`. A normal field value or
+business-readable identifier is unaffected.
+
 - **Editors**: `InlineFieldInput` routes every field type to the same widget
   the form uses — including `number` / `currency` / `percent` (numeric
   keyboard, `min`/`max`/`step` from metadata, fraction↔percent conversion) and

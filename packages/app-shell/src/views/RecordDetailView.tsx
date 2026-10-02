@@ -211,14 +211,14 @@ function mergeFeedRows(prev: readonly FeedItem[], incoming: readonly FeedItem[])
  * inline-edit session) and the `sys_delete` overflow item.
  *
  * [#3546] Each bit is the object's resolved CRUD affordance (lifecycle bucket +
- * `userActions`) INTERSECTED with the server-resolved effective API operation
- * set (`/me/permissions` `apiOperations`) — never a union. So a server grant can
- * never re-open an affordance the object's bucket closed, and a permissive
- * bucket default never survives the server denying `update` / `delete`. This is
- * the detail-surface end of the same intersection the list/toolbar surface
- * applies (objectui#2823). Passing `undefined` for `effectiveApiOperations`
- * (unrestricted object / old backend / no `PermissionProvider`) leaves the
- * bucket + `userActions` decision untouched — backward-compatible.
+ * `userActions`) intersected with the server-resolved effective API operation
+ * set (`/me/permissions` `apiOperations`) — never a union. The edit bit also
+ * intersects the resolved principal's base object `allowEdit` permission,
+ * because `apiOperations` only narrows API methods and may be absent. Unknown
+ * contexts pass `objectUpdateAllowed: true` to preserve standalone behavior.
+ * Passing `undefined` for `effectiveApiOperations` leaves the bucket +
+ * `userActions` decision untouched, while the independent base object gate
+ * still applies when supplied.
  *
  * Exported so the gate can be unit-tested directly: the record page itself is
  * wired into routing, auth, presence and data fetching too deeply to render in
@@ -228,9 +228,24 @@ function mergeFeedRows(prev: readonly FeedItem[], incoming: readonly FeedItem[])
 export function resolveRecordHeaderActionGates(
   objectDef: unknown,
   effectiveApiOperations?: readonly string[] | null,
+  objectUpdateAllowed = true,
 ): { edit: boolean; delete: boolean } {
   const affordances = resolveEffectiveCrudAffordances(objectDef as any, effectiveApiOperations);
-  return { edit: affordances.edit, delete: affordances.delete };
+  return { edit: affordances.edit && objectUpdateAllowed, delete: affordances.delete };
+}
+
+/**
+ * Apply the base object-update verdict whenever a permission provider has
+ * reported its state. `userId` may remain null for the role-based
+ * `PermissionProvider`, which still has an authoritative loaded role matrix.
+ * With no reported context, preserve standalone-host behavior.
+ */
+export function resolveObjectUpdatePermissionGate(
+  permissionsLoaded: boolean,
+  objectName: string | undefined,
+  canUpdate: (objectName: string) => boolean,
+): boolean {
+  return !permissionsLoaded || (!!objectName && canUpdate(objectName));
 }
 
 export function RecordDetailView({ dataSource, objects, onEdit, objectNameOverride, recordIdOverride, embedded }: RecordDetailViewProps) {
@@ -1148,17 +1163,33 @@ export function RecordDetailView({ dataSource, objects, onEdit, objectNameOverri
   // are still loading (`isLoaded === false`, e.g. no PermissionProvider in a
   // standalone embed) the gate stays open — fail-open is safe because the
   // server enforces data access regardless; this is purely a UI/DX filter.
-  const { can: canOnObject, isLoaded: permissionsLoaded, getObjectApiOperations, systemPermissions } = perms;
+  const {
+    can: canOnObject,
+    isLoaded: permissionsLoaded,
+    getObjectApiOperations,
+    systemPermissions,
+  } = perms;
   // [#3546] Server-resolved effective API operation set for this object
   // (`/me/permissions` `apiOperations`). Threaded as the 2nd arg into
   // `resolveRecordHeaderActionGates` for the detail header's Edit/Delete and
   // the record-body inline-edit gate, so the detail surface never offers an
   // operation the server would 405 — the same intersection the list/toolbar
-  // surface already applies (objectui#2823). `undefined` (unrestricted object
-  // / old backend) leaves the bucket affordances untouched (backward-compatible).
+  // surface already applies (objectui#2823). This is separate from the base
+  // object `allowEdit` grant below.
   const effectiveApiOperations = useMemo(
     () => (objectDef ? getObjectApiOperations(objectDef.name) : undefined),
     [objectDef, getObjectApiOperations],
+  );
+  // `apiOperations` narrows the object's apiMethods; it does not replace the
+  // permission set's base allowEdit decision. Require that grant when the
+  // endpoint resolved this principal, while preserving standalone hosts whose
+  // permission context has not reported a state. A role-based provider may
+  // report an authoritative matrix without a userId, so identity is not the
+  // signal.
+  const objectUpdateAllowed = resolveObjectUpdatePermissionGate(
+    permissionsLoaded,
+    objectDef?.name,
+    (name) => canOnObject(name, 'update'),
   );
   const childRelations = useMemo(
     () => deriveRelatedLists(objectDef, objects, {
@@ -2213,7 +2244,11 @@ export function RecordDetailView({ dataSource, objects, onEdit, objectNameOverri
   // menu permanently — Delete must never surface as an inline red button
   // just because an object has few actions.
   const synthSystemActions: ActionDef[] = (() => {
-    const objectAffordances = resolveRecordHeaderActionGates(objectDef, effectiveApiOperations);
+    const objectAffordances = resolveRecordHeaderActionGates(
+      objectDef,
+      effectiveApiOperations,
+      objectUpdateAllowed,
+    );
     // Object-level gate AND the record-level verdict (objectstack#3821) AND the
     // object's per-record `userActions` predicate (objectui#4213 — see the
     // evaluation block beside `recordDeleteAllowed` above).
@@ -2441,7 +2476,11 @@ export function RecordDetailView({ dataSource, objects, onEdit, objectNameOverri
             same reason `approvalLocked` does — a draft Save would reject. */}
         <InlineEditProvider
           canEdit={
-            resolveRecordHeaderActionGates(objectDef, effectiveApiOperations).edit
+            resolveRecordHeaderActionGates(
+              objectDef,
+              effectiveApiOperations,
+              objectUpdateAllowed,
+            ).edit
             && recordWriteAllowed
             && !approvalLocked
             && editVisible

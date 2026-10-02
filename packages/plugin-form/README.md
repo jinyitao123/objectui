@@ -1174,6 +1174,14 @@ from the child's metadata or explicitly named with `relationshipField`; that
 foreign key is excluded from row controls and left for the host's transaction.
 `draftKey` is stable editor identity and is never record data.
 
+Each row edit is merged into the editor's latest local draft collection, so a
+late value event from an already mounted row cannot remove a sibling added
+while the host is still echoing an earlier `onChange`. The host remains the
+owner of the controlled `value` and should apply emitted collection snapshots
+in order or with latest-state semantics. The regression test named
+`merges a real row-form edit into the latest draft while the host value echo is delayed`
+pins this behavior with the real ObjectForm row renderer.
+
 `fields` optionally selects declared child controls in host order, and the
 one-time row header uses the same selected set. Unknown fields and the
 transaction-supplied foreign key are configuration errors. Other model-bound

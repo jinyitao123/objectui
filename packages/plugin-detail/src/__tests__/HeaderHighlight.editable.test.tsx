@@ -9,6 +9,7 @@
 import { describe, it, expect, beforeAll, vi } from 'vitest';
 import { render, screen, fireEvent } from '@testing-library/react';
 import { InlineEditProvider, useInlineEdit } from '@object-ui/react';
+import { MePermissionsProvider, PermissionProvider } from '@object-ui/permissions';
 import { normalizeSchemaReferenceKeys } from '@object-ui/core';
 import { HeaderHighlight } from '../HeaderHighlight';
 
@@ -106,6 +107,92 @@ describe('HeaderHighlight — editable highlights (P2)', () => {
         <HeaderHighlight fields={fields} data={data} objectSchema={objectSchema} />
       </InlineEditProvider>,
     );
+    fireEvent.doubleClick(screen.getByText('Alice'));
+    expect(screen.queryByDisplayValue('Alice')).toBeNull();
+  });
+
+  it('does not offer generic field editing when a resolved principal lacks object update permission', () => {
+    render(
+      <MePermissionsProvider
+        initialPermissions={{
+          authenticated: true,
+          userId: 'seller-1',
+          tenantId: 'org-1',
+          roles: ['sales_owner'],
+          permissionSets: ['sales-owner'],
+          objects: { account: { allowRead: true, allowEdit: false } },
+          fields: { 'account.owner': { readable: true, editable: true } },
+        }}
+      >
+        <InlineEditProvider canEdit>
+          <HeaderHighlight
+            fields={fields}
+            data={data}
+            objectName="account"
+            objectSchema={objectSchema}
+          />
+        </InlineEditProvider>
+      </MePermissionsProvider>,
+    );
+
+    fireEvent.doubleClick(screen.getByText('Alice'));
+    expect(screen.queryByDisplayValue('Alice')).toBeNull();
+  });
+
+  it('does not offer a field editor when resolved field write permission is denied', () => {
+    render(
+      <MePermissionsProvider
+        initialPermissions={{
+          authenticated: true,
+          userId: 'seller-1',
+          tenantId: 'org-1',
+          roles: ['sales_owner'],
+          permissionSets: ['sales-owner'],
+          objects: { account: { allowRead: true, allowEdit: true } },
+          fields: { 'account.owner': { readable: true, editable: false } },
+        }}
+      >
+        <InlineEditProvider canEdit>
+          <HeaderHighlight
+            fields={fields}
+            data={data}
+            objectName="account"
+            objectSchema={objectSchema}
+          />
+        </InlineEditProvider>
+      </MePermissionsProvider>,
+    );
+
+    fireEvent.doubleClick(screen.getByText('Alice'));
+    expect(screen.queryByDisplayValue('Alice')).toBeNull();
+  });
+
+  it('honors a loaded role matrix with userId=null when field write is denied', () => {
+    render(
+      <PermissionProvider
+        roles={[{ name: 'sales', label: 'Sales', description: 'Sales access' }]}
+        userRoles={['sales']}
+        permissions={[{
+          object: 'account',
+          roles: {
+            sales: {
+              actions: ['read', 'update'],
+              fieldPermissions: [{ field: 'owner', read: true, write: false }],
+            },
+          },
+        }]}
+      >
+        <InlineEditProvider canEdit>
+          <HeaderHighlight
+            fields={fields}
+            data={data}
+            objectName="account"
+            objectSchema={objectSchema}
+          />
+        </InlineEditProvider>
+      </PermissionProvider>,
+    );
+
     fireEvent.doubleClick(screen.getByText('Alice'));
     expect(screen.queryByDisplayValue('Alice')).toBeNull();
   });
