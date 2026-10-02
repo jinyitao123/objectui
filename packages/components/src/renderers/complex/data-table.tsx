@@ -137,6 +137,8 @@ function safeObjectLabel(value: unknown): string {
 
 // Default English fallback translations for the data table
 const TABLE_DEFAULT_TRANSLATIONS: Record<string, string> = {
+  'detail.previousPage': 'Previous',
+  'detail.nextPage': 'Next',
   'table.rowsPerPage': 'Rows per page',
   'table.pageInfo': 'Page {{current}} of {{total}}',
   'table.totalRecords': '{{count}} total',
@@ -2765,6 +2767,7 @@ const DataTableRenderer = ({ schema }: { schema: DataTableSchema }) => {
                 variant="outline"
                 size="icon"
                 onClick={() => goToPage(1)}
+                aria-label={t('table.pageInfo', { current: 1, total: totalPages })}
                 disabled={effectivePage === 1}
               >
                 <ChevronsLeft className="h-4 w-4" />
@@ -2773,6 +2776,7 @@ const DataTableRenderer = ({ schema }: { schema: DataTableSchema }) => {
                 variant="outline"
                 size="icon"
                 onClick={() => goToPage(effectivePage - 1)}
+                aria-label={t('detail.previousPage')}
                 disabled={effectivePage === 1}
               >
                 <ChevronLeft className="h-4 w-4" />
@@ -2781,6 +2785,7 @@ const DataTableRenderer = ({ schema }: { schema: DataTableSchema }) => {
                 variant="outline"
                 size="icon"
                 onClick={() => goToPage(effectivePage + 1)}
+                aria-label={t('detail.nextPage')}
                 disabled={effectivePage === totalPages}
               >
                 <ChevronRight className="h-4 w-4" />
@@ -2789,6 +2794,7 @@ const DataTableRenderer = ({ schema }: { schema: DataTableSchema }) => {
                 variant="outline"
                 size="icon"
                 onClick={() => goToPage(totalPages)}
+                aria-label={t('table.pageInfo', { current: totalPages, total: totalPages })}
                 disabled={effectivePage === totalPages}
               >
                 <ChevronsRight className="h-4 w-4" />
@@ -2911,3 +2917,12 @@ ComponentRegistry.register('data-table', DataTableRenderer, {
     ],
   },
 });
+
+// Direct React composition reuses the schema table's paging and navigation.
+ComponentRegistry.registerReactRuntimeComponent('RecordTable', DataTableRenderer, {
+  injectDataSource: false,
+});
+const recordTableHot = (import.meta as ImportMeta & {
+  hot?: { dispose(callback: () => void): void };
+}).hot;
+recordTableHot?.dispose(() => ComponentRegistry.unregisterReactRuntimeComponent('RecordTable'));

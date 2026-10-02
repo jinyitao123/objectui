@@ -4,6 +4,14 @@ Standard UI component library for Object UI, built with Shadcn UI + Tailwind CSS
 
 ## Host geometry tokens
 
+Trusted React Pages can use `RecordTable` with a `schema` prop matching the
+existing `DataTableSchema`. It is the existing `data-table` renderer, registered
+as a runtime-only component so React cell callbacks remain callable. It accepts
+the same manual paging/sorting contract and performs no data requests itself.
+Use model `ListView` for ordinary object lists; this direct surface is for
+composite records whose cells combine authorized related data. The runtime
+regression is `src/__tests__/record-table-runtime.test.tsx`.
+
 `CompositeDialog` accepts an optional React `sidebar` and `sidebarLabel` for a
 profile or document summary. On desktop the summary precedes the form in a
 236px column (`--ui-dialog-sidebar-width`); narrow dialogs stack it above the
