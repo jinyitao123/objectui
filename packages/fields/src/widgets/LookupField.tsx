@@ -1120,6 +1120,9 @@ export function LookupField({ value, onChange, field, readonly, error: fieldErro
   // INSIDE a borderless trigger on a single line — no chip stacked above a
   // separate "Select…" button (which double-stacks and wastes the row height).
   const compact = !!props.compact;
+  const compactSingle = !multiple && typeof document !== 'undefined' &&
+    document.documentElement.dataset.uiProfile === 'compact-enterprise';
+  const inlineSelected = compact || compactSingle;
   const singleSelectedLabel = selectedOptions[0]?.label || selectedOptions[0]?.[displayField];
 
   // Shared field trigger — the anchor for either the inline PeoplePicker
@@ -1143,6 +1146,7 @@ export function LookupField({ value, onChange, field, readonly, error: fieldErro
         // flex-parent (form row) case.
         'min-w-0 max-w-full flex-1 justify-start text-left font-normal',
         compact && 'h-[var(--ui-control-height,2rem)] rounded-none border-0 bg-transparent px-[var(--ui-input-padding-x,0.5rem)] text-[length:var(--ui-control-font-size,0.875rem)] shadow-none focus-visible:ring-1 focus-visible:ring-ring/60',
+        compactSingle && 'w-full',
       )}
       type="button"
       disabled={dependenciesMissing || props.disabled}
@@ -1172,7 +1176,7 @@ export function LookupField({ value, onChange, field, readonly, error: fieldErro
             ? multiple
               ? t('table.selected', { count: rawSelectedCount })
               : t('lookup.loading')
-            : compact && !multiple && selectedOptions.length > 0
+            : inlineSelected && !multiple && selectedOptions.length > 0
               ? singleSelectedLabel
               : selectedOptions.length === 0
                 ? lookupField?.placeholder || t('common.select')
@@ -1198,9 +1202,9 @@ export function LookupField({ value, onChange, field, readonly, error: fieldErro
   const chipsRemovable = !props.disabled;
 
   return (
-    <div className={compact ? '' : 'space-y-2'}>
+    <div className={inlineSelected ? 'min-w-0' : 'space-y-2'}>
       {/* Selected values display (full mode only — compact shows it in-trigger) */}
-      {selectedOptions.length > 0 && !compact && (
+      {selectedOptions.length > 0 && !inlineSelected && (
         <div className="flex flex-wrap gap-1">
           {selectedOptions.map((opt, idx) => {
             const chipLabel = opt?.label || opt?.[displayField];
@@ -1255,6 +1259,7 @@ export function LookupField({ value, onChange, field, readonly, error: fieldErro
 
       {/* Field control: search-first inline combobox (anchored dropdown / mobile
           sheet), else the classic quick-select popover. */}
+      <div className={compactSingle ? 'flex min-w-0 items-center gap-1.5' : undefined}>
       {pickerVariant === 'search' && hasDataSource && dataSource && referenceTo ? (
         <PeoplePicker
           inline
@@ -1277,7 +1282,7 @@ export function LookupField({ value, onChange, field, readonly, error: fieldErro
           baseFilter={dependentFilter}
         />
       ) : (
-      <div className="flex items-center gap-1.5">
+      <div className={cn('flex items-center gap-1.5', compactSingle && 'min-w-0 flex-1')}>
       <Popover
         open={isOpen}
         onOpenChange={(o) => {
@@ -1487,6 +1492,14 @@ export function LookupField({ value, onChange, field, readonly, error: fieldErro
       )}
       </div>
       )}
+      {compactSingle && selectedOptions.length > 0 && chipsRemovable && (
+        <Button type="button" variant="ghost" size="icon" className="shrink-0"
+          aria-label={t('lookup.remove', { label: singleSelectedLabel })}
+          onClick={() => handleRemove(selectedOptions[0]?.value)}>
+          <X className="size-3" aria-hidden="true" />
+        </Button>
+      )}
+      </div>
 
       {/* Level 2: classic table picker — search fields use the inline combobox above. */}
       {hasDataSource && dataSource && referenceTo && pickerVariant !== 'search' && (

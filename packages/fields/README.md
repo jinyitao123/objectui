@@ -368,3 +368,10 @@ MIT — see [LICENSE](./LICENSE).
 Compact currency grid cells display the authored `prefix` and `scale` (two decimal places when unspecified). The default profile retains its existing formatting.
 
 Direct React `GridField` composition accepts typed runtime `columns` (`GridColumn[]`) for code-derived lookup options, calculations, conditional cell rules and currency presentation. These columns are not new members of serialized `GridFieldMetadata` or `GridColumnDefinition`; keep field metadata on its published shape.
+# Compact single-record relations
+
+The `compact-enterprise` host profile puts a single lookup or user field's
+selected title inside its picker trigger. The clear action remains keyboard
+accessible and follows the existing disabled/readonly rules. Multi-selection
+retains chips. No lookup query, hydration or stored value changes. See
+`src/widgets/LookupField.compactProfile.test.tsx` and the existing picker tests.

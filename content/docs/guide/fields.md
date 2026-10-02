@@ -292,3 +292,9 @@ export const KanbanCard = ({ task }: { task: { name: string; assignee: string } 
 Compact currency grid cells display the authored `prefix` and `scale` (two decimal places when unspecified). The default profile retains its existing formatting.
 
 Use the direct React runtime `columns` prop for code-derived `GridColumn` configuration. Do not place richer runtime column properties into serialized field metadata.
+# Compact single-record selection
+
+With the `compact-enterprise` host profile, single-record lookup and user
+selectors display their selected title inside the trigger rather than adding a
+separate chip row. Their clear action retains the field's disabled/readonly
+boundary. Multiple-value selectors keep their chip layout.
