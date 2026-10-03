@@ -447,6 +447,18 @@ describe('GridField / LineItemsField — editable line items', () => {
       ],
       total_field: 'amount',
     } as any;
+    const taxedComputedField = {
+      columns: [
+        { name: 'quantity', label: 'Qty', type: 'number' as const },
+        { name: 'taxed_unit_price', label: 'Taxed unit price', type: 'currency' as const },
+        { name: 'discount_rate', label: 'Discount rate', type: 'number' as const },
+        {
+          name: 'taxed_subtotal', label: 'Taxed subtotal', type: 'currency' as const,
+          computed: true, expr: 'record.quantity * record.taxed_unit_price * (1 - record.discount_rate / 100)', scale: 4,
+        },
+      ],
+      total_field: 'taxed_subtotal',
+    } as any;
 
     it('renders a computed column read-only (no input) and recomputes on edit', () => {
       const onChange = vi.fn();
@@ -456,6 +468,33 @@ describe('GridField / LineItemsField — editable line items', () => {
       // Editing quantity recomputes amount in the emitted row.
       fireEvent.change(screen.getAllByLabelText('Qty')[0], { target: { value: '4' } });
       expect(onChange).toHaveBeenCalledWith([{ product: 'Widget', quantity: 4, unit_price: 10, amount: 40 }]);
+    });
+
+    it('derives computed cells and their total from initially loaded numeric-string inputs', () => {
+      const onChange = vi.fn();
+      const { container } = render(<GridField value={[{
+        quantity: '2', taxed_unit_price: '90', discount_rate: '0', taxed_subtotal: null,
+      }]} onChange={onChange} field={taxedComputedField} />);
+
+      expect(container.querySelector('[data-computed="taxed_subtotal"]')?.textContent).toContain('180');
+      expect(screen.getByTestId('line-items-total').textContent).toContain('180');
+      expect(onChange).not.toHaveBeenCalled();
+    });
+
+    it('recomputes computed display after the parent replaces a row without firing onChange', () => {
+      const onChange = vi.fn();
+      const { container, rerender } = render(<GridField value={[{
+        quantity: '2', taxed_unit_price: '90', discount_rate: '0', taxed_subtotal: null,
+      }]} onChange={onChange} field={taxedComputedField} />);
+      expect(container.querySelector('[data-computed="taxed_subtotal"]')?.textContent).toContain('180');
+
+      rerender(<GridField value={[{
+        quantity: '2', taxed_unit_price: '95', discount_rate: '0', taxed_subtotal: null,
+      }]} onChange={onChange} field={taxedComputedField} />);
+
+      expect(container.querySelector('[data-computed="taxed_subtotal"]')?.textContent).toContain('190');
+      expect(screen.getByTestId('line-items-total').textContent).toContain('190');
+      expect(onChange).not.toHaveBeenCalled();
     });
 
     it('shows a dash for a computed cell whose inputs are blank', () => {

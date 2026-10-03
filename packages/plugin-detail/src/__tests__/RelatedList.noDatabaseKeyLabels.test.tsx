@@ -17,6 +17,23 @@ vi.mock('@object-ui/react', async importOriginal => {
 });
 
 describe('RelatedList labels do not fall back to database keys', () => {
+  it.each([
+    { data: [{ id: 'line-1', name: 'Alpha' }], expected: '1 record' },
+    { data: [{ id: 'line-1', name: 'Alpha' }, { id: 'line-2', name: 'Beta' }], expected: '2 records' },
+  ])('uses the localized singular/plural collection count', ({ data, expected }) => {
+    render(
+      <RelatedList
+        title="Lines"
+        type="list"
+        api="line"
+        objectName="line"
+        data={data}
+      />,
+    );
+
+    expect(screen.getByLabelText(expected)).toBeTruthy();
+  });
+
   it('uses the unresolved marker when a referenced record has no readable name', async () => {
     const customerId = 'db-customer-key-123';
     const dataSource = {

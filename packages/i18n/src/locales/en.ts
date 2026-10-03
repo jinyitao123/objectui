@@ -458,6 +458,13 @@ const en = {
   },
   grid: {
     actions: 'Actions',
+    computed: 'Computed',
+    addLine: 'Add line',
+    duplicateRow: 'Duplicate row',
+    removeRow: 'Remove row',
+    openFullForm: 'Open full form',
+    openRow: 'Open row',
+    selectRowNumber: 'Select row {{row}}',
     edit: 'Edit',
     delete: 'Delete',
     export: 'Export',

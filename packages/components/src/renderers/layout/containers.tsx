@@ -1435,6 +1435,9 @@ const PageHeaderRenderer: React.FC<any> = ({ schema, className, ...props }) => {
   const disableRecordChrome =
     schema?.recordChrome === false || schema?.properties?.recordChrome === false;
   const showStar = schema?.showStar !== false && schema?.properties?.showStar !== false;
+  // A page's own schema may hide this diagnostic but cannot grant it. The
+  // record host supplies this flag only after checking reported capabilities.
+  const canCopyRecordId = ctx?.canCopyRecordId === true;
   const showCopyId = schema?.showCopyId !== false && schema?.properties?.showCopyId !== false;
 
   // Inline header actions — authored pages embed action buttons directly on
@@ -2225,6 +2228,7 @@ const PageHeaderRenderer: React.FC<any> = ({ schema, className, ...props }) => {
             title={resolvedTitle}
             objectLabel={objectLabel}
             resourceId={data?.id ? String(data.id) : undefined}
+            canCopyRecordId={canCopyRecordId}
             showStar={showStar}
             showCopyId={showCopyId}
             isFavorite={(ctx as any)?.isFavorite}
@@ -2290,7 +2294,7 @@ ComponentRegistry.register('header', PageHeaderRenderer, {
     { name: 'breadcrumb', type: 'boolean' },
     { name: 'recordChrome', type: 'boolean', description: 'Set false for the bare h1 header on non-record pages' },
     { name: 'showStar', type: 'boolean' },
-    { name: 'showCopyId', type: 'boolean' },
+    { name: 'showCopyId', type: 'boolean', description: 'Hide the host-authorized record-ID copy action. This key cannot grant developer capability.' },
     // The inline/overflow budget, DECLARED rather than merely honoured
     // (objectui#4668). Both are @objectstack/spec 17.0.0 GA keys this renderer
     // has read since objectui#2361 (`readMax(...)` at the split above, in both

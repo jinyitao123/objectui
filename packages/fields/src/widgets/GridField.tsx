@@ -18,6 +18,7 @@ import {
 import { Plus, Trash2, SlidersHorizontal, Maximize2, Copy, GripVertical } from 'lucide-react';
 import { formatDate, formatDateTime, resolveFieldRuleState } from '@object-ui/core';
 import { useDisplayLocale } from '@object-ui/i18n';
+import { useFieldTranslation } from './useFieldTranslation.js';
 import { LookupField } from './LookupField.js';
 import { FileCell } from './FileField.js';
 import { DateField } from './DateField.js';
@@ -457,15 +458,20 @@ function temporalText(type: string | undefined, value: any, locale: string): str
 /** Read-only display text for a cell in list mode (select → option label,
  *  currency/number → formatted, date/datetime/time → localized, empty → em
  *  dash). Lookups render separately. */
-function displayText(c: GridColumn, value: any, locale: string): string {
+function displayText(
+  c: GridColumn,
+  value: any,
+  locale: string,
+  t: ReturnType<typeof useFieldTranslation>['t'],
+): string {
   if (value === null || value === undefined || value === '') return '—';
   if (isTemporal(c.type)) return temporalText(c.type, value, locale);
   if (c.type === 'file') {
     const files = Array.isArray(value) ? value : [value];
     if (files.length === 0) return '—';
-    if (files.length > 1) return `${files.length} files`;
+    if (files.length > 1) return t('detail.attachmentCountPlural', { count: files.length });
     const f = files[0];
-    return typeof f === 'string' ? f : f?.name || f?.original_name || 'File';
+    return typeof f === 'string' ? f : f?.name || f?.original_name || t('fields.file.fileFallback');
   }
   if (c.type === 'select' && Array.isArray(c.options)) {
     const opt = c.options.find((o) => String(o.value) === String(value));
@@ -546,9 +552,14 @@ export function GridField({
    *  the header (`parent.status == 'paid'`). Supplied by MasterDetailForm. */
   contextRecord?: Record<string, unknown>;
 }) {
+  const { t } = useFieldTranslation();
   const cfg = (field || {}) as any;
   const allColumns: GridColumn[] = runtimeColumns ?? cfg.columns ?? [];
   const rows: Row[] = Array.isArray(value) ? value : [];
+  // Keep the rows parent-owned, but derive formula cells for display on every
+  // render. Initial data and async controlled replacements should not need an
+  // unrelated user edit before read-only computed values become visible.
+  const computedRows = rows.map((row) => computeRow(allColumns, row));
   const [selectedRowKeys, setSelectedRowKeys] = React.useState<Set<string>>(() => new Set());
   const localRowKeys = useRef(new WeakMap<Row, string>());
   const nextLocalRowKey = useRef(1);
@@ -893,7 +904,7 @@ export function GridField({
   const actionColWidth = ((showExpand ? 1 : 0) + (allowDuplicate ? 1 : 0) + (allowDelete ? 1 : 0)) * 34 + 12;
 
   const showTotal = !!totalField;
-  const total = showTotal ? sumColumn(rows, totalField!) : 0;
+  const total = showTotal ? sumColumn(computedRows, totalField!) : 0;
   // Align the running total under the column it sums (not blindly under the
   // last column). The label sits right-aligned immediately to its left.
   const totalColIndex = showTotal ? Math.max(0, columns.findIndex((c) => c.name === totalField)) : -1;
@@ -985,45 +996,51 @@ export function GridField({
                   colSpan={Math.max(columns.length + (showLineNumbers ? 1 : 0), 1)}
                   className="px-3 py-6 text-center text-muted-foreground"
                 >
-                  No items
+                  {t('common.noData')}
                 </td>
               </tr>
             ) : (
-              rows.map((row, rowIdx) => (
-                <tr key={rowIdx}>
-                  {showLineNumbers && (
-                    <td className="px-[var(--ui-table-cell-padding-x,0.5rem)] py-2 text-right text-muted-foreground tabular-nums">{rowIdx + 1}</td>
-                  )}
-                  {columns.map((c) => (
-                    <td
-                      key={c.name}
-                      className={cn('px-[var(--ui-table-cell-padding-x,0.75rem)] py-2 text-foreground', isNumeric(c.type) && 'text-right tabular-nums')}
-                    >
-                      {c.type === 'lookup' && row[c.name] != null && row[c.name] !== '' ? (
-                        <LookupField
-                          value={row[c.name]}
-                          onChange={() => {}}
-                          readonly
-                          field={{ reference: c.reference, displayField: c.displayField, idField: c.idField } as any}
-                        />
-                      ) : c.type === 'file' || isTemporal(c.type) ||
-                        (c.type === 'currency' && typeof document !== 'undefined' &&
-                          document.documentElement.dataset.uiProfile === 'compact-enterprise') ? (
-                        // A temporal column printed with `String(value)` puts
-                        // the raw stored ISO on screen — `2026-06-17T00:00:00.000Z`
-                        // for a date, and for a datetime it would ALSO have been
-                        // wrong to render as a bare day (objectui#3569). Now that
-                        // the three types are distinct, each formats as itself.
-                        displayText(c, row[c.name], displayLocale)
-                      ) : row[c.name] != null && row[c.name] !== '' ? (
-                        String(row[c.name])
-                      ) : (
-                        '—'
-                      )}
-                    </td>
-                  ))}
-                </tr>
-              ))
+              rows.map((row, rowIdx) => {
+                const computedRow = computedRows[rowIdx] ?? row;
+                return (
+                  <tr key={rowIdx}>
+                    {showLineNumbers && (
+                      <td className="px-[var(--ui-table-cell-padding-x,0.5rem)] py-2 text-right text-muted-foreground tabular-nums">{rowIdx + 1}</td>
+                    )}
+                    {columns.map((c) => {
+                      const displayValue = c.computed ? computedRow[c.name] : row[c.name];
+                      return (
+                        <td
+                          key={c.name}
+                          className={cn('px-[var(--ui-table-cell-padding-x,0.75rem)] py-2 text-foreground', isNumeric(c.type) && 'text-right tabular-nums')}
+                        >
+                          {c.type === 'lookup' && row[c.name] != null && row[c.name] !== '' ? (
+                            <LookupField
+                              value={row[c.name]}
+                              onChange={() => {}}
+                              readonly
+                              field={{ reference: c.reference, displayField: c.displayField, idField: c.idField } as any}
+                            />
+                          ) : c.type === 'file' || isTemporal(c.type) ||
+                            (c.type === 'currency' && typeof document !== 'undefined' &&
+                              document.documentElement.dataset.uiProfile === 'compact-enterprise') ? (
+                            // A temporal column printed with `String(value)` puts
+                            // the raw stored ISO on screen — `2026-06-17T00:00:00.000Z`
+                            // for a date, and for a datetime it would ALSO have been
+                            // wrong to render as a bare day (objectui#3569). Now that
+                            // the three types are distinct, each formats as itself.
+                            displayText(c, displayValue, displayLocale, t)
+                          ) : displayValue != null && displayValue !== '' ? (
+                            String(displayValue)
+                          ) : (
+                            '—'
+                          )}
+                        </td>
+                      );
+                    })}
+                  </tr>
+                );
+              })
             )}
           </tbody>
           {showTotal && (
@@ -1033,7 +1050,7 @@ export function GridField({
                   colSpan={Math.max((selectionEnabled ? 1 : 0) + (showLineNumbers ? 1 : 0) + totalColIndex, 1)}
                   className="px-[var(--ui-table-cell-padding-x,0.75rem)] py-2 text-right text-xs font-medium text-muted-foreground"
                 >
-                  Total
+                  {t('report.total')}
                 </td>
                 <td className="px-[var(--ui-table-cell-padding-x,0.75rem)] py-2 text-right font-semibold text-foreground tabular-nums">
                   {total.toLocaleString()}
@@ -1093,8 +1110,9 @@ export function GridField({
     rowIdx: number,
     row: Row,
     invalid = false,
+    computedRow: Row = row,
   ) => {
-    const val = row?.[c.name];
+    const val = (c.computed ? computedRow : row)?.[c.name];
     // A readonlyWhen-TRUE cell is locked: treat like the form-wide `disabled`.
     const locked = disabled || cellRules(c, row).readonly;
     // List (form-factor) mode → read-only at-a-glance display.
@@ -1107,7 +1125,7 @@ export function GridField({
       }
       return (
         <span className={cn('px-2 text-[length:var(--ui-table-font-size,0.875rem)] text-foreground', isNumeric(c.type) && 'tabular-nums', (val == null || val === '') && 'text-muted-foreground')}>
-          {displayText(c, val, displayLocale)}
+          {displayText(c, val, displayLocale, t)}
         </span>
       );
     }
@@ -1116,10 +1134,10 @@ export function GridField({
       return (
         <span
           className={cn('block px-2 text-[length:var(--ui-table-font-size,0.875rem)] tabular-nums', isNumeric(c.type) ? 'text-right' : 'text-left', (val == null || val === '') ? 'text-muted-foreground' : 'text-foreground')}
-          title="Computed"
+          title={t('grid.computed')}
           data-computed={c.name}
         >
-          {displayText(c, val, displayLocale)}
+          {displayText(c, val, displayLocale, t)}
         </span>
       );
     }
@@ -1134,7 +1152,7 @@ export function GridField({
           disabled={locked}
           // The published `error` slot, not a hand-rolled attribute: LookupField
           // already puts `aria-invalid` on its own focusable trigger from it.
-          error={invalid ? `${c.label || c.name} is required` : undefined}
+          error={invalid ? t('validation.required', { field: c.label || c.name }) : undefined}
         />
       );
     }
@@ -1154,7 +1172,7 @@ export function GridField({
           // wiring as the lookup branch above: FileCell puts `aria-invalid` on
           // its own focusable picker button from it (objectui#5431, closing
           // the one cell type #3318 left out).
-          error={invalid ? `${c.label || c.name} is required` : undefined}
+          error={invalid ? t('validation.required', { field: c.label || c.name }) : undefined}
         />
       );
     }
@@ -1184,7 +1202,7 @@ export function GridField({
           onChange={(next) => setCellValue(rowIdx, c.name, next)}
           field={{ name: c.name, type: 'date', label: c.label || c.name }}
           disabled={locked}
-          error={invalid ? 'Required' : undefined}
+          error={invalid ? t('validation.required', { field: c.label || c.name }) : undefined}
           aria-label={c.label || c.name}
           data-cell={`${rowIdx}-${colIdx}`}
           className="h-[var(--ui-control-height,2rem)] rounded-none border-0 bg-transparent shadow-none"
@@ -1281,7 +1299,7 @@ export function GridField({
                       : selectedIndices.length > 0 ? 'indeterminate' : false}
                     onCheckedChange={(checked) => toggleAllRowSelection(checked === true)}
                     disabled={selectionDisabled || rows.length === 0}
-                    aria-label="Select all rows"
+                    aria-label={t('table.selectAllRows')}
                     data-testid="line-items-select-all"
                   />
                 </th>
@@ -1312,13 +1330,14 @@ export function GridField({
                   colSpan={columns.length + (hasRowActions ? 1 : 0) + (showLineNumbers ? 1 : 0)}
                   className="px-3 py-6 text-center text-muted-foreground"
                 >
-                  No items yet — click “{cfg.add_label || 'Add'}” to begin.
+                  {t('common.noData')}
                 </td>
               </tr>
             ) : (
               displayRows.map((row, rowIdx) => {
                 const isGhost = hasGhost && rowIdx === rows.length;
                 const reorderable = allowReorder && !isGhost && !isList;
+                const computedRow = computedRows[rowIdx] ?? row;
                 return (
                   <tr
                     key={rowIdx}
@@ -1340,7 +1359,7 @@ export function GridField({
                             checked={selectedRowKeys.has(rowKeys[rowIdx])}
                             onCheckedChange={(checked) => toggleRowSelection(rowKeys[rowIdx], checked === true)}
                             disabled={selectionDisabled}
-                            aria-label={`Select row ${rowIdx + 1}`}
+                            aria-label={t('grid.selectRowNumber', { row: rowIdx + 1 })}
                             data-testid={`line-items-select-${rowIdx}`}
                           />
                         )}
@@ -1355,8 +1374,8 @@ export function GridField({
                               onDragStart={() => { dragIndex.current = rowIdx; }}
                               onDragEnd={() => { dragIndex.current = null; }}
                               className="cursor-grab text-muted-foreground/40 opacity-0 transition-opacity group-hover:opacity-100"
-                              title="Drag to reorder"
-                              aria-label="Drag to reorder"
+                              title={t('view.dragToReorder')}
+                              aria-label={t('view.dragToReorder')}
                               data-testid={`line-items-drag-${rowIdx}`}
                             >
                               <GripVertical className="h-3.5 w-3.5" />
@@ -1392,7 +1411,7 @@ export function GridField({
                           // exists to forbid (objectui#3318 / #5223). The td
                           // keeps the VISUAL ring and the test hook; the state
                           // travels with `invalid` into `renderCellInput`.
-                          title={invalid ? `${c.label || c.name} is required` : undefined}
+                          title={invalid ? t('validation.required', { field: c.label || c.name }) : undefined}
                           data-testid={invalid ? `line-items-invalid-${rowIdx}-${c.name}` : undefined}
                           className={cn(
                             'border-r border-border/40 px-1 py-0.5 align-middle last:border-r-0',
@@ -1400,7 +1419,7 @@ export function GridField({
                             invalid && 'bg-destructive/5 ring-1 ring-inset ring-destructive/50',
                           )}
                         >
-                          {renderCellInput(c, colIdx, rowIdx, row, invalid)}
+                          {renderCellInput(c, colIdx, rowIdx, row, invalid, computedRow)}
                         </td>
                       );
                     })}
@@ -1413,8 +1432,8 @@ export function GridField({
                               variant="ghost"
                               size="icon"
                               className="h-[var(--ui-icon-button-size,2rem)] w-[var(--ui-icon-button-size,2rem)] text-muted-foreground hover:text-foreground"
-                              aria-label="Open row"
-                              title="Open full form"
+                              aria-label={t('grid.openRow')}
+                              title={t('grid.openFullForm')}
                               data-testid={`line-items-expand-${rowIdx}`}
                               onClick={() => onRowExpand!(rowIdx)}
                             >
@@ -1431,8 +1450,8 @@ export function GridField({
                               // which have no hover. The action column width is reserved
                               // regardless, so this adds no layout shift.
                               className="h-[var(--ui-icon-button-size,2rem)] w-[var(--ui-icon-button-size,2rem)] text-muted-foreground hover:text-foreground"
-                              aria-label="Duplicate row"
-                              title="Duplicate line"
+                              aria-label={t('grid.duplicateRow')}
+                              title={t('grid.duplicateRow')}
                               data-testid={`line-items-duplicate-${rowIdx}`}
                               onClick={() => duplicateRow(rowIdx)}
                               disabled={disabled || (maxRows != null && rows.length >= maxRows)}
@@ -1447,7 +1466,7 @@ export function GridField({
                               size="icon"
                               // Always visible — see the duplicate button above.
                               className="h-[var(--ui-icon-button-size,2rem)] w-[var(--ui-icon-button-size,2rem)] text-muted-foreground hover:text-destructive"
-                              aria-label="Remove row"
+                              aria-label={t('grid.removeRow')}
                               data-testid={`line-items-remove-${rowIdx}`}
                               onClick={() => removeRow(rowIdx)}
                               disabled={disabled || rows.length <= minRows}
@@ -1470,7 +1489,7 @@ export function GridField({
                   colSpan={Math.max((selectionEnabled ? 1 : 0) + (showLineNumbers ? 1 : 0) + totalColIndex, 1)}
                   className="px-[var(--ui-table-cell-padding-x,0.75rem)] py-2 text-right text-xs font-medium text-muted-foreground"
                 >
-                  Total
+                  {t('report.total')}
                 </td>
                 <td className="px-[var(--ui-table-cell-padding-x,0.75rem)] py-2 text-right font-semibold text-foreground tabular-nums" data-testid="line-items-total">
                   {total.toLocaleString()}
@@ -1494,7 +1513,7 @@ export function GridField({
           data-testid="line-items-add"
         >
           <Plus className="mr-[var(--ui-button-gap,0.375rem)] h-4 w-4" />
-          {cfg.add_label || 'Add line'}
+          {cfg.add_label || t('grid.addLine')}
         </Button>
       )}
     </div>

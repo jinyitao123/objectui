@@ -352,6 +352,13 @@ const zh = {
   },
   grid: {
     actions: '操作',
+    computed: '计算字段',
+    addLine: '添加行',
+    duplicateRow: '复制行',
+    removeRow: '移除行',
+    openFullForm: '打开完整表单',
+    openRow: '打开行',
+    selectRowNumber: '选择第 {{row}} 行',
     edit: '编辑',
     delete: '删除',
     export: '导出',

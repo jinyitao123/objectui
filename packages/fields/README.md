@@ -367,7 +367,7 @@ MIT — see [LICENSE](./LICENSE).
 
 Compact currency grid cells display the authored `prefix` and `scale` (two decimal places when unspecified). The default profile retains its existing formatting.
 
-Direct React `GridField` composition accepts typed runtime `columns` (`GridColumn[]`) for code-derived lookup options, calculations, conditional cell rules and currency presentation. These columns are not new members of serialized `GridFieldMetadata` or `GridColumnDefinition`; keep field metadata on its published shape.
+`GridFieldMetadata.columns` uses the same strict `GridColumnDefinition` contract as inline grids. Computed columns declare `computed: true`, an arithmetic `expr`, and optional `scale`; `record.field` and bare field references read numeric sibling cells. `GridColumnDefinitionSchema` is exported from `@object-ui/types/zod`. Initial rows and externally replaced controlled rows show derived values without firing `onChange`; user edits and batch patches still emit the computed result through the controlled row array.
 # Compact single-record relations
 
 The `compact-enterprise` host profile puts a single lookup or user field's

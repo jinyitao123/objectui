@@ -170,6 +170,10 @@ export {
   FormComponentSchema,
 } from './form.zod.js';
 
+// `GridFieldMetadata.columns` uses the same strict name-keyed column contract
+// as the platform's inline grid renderer, including computed `expr` fields.
+export { InlineGridColumnSchema as GridColumnDefinitionSchema } from '@objectstack/spec/data';
+
 // ============================================================================
 // Data Display Components - Information Presentation
 // ============================================================================

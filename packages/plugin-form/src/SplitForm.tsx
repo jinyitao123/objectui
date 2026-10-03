@@ -35,6 +35,7 @@ import { applyAutoColSpan, containerGridColsFor } from './autoLayout';
 import { useOccSave } from './occSave';
 import { hasInlineFieldSource, noSubmitTargetError } from './submitTarget';
 import { useUploadGate, UploadGateProvider, UploadInFlightNotice } from './uploadGate';
+import { useFormStatusTranslation } from './formStatusTranslation';
 
 export interface SplitFormSectionConfig {
   name?: string;
@@ -141,6 +142,7 @@ export const SplitForm: React.FC<SplitFormProps> = ({
   dataSource,
   className,
 }) => {
+  const { t: tStatus } = useFormStatusTranslation();
   const { fieldLabel } = useSafeFieldLabel();
   const { userId: currentUserId } = usePermissions();
   // Upload-in-flight gate (objectui#10166): a `file`/`image` value is only its
@@ -349,7 +351,7 @@ export const SplitForm: React.FC<SplitFormProps> = ({
   if (error) {
     return (
       <div className="p-4 border border-red-300 bg-red-50 rounded-md">
-        <h3 className="text-red-800 font-semibold">Error loading form</h3>
+        <h3 className="text-red-800 font-semibold">{tStatus('publicForm.unavailableTitle')}</h3>
         <p className="text-red-600 text-sm mt-1">{error.message}</p>
       </div>
     );
@@ -359,7 +361,7 @@ export const SplitForm: React.FC<SplitFormProps> = ({
     return (
       <div className="p-8 text-center">
         <div className="inline-block animate-spin rounded-full h-8 w-8 border-b-2 border-gray-900"></div>
-        <p className="mt-2 text-sm text-gray-600">Loading form...</p>
+        <p className="mt-2 text-sm text-gray-600">{tStatus('publicForm.loading')}</p>
       </div>
     );
   }

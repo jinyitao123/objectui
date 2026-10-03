@@ -35,6 +35,7 @@ import * as React from 'react';
 import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
 import { render, screen, act, cleanup, waitFor } from '@testing-library/react';
 import { toast } from 'sonner';
+import { I18nProvider } from '@object-ui/i18n';
 import { ConsoleToaster } from './ConsoleToaster.js';
 import { ThemeProvider } from './ThemeProvider.js';
 
@@ -72,6 +73,23 @@ describe('ConsoleToaster anchor (objectui#7482)', () => {
     // The component's contract has always been "spread `{...props}` wins".
     // Losing that would be a different regression from the one above.
     expect(await anchorOf({ position: 'bottom-left' })).toEqual(['bottom', 'left']);
+  });
+});
+
+describe('ConsoleToaster close button localization', () => {
+  it('uses the active locale for the dismiss control', async () => {
+    render(
+      <I18nProvider config={{ defaultLanguage: 'zh', detectBrowserLanguage: false }} persistLanguage={false}>
+        <ThemeProvider>
+          <ConsoleToaster />
+        </ThemeProvider>
+      </I18nProvider>,
+    );
+    act(() => {
+      toast.success('localized close label');
+    });
+
+    expect(await screen.findByRole('button', { name: '关闭' })).toBeInTheDocument();
   });
 });
 

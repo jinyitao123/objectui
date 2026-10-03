@@ -45,7 +45,7 @@ import { HistoryTimeline } from './HistoryTimeline';
 import { RecordMetaFooter } from './RecordMetaFooter';
 import { SchemaRenderer, SchemaErrorBoundary, toRenderableSchema, useSafeFieldLabel, useDataInvalidation, useInlineEdit, useRowPredicate } from '@object-ui/react';
 import { buildExpandFields, getRecordDisplayName, isDatabaseKeyDisplay, formatTitleTemplate, userActionPredicates } from '@object-ui/core';
-import { usePermissions } from '@object-ui/permissions';
+import { hasReportedCapabilities, usePermissions } from '@object-ui/permissions';
 import { useLocalization, useDisplayLocale, resolveFieldCurrency } from '@object-ui/i18n';
 import type { DetailViewSchema, DataSource, ActionSchema, SchemaNode } from '@object-ui/types';
 import { useDetailTranslation } from './useDetailTranslation';
@@ -305,12 +305,11 @@ export const DetailView: React.FC<DetailViewProps> = ({
   // PermissionProvider is mounted, `perms.isLoaded` is false and the
   // schema passes through unchanged.
   const perms = usePermissions();
-  // Record IDs are developer diagnostics, not an affordance for ordinary
-  // business users. Require a reported metadata-development capability; an
-  // unreported/standalone context is not enough to expose the copy action.
+  // Record IDs are developer diagnostics. The shared helper denies both an
+  // explicitly empty grant set and an unreported/standalone permission context.
   const canCopyRecordId =
-    Array.isArray(perms.systemPermissions) &&
-    (perms.hasCapabilities(['studio.access']) || perms.hasCapabilities(['setup.access']));
+    hasReportedCapabilities(perms, ['studio.access']) ||
+    hasReportedCapabilities(perms, ['setup.access']);
   const gatedSchema = React.useMemo<DetailViewSchema>(() => {
     if (!perms?.isLoaded || !rawSchema.objectName) return rawSchema;
     const canRead = (fieldName: string) =>

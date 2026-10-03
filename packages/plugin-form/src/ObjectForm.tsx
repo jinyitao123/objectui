@@ -62,6 +62,7 @@ import {
   omitServerResolvedDefaults,
 } from './schemaDefaults';
 import { useOccSave } from './occSave';
+import { useFormStatusTranslation } from './formStatusTranslation';
 
 /**
  * Props of the `ObjectForm` React component.
@@ -615,6 +616,7 @@ const SimpleObjectForm: React.FC<SimpleObjectFormProps> = ({
   dataSource,
   runtimeProps,
 }) => {
+  const { t: tStatus } = useFormStatusTranslation();
   const { fieldLabel, sectionLabel } = useSafeFieldLabel();
   const isMobile = useIsMobile();
   // Upload-in-flight gate (objectui#10166). Owns the aggregated "is any
@@ -1484,7 +1486,7 @@ const SimpleObjectForm: React.FC<SimpleObjectFormProps> = ({
   if (error) {
     return (
       <div className="p-3 sm:p-4 border border-red-300 bg-red-50 rounded-md">
-        <h3 className="text-red-800 font-semibold">Error loading form</h3>
+        <h3 className="text-red-800 font-semibold">{tStatus('publicForm.unavailableTitle')}</h3>
         <p className="text-red-600 text-sm mt-1">{error.message}</p>
       </div>
     );
@@ -1495,7 +1497,7 @@ const SimpleObjectForm: React.FC<SimpleObjectFormProps> = ({
     return (
       <div className="p-4 sm:p-8 text-center">
         <div className="inline-block animate-spin rounded-full h-8 w-8 border-b-2 border-gray-900"></div>
-        <p className="mt-2 text-sm text-gray-600">Loading form...</p>
+        <p className="mt-2 text-sm text-gray-600">{tStatus('publicForm.loading')}</p>
       </div>
     );
   }

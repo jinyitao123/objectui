@@ -16,7 +16,7 @@
  * @packageDocumentation
  */
 
-import type { Field as SpecField } from '@objectstack/spec/data';
+import type { Field as SpecField, InlineGridColumn as SpecInlineGridColumn } from '@objectstack/spec/data';
 
 /**
  * A field's `dependsOn` in the shape `@objectstack/spec` declares at FIELD
@@ -947,38 +947,11 @@ export interface GridFieldMetadata extends BaseFieldMetadata {
 }
 
 /**
- * Grid column definition
+ * Grid column definition, shared with ObjectStack's strict inline-grid schema.
+ * That schema mirrors GridField's live reads, including `computed` / `expr` /
+ * `scale`, `prefix`, lookup/file options and per-cell predicates.
  */
-export interface GridColumnDefinition {
-  /**
-   * Column field name
-   */
-  name: string;
-  /**
-   * Column label
-   */
-  label?: string;
-  /**
-   * Field type
-   */
-  type: string;
-  /**
-   * Whether column is required
-   */
-  required?: boolean;
-  /**
-   * Default value for new rows
-   */
-  defaultValue?: any;
-  /**
-   * Column width
-   */
-  width?: number;
-  /**
-   * Validation rules
-   */
-  validate?: FieldConstraints;
-}
+export type GridColumnDefinition = SpecInlineGridColumn;
 
 export interface ColorFieldMetadata extends BaseFieldMetadata {
   type: 'color';

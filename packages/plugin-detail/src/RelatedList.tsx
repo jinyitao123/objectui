@@ -1930,7 +1930,7 @@ export const RelatedList: React.FC<RelatedListProps> = ({
                 'text-xs font-normal h-5 px-1.5',
                 recordCount === 0 && 'bg-muted text-muted-foreground'
               )}
-              aria-label={`${recordCount} records`}
+              aria-label={t(recordCount === 1 ? 'detail.relatedRecordOne' : 'detail.relatedRecords', { count: recordCount })}
             >
               {recordCount}
             </Badge>

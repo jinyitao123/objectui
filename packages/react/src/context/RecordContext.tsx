@@ -172,6 +172,11 @@ export interface RecordContextValue<TData = any, TObjectSchema = any> {
    */
   isFavorite?: boolean;
   /**
+   * Whether the host verified a developer capability for copying this
+   * record's identifier. Absent/false keeps the internal key out of the UI.
+   */
+  canCopyRecordId?: boolean;
+  /**
    * Called when the user toggles the record-header favourite star. Hosts
    * persist the change (e.g. through `useFavorites`) and update
    * `isFavorite` accordingly.
@@ -229,6 +234,7 @@ export const RecordContextProvider: React.FC<RecordContextProviderProps> = ({
     value.embedded,
     value.headerSystemActions,
     value.isFavorite,
+    value.canCopyRecordId,
     value.onToggleFavorite,
   ]);
   return <RecordContext.Provider value={memo}>{children}</RecordContext.Provider>;

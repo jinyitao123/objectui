@@ -185,6 +185,29 @@ These callbacks are React-only. Register `GridField` as a direct React runtime
 component for trusted React Pages rather than passing functions through
 `<Block>` schema or field metadata.
 
+## GridField computed columns
+
+Serialized `GridFieldMetadata.columns` can declare read-only computed cells with
+`computed: true`, `expr`, and optional `scale`:
+
+```ts
+{
+  name: 'taxed_subtotal',
+  type: 'currency',
+  computed: true,
+  expr: 'record.quantity * record.taxed_unit_price * (1 - record.discount_rate / 100)',
+  scale: 4,
+}
+```
+
+`expr` supports arithmetic operators, parentheses, numeric literals, and
+numeric sibling-field references written as `record.field` or `field`. Missing
+or nonnumeric inputs display as an em dash. The grid derives these cells for
+initial and externally replaced rows without calling `onChange`; editing or
+batch-patching a row includes recomputed values in the controlled update.
+`GridColumnDefinition` is available from `@object-ui/types`, and its strict
+validator is `GridColumnDefinitionSchema` from `@object-ui/types/zod`.
+
 ## Editing date fields
 
 `DateField` keeps the browser's native `input[type=date]` unless the host sets

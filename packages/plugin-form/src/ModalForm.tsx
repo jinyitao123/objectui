@@ -60,6 +60,7 @@ import { usePermissions } from '@object-ui/permissions';
 import { useOccSave } from './occSave';
 import { hasInlineFieldSource, noSubmitTargetError } from './submitTarget';
 import { useUploadGate, UploadGateProvider, UploadInFlightNotice } from './uploadGate';
+import { useFormStatusTranslation } from './formStatusTranslation';
 
 // Localized strings for the unsaved-changes guard. Falls back to English when
 // no i18n provider is mounted (createSafeTranslation handles that).
@@ -223,6 +224,7 @@ export const ModalForm: React.FC<ModalFormProps> = ({
   dataSource,
   className,
 }) => {
+  const { t: tStatus } = useFormStatusTranslation();
   const { fieldLabel, sectionLabel } = useSafeFieldLabel();
   const { t } = useDiscardTranslation();
   // Upload-in-flight gate (objectui#10166): Save is refused, disabled and
@@ -629,7 +631,7 @@ export const ModalForm: React.FC<ModalFormProps> = ({
     if (error) {
       return (
         <div className="p-4 border border-red-300 bg-red-50 rounded-md">
-          <h3 className="text-red-800 font-semibold">Error loading form</h3>
+          <h3 className="text-red-800 font-semibold">{tStatus('publicForm.unavailableTitle')}</h3>
           <p className="text-red-600 text-sm mt-1">{error.message}</p>
         </div>
       );

@@ -13,7 +13,7 @@ import { useParams, useNavigate, useLocation, useSearchParams, Link } from 'reac
 import { activityRowToFeedItem, InlineEditSaveBar, buildDefaultPageSchema, deriveFieldGroupDetailSections, extractMentions, resolveTitleField, useRecordEditable } from '@object-ui/plugin-detail';
 import { Empty, EmptyTitle, EmptyDescription } from '@object-ui/components';
 import { useAuth, createAuthenticatedFetch } from '@object-ui/auth';
-import { usePermissions } from '@object-ui/permissions';
+import { hasReportedCapabilities, usePermissions } from '@object-ui/permissions';
 import { ActionProvider, useObjectTranslation, useObjectLabel, useActionTextLocalizer, usePageAssignment, RecordContextProvider, SchemaRenderer, DiscussionContextProvider, HighlightFieldsProvider, InlineEditProvider, useGlobalUndo, useDataInvalidation, notifyDataChanged, useRowPredicate } from '@object-ui/react';
 import { buildExpandFields, isDatabaseKeyDisplay, resolveRecordIdParamSeed, userActionPredicates } from '@object-ui/core';
 import { toast } from 'sonner';
@@ -1169,6 +1169,9 @@ export function RecordDetailView({ dataSource, objects, onEdit, objectNameOverri
     getObjectApiOperations,
     systemPermissions,
   } = perms;
+  const canCopyRecordId =
+    hasReportedCapabilities(perms, ['studio.access']) ||
+    hasReportedCapabilities(perms, ['setup.access']);
   // [#3546] Server-resolved effective API operation set for this object
   // (`/me/permissions` `apiOperations`). Threaded as the 2nd arg into
   // `resolveRecordHeaderActionGates` for the detail header's Edit/Delete and
@@ -2446,6 +2449,7 @@ export function RecordDetailView({ dataSource, objects, onEdit, objectNameOverri
         refresh={headerRefresh}
         headerSystemActions={synthSystemActions}
         isFavorite={isRecordFavorite}
+        canCopyRecordId={canCopyRecordId}
         onToggleFavorite={favoriteRecord ? handleToggleRecordFavorite : undefined}
       >
         {/* objectui#2407 P2 — ONE record-level inline-edit session spanning
