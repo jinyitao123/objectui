@@ -1379,6 +1379,13 @@ export interface PageNodeSchema extends BaseSchema {
   /**
    * Layout template name (e.g. "default", "header-sidebar-main").
    *
+   * Built-in source-page template: `react-source` is valid only with
+   * `kind: 'react'`. It makes the trusted React source own the full page
+   * introduction and layout, so PageRenderer omits its automatic title,
+   * description, width cap and padding. Without this template, the existing
+   * page shell remains unchanged. ObjectStack PageSchema already declares
+   * `template` as a string; no extra persisted field is required.
+   *
    * NO `@default`, deliberately (objectui#7735). `page.tsx`'s `resolveTemplate`
    * opens `if (!schema.template) return null;`, and a null template falls
    * through to the `pageType` switch — so an omitted key does NOT lay out as
@@ -1690,4 +1697,3 @@ export type LayoutSchema =
   | PageNodeSchema
   | SemanticElementSchema
   | HtmlElementSchema;
-

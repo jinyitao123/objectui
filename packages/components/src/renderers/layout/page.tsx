@@ -92,6 +92,13 @@ function getRemainingRegions(regions: PageNodeRegion[] | undefined, exclude: str
  * type that resolves to PageHeaderRenderer — no bare `header` alias to match.
  */
 const PAGE_HEADER_TYPE = 'page:header';
+const REACT_SOURCE_TEMPLATE = 'react-source';
+
+/** `react-source` is a full-page template: the source owns both the visible
+ * page introduction and layout. The normal renderer shell remains the default. */
+function isReactSourceTemplate(schema: PageNodeSchema): boolean {
+  return schema.kind === 'react' && schema.template === REACT_SOURCE_TEMPLATE;
+}
 
 /** Text a header title contributes once `{token}` interpolation is stripped. */
 function literalTitleText(value: unknown): string {
@@ -506,6 +513,7 @@ export const PageRenderer: React.FC<{
   // spelling. Dual-read so a spec-authored page still renders its header
   // (framework#1878 §3 naming-drift recheck).
   const pageTitle = schema.title ?? (schema as any).label;
+  const sourceOwnsPage = isReactSourceTemplate(schema);
 
   // What may become an attribute on the wrapper <div>, and nothing else.
   //
@@ -611,18 +619,21 @@ export const PageRenderer: React.FC<{
   // delegate to `page:header`; every other page type delegates too as soon as
   // the author put a titled `page:header` in a region.
   const headerOwnsTitle = React.useMemo(
-    () => pageType === 'record' || pageHeaderOwnsTitle(schema),
-    [schema, pageType],
+    () => sourceOwnsPage || pageType === 'record' || pageHeaderOwnsTitle(schema),
+    [schema, pageType, sourceOwnsPage],
   );
   const showPageTitle = !!pageTitle && !headerOwnsTitle;
   // The description is the page's own prose, not a duplicate of the header's
-  // `subtitle`, so delegating the heading does not delete it.
-  const showPageDescription = !!schema.description && pageType !== 'record';
+  // `subtitle`, so delegating a structured page:header does not delete it. A
+  // `react-source` page owns the complete introduction, including its subtitle.
+  const showPageDescription = !!schema.description && pageType !== 'record' && !sourceOwnsPage;
 
   const pageContent = (
     <div
       className={cn(
-        'min-h-full w-full bg-background p-3 md:p-4 lg:p-6',
+        sourceOwnsPage
+          ? 'min-h-full w-full bg-background'
+          : 'min-h-full w-full bg-background p-3 md:p-4 lg:p-6',
         className,
       )}
       data-page-type={pageType}
@@ -631,7 +642,7 @@ export const PageRenderer: React.FC<{
       style={style}
       {...pageProps}
     >
-      <div className={cn(fullBleed ? 'space-y-6' : 'mx-auto space-y-6', maxWidthClass)}>
+      <div className={sourceOwnsPage ? 'w-full' : cn(fullBleed ? 'space-y-6' : 'mx-auto space-y-6', maxWidthClass)}>
         {/* Implicit page title — the fallback heading for a page that does NOT
             author its own `page:header`. Suppressed whenever that component
             owns the h1 (always on record pages, and on any page carrying a
@@ -755,4 +766,3 @@ ComponentRegistry.register('app', PageRenderer, { ...pageMeta, label: 'App Page'
 ComponentRegistry.register('utility', PageRenderer, { ...pageMeta, label: 'Utility Page' });
 ComponentRegistry.register('home', PageRenderer, { ...pageMeta, label: 'Home Page' });
 ComponentRegistry.register('record', PageRenderer, { ...pageMeta, label: 'Record Page' });
-

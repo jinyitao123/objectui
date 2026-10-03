@@ -374,6 +374,12 @@ their source scope. It uses the host's SPA router for internal paths when the
 host supplies `HostNavigationContext`; a standalone host without that context
 retains browser navigation. Use an anchor for external destinations.
 
+For a React page whose source renders its own `<h1>`, subtitle and full layout,
+set the standard Page `template` string to `react-source`. PageRenderer then
+omits its automatic label, description, width cap and default padding for that
+page. This applies only to `kind: 'react'`; omitting the template preserves the
+existing shell, including its title for React pages without an authored heading.
+
 ```jsx
 function Page() {
   return <button onClick={() => navigate('/apps/crm/accounts')}>Accounts</button>;

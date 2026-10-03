@@ -61,6 +61,28 @@ function Page() {
 }
 ```
 
+### Source-owned page chrome
+
+`@objectstack/spec` declares `template` as a string. ObjectUI reserves
+`template: 'react-source'` for a trusted React page whose source owns the whole
+page introduction and layout. In this mode the PageRenderer does not add the
+Page label as an `<h1>`, the Page description, a width cap, or its default
+padding; author the page's accessible `<h1>`, subtitle and layout in `source`.
+The mode applies only when `kind: 'react'`. Omitting it keeps the existing shell
+title, description and inset, so React pages without their own heading remain
+discoverable by default.
+
+```json
+{
+  "type": "app",
+  "name": "project_console",
+  "label": "Project Plan",
+  "kind": "react",
+  "template": "react-source",
+  "source": "function Page() { return <main><h1>Project Plan</h1><p>Execution overview</p></main>; }"
+}
+```
+
 ### The security gate
 
 A react page's source is transpiled and evaluated directly in the application —
