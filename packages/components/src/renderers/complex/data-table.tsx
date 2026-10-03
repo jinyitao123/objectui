@@ -647,6 +647,15 @@ function resolveSelectionMode(selectable: DataTableSchema['selectable'] | 'none'
 const EMPTY_COLUMNS = Object.freeze([]) as unknown as DataTableSchema['columns'];
 const EMPTY_ROWS = Object.freeze([]) as unknown as DataTableSchema['data'];
 
+// Geometry is supplied by an ancestor host through CSS custom properties. The
+// fallbacks match the unchanged Shadcn table primitives so a host without a
+// profile keeps the existing table size. These are intentionally applied only
+// to model columns; selection and action affordances retain their own sizing.
+const tableHeaderGeometryClass =
+  'h-[var(--ui-table-header-height,3rem)] px-[var(--ui-table-header-padding-x,var(--ui-table-cell-padding-x,1rem))] py-[var(--ui-table-header-padding-y,0px)]';
+const tableCellGeometryClass =
+  'px-[var(--ui-table-cell-padding-x,1rem)] py-[var(--ui-table-cell-padding-y,1rem)] text-[length:var(--ui-table-font-size,inherit)] leading-[var(--ui-table-cell-line-height,inherit)]';
+
 /**
  * Value-equality over two normalized column lists (objectui#4618).
  *
@@ -1912,7 +1921,7 @@ const DataTableRenderer = ({ schema }: { schema: DataTableSchema }) => {
   const showToolbar = searchEnabled || exportable || (showSelectionCount && selectable && selectedRowIds.size > 0) || hasPendingChanges;
 
   return (
-    <div className={`flex flex-col h-full gap-2 sm:gap-4 ${className || ''}`}>
+    <div data-slot="record-table" className={`flex flex-col h-full gap-2 sm:gap-4 ${className || ''}`}>
       {/* Toolbar */}
       {showToolbar && (
         <div className="flex flex-col sm:flex-row items-stretch sm:items-center justify-between gap-2 sm:gap-4 flex-none">
@@ -2066,6 +2075,7 @@ const DataTableRenderer = ({ schema }: { schema: DataTableSchema }) => {
                   <TableHead
                     key={col.accessorKey}
                     className={cn(
+                      tableHeaderGeometryClass,
                       col.className,
                       sortingEnabled && col.sortable !== false && 'cursor-pointer select-none',
                       isDragging && 'opacity-50',
@@ -2108,7 +2118,7 @@ const DataTableRenderer = ({ schema }: { schema: DataTableSchema }) => {
                         {col.headerIcon && (
                           <span className="text-muted-foreground shrink-0">{col.headerIcon}</span>
                         )}
-                        <span className="text-xs font-medium text-muted-foreground whitespace-nowrap truncate">{col.header}</span>
+                        <span className="text-[length:var(--ui-table-header-font-size,0.75rem)] leading-[var(--ui-table-header-line-height,1rem)] font-[weight:var(--ui-table-header-font-weight,500)] text-muted-foreground whitespace-nowrap truncate">{col.header}</span>
                         {sortingEnabled && col.sortable !== false && getSortIcon(col.accessorKey)}
                         {editColumnEnabled && (
                           <button
@@ -2433,6 +2443,7 @@ const DataTableRenderer = ({ schema }: { schema: DataTableSchema }) => {
                           <TableCell 
                             key={colIndex} 
                             className={cn(
+                              tableCellGeometryClass,
                               col.cellClassName,
                               col.align === 'right' && 'text-right',
                               col.align === 'center' && 'text-center',

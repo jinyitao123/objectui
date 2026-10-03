@@ -169,7 +169,12 @@ The existing Radix Tabs primitive supplies tab roles, roving focus and arrow-key
 navigation. `aria-label` names the tab list; `panelId` must match the id of the
 host's `role="tabpanel"` list region. `listClassName`, `tabClassName` and
 `countClassName` expose styling slots; hosts can set `--ui-status-tabs-height`,
-`--ui-status-tabs-padding-inline` and `--ui-status-tabs-radius` per surface.
+`--ui-status-tabs-padding-inline`, `--ui-status-tabs-padding-block`,
+`--ui-status-tabs-font-size`, `--ui-status-tabs-line-height` and
+`--ui-status-tabs-radius` per surface. The default fallbacks preserve the
+existing tab geometry; hosts can scope measured surface values on the
+component or an ancestor without changing its controlled state or Radix
+keyboard behavior.
 
 Importing `@object-ui/layout` also registers `WorkspaceHeader`, `ListSummary` and
 `StatusTabs` as presentation-only React Page runtime components. This is a

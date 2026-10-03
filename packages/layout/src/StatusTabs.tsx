@@ -66,7 +66,7 @@ export function StatusTabs({
             aria-controls={panelId}
             disabled={item.disabled}
             className={cn(
-              'group min-w-0 max-w-full h-[var(--ui-status-tabs-height,2rem)] whitespace-normal break-words rounded-[var(--ui-status-tabs-radius,0.25rem)] px-[var(--ui-status-tabs-padding-inline,0.75rem)] py-1 text-left text-xs leading-tight font-medium data-[state=active]:bg-background data-[state=active]:text-foreground data-[state=active]:shadow-none',
+              'group min-w-0 max-w-full h-[var(--ui-status-tabs-height,2rem)] whitespace-normal break-words rounded-[var(--ui-status-tabs-radius,0.25rem)] px-[var(--ui-status-tabs-padding-inline,0.75rem)] py-[var(--ui-status-tabs-padding-block,0.25rem)] text-left text-[length:var(--ui-status-tabs-font-size,0.75rem)] leading-[var(--ui-status-tabs-line-height,1.25)] font-medium data-[state=active]:bg-background data-[state=active]:text-foreground data-[state=active]:shadow-none',
               tabClassName,
             )}
           >

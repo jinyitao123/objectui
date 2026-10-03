@@ -13,11 +13,23 @@ describe('RecordTable runtime composition', () => {
     const RecordTable = registration!.component as React.ComponentType<{ schema: DataTableSchema }>;
     const edit = vi.fn(), nextPage = vi.fn(), open = vi.fn();
     render(<RecordTable schema={{ type: 'data-table', data: [{id:'r1',name:'Aster'}],
+      className: 'contact-record-table',
       columns: [{accessorKey:'name',header:'Name'}, {accessorKey:'id',header:'Actions',cell:(_value,row)=><button onClick={()=>edit(row.id)}>Edit Aster</button>}],
       manualPagination:true,page:2,pageSize:20,rowCount:81,onPageChange:nextPage,
       onRowClick:open,searchable:false,exportable:false,selectable:false,
     }} />);
     expect(screen.getByRole('table')).toHaveTextContent('Aster');
+    expect(screen.getByRole('table').closest('[data-slot="record-table"]')).toHaveClass('contact-record-table');
+    expect(screen.getByRole('columnheader', { name: 'Name' })).toHaveClass(
+      'h-[var(--ui-table-header-height,3rem)]',
+      'px-[var(--ui-table-header-padding-x,var(--ui-table-cell-padding-x,1rem))]',
+    );
+    expect(screen.getByText('Aster').closest('td')).toHaveClass(
+      'px-[var(--ui-table-cell-padding-x,1rem)]',
+      'py-[var(--ui-table-cell-padding-y,1rem)]',
+      'text-[length:var(--ui-table-font-size,inherit)]',
+      'leading-[var(--ui-table-cell-line-height,inherit)]',
+    );
     expect(screen.getByText('Aster').closest('[title]')).toHaveAttribute('title', 'Aster');
     expect(screen.getByRole('button',{name:'Edit Aster'}).closest('[title]')).toBeNull();
     fireEvent.click(screen.getByRole('button',{name:'Edit Aster'}));

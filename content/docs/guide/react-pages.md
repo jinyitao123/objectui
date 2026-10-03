@@ -208,6 +208,12 @@ The three components expose `className` or named slot class props for host
 styling. Their
 geometry can also be set with the public `--ui-page-title-*`,
 `--ui-list-summary-*` and `--ui-status-tabs-*` CSS custom properties.
+For a status-tab surface, the host may scope
+`--ui-status-tabs-height`, `--ui-status-tabs-padding-inline`,
+`--ui-status-tabs-padding-block`, `--ui-status-tabs-font-size`,
+`--ui-status-tabs-line-height` and `--ui-status-tabs-radius` on its wrapper.
+The CSS-variable fallbacks retain the current default sizes, and Radix
+continues to own tab roles, selection and arrow-key navigation.
 
 `CompositeDialog` can also receive a read-only `sidebar` React node and its
 `sidebarLabel`. It places a profile summary to the left of the form on desktop
@@ -240,6 +246,16 @@ cell callbacks own their visible content and tooltips; the table does not add
 the raw backing value as a hover title to those cells. This introduces no second
 table schema or data-fetching service. Ordinary object lists continue to use
 `ListView`; callbacks belong to React source, not persisted JSON metadata.
+The existing table accepts host-scoped geometry variables for its model-column
+headers and data cells: `--ui-table-header-height`,
+`--ui-table-header-padding-x`, `--ui-table-header-padding-y`,
+`--ui-table-header-font-size`, `--ui-table-header-line-height`,
+`--ui-table-header-font-weight`, `--ui-table-cell-padding-x`,
+`--ui-table-cell-padding-y`, `--ui-table-font-size` and
+`--ui-table-cell-line-height`. Scope them through a wrapper or the schema's
+existing `className`; no new table schema is needed. The table root exposes
+`data-slot="record-table"`. Data row height remains content-driven, so wrapping
+or longer values can expand a row instead of being clipped to a fixed height.
 
 The form plugin also registers `<GridField>` as a direct React component. Use
 this tag for a controlled line editor with `getRowKey` and

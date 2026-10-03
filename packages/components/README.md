@@ -12,6 +12,20 @@ Use model `ListView` for ordinary object lists; this direct surface is for
 composite records whose cells combine authorized related data. The runtime
 regression is `src/__tests__/record-table-runtime.test.tsx`. Custom cell callbacks own their display labels and tooltips; raw backing values are not added as hover titles to those cells.
 
+`RecordTable` consumes host-scoped geometry variables on its model column
+headers and data cells: `--ui-table-header-height`,
+`--ui-table-header-padding-x`, `--ui-table-header-padding-y`,
+`--ui-table-header-font-size`, `--ui-table-header-line-height`,
+`--ui-table-header-font-weight`, `--ui-table-cell-padding-x`,
+`--ui-table-cell-padding-y`, `--ui-table-font-size`, and
+`--ui-table-cell-line-height`. Fallbacks preserve the existing Shadcn table
+geometry when no host profile supplies these variables. The renderer does not
+fix data row height: content, wrapping and supplied cell padding determine each
+row. Hosts can scope values through a wrapper or the existing
+`DataTableSchema.className`; the table root exposes `data-slot="record-table"`
+for a stable selector. Column `className` and `cellClassName` remain explicit
+overrides. Selection and action columns keep their utility sizing.
+
 `CompositeDialog` accepts an optional React `sidebar` and `sidebarLabel` for a
 profile or document summary. On desktop the summary precedes the form in a
 236px column (`--ui-dialog-sidebar-width`); narrow dialogs stack it above the
@@ -33,6 +47,9 @@ The host can declare `--ui-control-height`, `--ui-control-small-height`,
 and textarea height/padding variables. The Console's opt-in
 `compact-enterprise` profile supplies a candidate geometry set in
 `apps/console/src/index.css`; it changes no palette or data semantics.
+The profile supplies a common compact table text and cell-padding baseline.
+Surface-specific header and row geometry stays host-scoped because measured
+contact, project and quote tables use different dimensions.
 
 The form renderer also consumes `--ui-form-row-gap`, `--ui-form-column-gap`,
 `--ui-field-stack-gap`, and section heading variables. Explicit schema layout

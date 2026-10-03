@@ -72,6 +72,12 @@ describe('StatusTabs', () => {
     const allTab = screen.getByRole('tab', { name: 'All 12' });
     const activeTab = screen.getByRole('tab', { name: 'Active 9' });
     const inactiveTab = screen.getByRole('tab', { name: 'Inactive 3' });
+    expect(activeTab).toHaveClass(
+      'h-[var(--ui-status-tabs-height,2rem)]',
+      'py-[var(--ui-status-tabs-padding-block,0.25rem)]',
+      'text-[length:var(--ui-status-tabs-font-size,0.75rem)]',
+      'leading-[var(--ui-status-tabs-line-height,1.25)]',
+    );
     expect(tabList).toBeInTheDocument();
     expect(allTab).toHaveAttribute('aria-controls', 'contact-results');
     expect(screen.getByRole('tabpanel', { name: 'Contact results' })).toBeInTheDocument();

@@ -111,9 +111,10 @@
   --ui-modal-body-max-height: 76vh;
   --ui-modal-max-height: calc(76vh + 116px);
   --ui-modal-full-max-width: min(1120px, 95vw);
-  --ui-table-font-size: 10.5px;
+  --ui-table-font-size: 12.25px;
   --ui-table-header-font-size: 10.5px;
   --ui-table-cell-padding-x: 10.5px;
+  --ui-table-cell-line-height: 17.5px;
   --ui-list-toolbar-gap: 7px;
   --ui-list-toolbar-padding-x: 14px;
   --ui-list-toolbar-padding-y: 10.5px;
