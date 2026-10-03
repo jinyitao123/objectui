@@ -58,6 +58,16 @@ describe('data-table — manual (server-side) pagination', () => {
     expect(bodyRows.length).toBe(5);
   });
 
+  it.each([0, 1])('keeps the server total and page-size control for %i records', (rowCount) => {
+    const { container, getByRole } = renderComponent({
+      ...baseSchema, data: pageData.slice(0, rowCount), rowCount, page: 1,
+    });
+    expect(getByRole('combobox')).toBeInTheDocument();
+    expect(container.textContent).toContain(rowCount + ' total');
+    const next = getByRole('button', { name: 'Next' });
+    expect(next).toBeDisabled();
+  });
+
   it('renders the configured pageSizeOptions in the rows-per-page selector (no built-in 5/10/20)', () => {
     // With pageSizeOptions provided, the selector must offer exactly those
     // choices (plus the active pageSize merged in) — NOT the hardcoded

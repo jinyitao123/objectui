@@ -2751,11 +2751,12 @@ const DataTableRenderer = ({ schema }: { schema: DataTableSchema }) => {
         </Table>
       </div>
 
-      {/* Pagination — hidden when only one page (no controls would be actionable) */}
-      {pagination && sortedData.length > 0 && totalPages > 1 && (
+      {/* Server totals and page size remain useful for a single or empty page. */}
+      {pagination && (manualPagination || (sortedData.length > 0 && totalPages > 1)) && (
         <div className="flex flex-col sm:flex-row items-center justify-between gap-2 px-3 sm:px-4 py-2">
           <div className="flex items-center gap-2">
-            <span className="text-xs sm:text-sm text-muted-foreground">{t('table.rowsPerPage')}:</span>
+            {manualPagination && <span className="text-[length:var(--ui-table-font-size,0.875rem)] text-muted-foreground">{t('table.totalRecords', { count: rowCount ?? sortedData.length })}</span>}
+            <span className="text-[length:var(--ui-table-font-size,0.875rem)] text-muted-foreground">{t('table.rowsPerPage')}:</span>
             <Select
               value={pageSize.toString()}
               onValueChange={(value) => changePageSize(Number(value))}
@@ -2772,7 +2773,7 @@ const DataTableRenderer = ({ schema }: { schema: DataTableSchema }) => {
           </div>
 
           <div className="flex items-center gap-2">
-            <span className="text-xs sm:text-sm text-muted-foreground">
+            <span className="text-[length:var(--ui-table-font-size,0.875rem)] text-muted-foreground">
               {t('table.pageInfo', { current: effectivePage, total: totalPages })}
             </span>
             <div className="flex items-center gap-1">
