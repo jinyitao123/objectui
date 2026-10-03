@@ -49,6 +49,7 @@ import { describe, it, expect, vi, afterEach } from 'vitest';
 import { render, waitFor, fireEvent, cleanup } from '@testing-library/react';
 import React from 'react';
 
+import { I18nProvider } from '@object-ui/i18n';
 import { MePermissionsProvider } from '@object-ui/permissions';
 import { registerAllFields } from '@object-ui/fields';
 import { ObjectForm } from './ObjectForm';
@@ -194,6 +195,24 @@ const CONTAINERS: Array<{
     ).baseElement as HTMLElement,
   },
 ];
+
+it('localizes the read-only field explanation in the ObjectForm permission gate', async () => {
+  const { ds } = makeDataSource();
+  const { container } = render(
+    <I18nProvider config={{ defaultLanguage: 'zh', detectBrowserLanguage: false }} persistLanguage={false}>
+      <MePermissionsProvider initialPermissions={REPORTER}>
+        <ObjectForm schema={schemaFor()} dataSource={ds} />
+      </MePermissionsProvider>
+    </I18nProvider>,
+  );
+
+  await waitFor(() => {
+    const field = container.querySelector('input[name="score"]') as HTMLInputElement | null;
+    expect(field?.disabled).toBe(true);
+  });
+  expect(container.textContent).toContain('你没有编辑此字段的权限。');
+  expect(container.textContent).not.toContain('You do not have edit access to this field.');
+});
 
 describe('field-level security — the form neither sends nor offers a refused field (objectui#10120)', () => {
   describe.each(CONTAINERS)('$name', ({ mount }) => {

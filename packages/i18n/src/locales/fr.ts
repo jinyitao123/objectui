@@ -292,8 +292,12 @@ const fr = {
       badInput:
         "Non enregistré : le texte de ce champ n'est pas un nombre. Saisissez une décimale simple (exemple : {{example}}).",
     },
+    permissions: {
+      editDenied: 'Vous ne disposez pas des droits de modification pour ce champ.',
+    },
     tags: {
       placeholder: "Saisissez puis appuyez sur Entrée pour ajouter…",
+      remove: 'Supprimer {{tag}}',
     },
     // objectui#4028 — `AddressField`'s five sub-labels.
     address: {

@@ -292,8 +292,12 @@ const ko = {
       badInput:
         "저장되지 않았습니다: 이 입력란의 텍스트는 숫자가 아닙니다. 일반 소수로 입력하세요(예: {{example}}).",
     },
+    permissions: {
+      editDenied: '이 필드를 편집할 권한이 없습니다.',
+    },
     tags: {
       placeholder: "입력 후 Enter 키로 추가…",
+      remove: '{{tag}} 삭제',
     },
     // objectui#4028 — `AddressField`'s five sub-labels.
     address: {

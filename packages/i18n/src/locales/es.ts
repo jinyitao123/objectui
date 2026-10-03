@@ -296,8 +296,12 @@ const es = {
       badInput:
         "No guardado: el texto de este campo no es un número. Introduce un decimal simple (ejemplo: {{example}}).",
     },
+    permissions: {
+      editDenied: 'No tienes permiso para editar este campo.',
+    },
     tags: {
       placeholder: "Escriba y pulse Intro para añadir…",
+      remove: 'Quitar {{tag}}',
     },
     // objectui#4028 — `AddressField`'s five sub-labels.
     address: {

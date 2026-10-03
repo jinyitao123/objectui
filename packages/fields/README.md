@@ -84,12 +84,17 @@ const MyGridCell = ({ field, value }: CellRendererProps) => {
 Supported types out of the box:
 
 - **Basic**: `text`, `textarea`, `number`, `boolean`
+- **Tags**: `tags` — removable string chips with per-tag localized accessible names
 - **Format**: `currency`, `percent`
 - **Date**: `date`, `datetime`, `time`
 - **Selection**: `select`, `lookup`, `master_detail`
 - **Contact**: `email`, `phone`, `url`
 - **Media**: `file`, `image`
 - **System**: `formula`, `summary`, `auto_number`
+
+`TagsField` uses `fields.tags.remove` for each chip's remove-button name, with
+the tag value supplied as `{{tag}}`. The locale packs carry this key so a
+Chinese form does not announce an English “Remove” button.
 
 ### `type="number"` widgets: what is announced and what is not
 

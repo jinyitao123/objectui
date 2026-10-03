@@ -299,8 +299,12 @@ const zh = {
       badInput:
         '未保存：此输入框中的文本不是数字。请输入普通小数（例如 {{example}}）。',
     },
+    permissions: {
+      editDenied: '你没有编辑此字段的权限。',
+    },
     tags: {
       placeholder: '输入后回车添加…',
+      remove: '移除 {{tag}}',
     },
     // objectui#4028 — `AddressField`'s five sub-labels. These were English
     // string literals with no key, and this pack is the one the issue was

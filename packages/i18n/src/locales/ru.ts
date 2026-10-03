@@ -298,8 +298,12 @@ const ru = {
       badInput:
         "Не сохранено: текст в этом поле — не число. Введите обычную десятичную дробь (например: {{example}}).",
     },
+    permissions: {
+      editDenied: 'У вас нет разрешения на редактирование этого поля.',
+    },
     tags: {
       placeholder: "Введите и нажмите Enter, чтобы добавить…",
+      remove: 'Удалить {{tag}}',
     },
     // objectui#4028 — `AddressField`'s five sub-labels.
     address: {

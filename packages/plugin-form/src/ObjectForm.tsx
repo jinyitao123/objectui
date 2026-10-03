@@ -31,6 +31,7 @@ import {
   type PendingSubmitRedirect,
 } from './submitRedirectNavigation';
 import { usePermissions } from '@object-ui/permissions';
+import { useSafeTranslate } from '@object-ui/i18n';
 import { sectionPredicateUnsupportedWarning } from './sectionPredicateDiagnostic';
 import { warnUnresolvedTopLevelField, warnSectionMemberExcludedByFields } from './sectionFields';
 import { TabbedForm } from './TabbedForm';
@@ -63,6 +64,7 @@ import {
 } from './schemaDefaults';
 import { useOccSave } from './occSave';
 import { useFormStatusTranslation } from './formStatusTranslation';
+
 
 /**
  * Props of the `ObjectForm` React component.
@@ -617,6 +619,7 @@ const SimpleObjectForm: React.FC<SimpleObjectFormProps> = ({
   runtimeProps,
 }) => {
   const { t: tStatus } = useFormStatusTranslation();
+  const tFieldPermission = useSafeTranslate();
   const { fieldLabel, sectionLabel } = useSafeFieldLabel();
   const isMobile = useIsMobile();
   // Upload-in-flight gate (objectui#10166). Owns the aggregated "is any
@@ -634,9 +637,12 @@ const SimpleObjectForm: React.FC<SimpleObjectFormProps> = ({
         perms,
         objectName: schema.objectName,
         mode: schema.mode,
-        deniedDescription: 'You do not have edit access to this field.',
+        deniedDescription: tFieldPermission(
+          'fields.permissions.editDenied',
+          'You do not have edit access to this field.',
+        ),
       }) as FormField[],
-    [perms, schema.objectName, schema.mode],
+    [perms, schema.objectName, schema.mode, tFieldPermission],
   );
 
   const [objectSchema, setObjectSchema] = useState<any>(null);

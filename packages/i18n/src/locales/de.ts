@@ -292,8 +292,12 @@ const de = {
       badInput:
         "Nicht gespeichert: Der Text in diesem Feld ist keine Zahl. Geben Sie eine einfache Dezimalzahl ein (Beispiel: {{example}}).",
     },
+    permissions: {
+      editDenied: 'Sie haben keine Berechtigung, dieses Feld zu bearbeiten.',
+    },
     tags: {
       placeholder: "Tippen und mit der Eingabetaste hinzufügen…",
+      remove: '{{tag}} entfernen',
     },
     // objectui#4028 — `AddressField`'s five sub-labels.
     address: {

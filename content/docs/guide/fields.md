@@ -86,6 +86,11 @@ Object UI comes with built-in support for the standard [ObjectStack Protocol](ht
 | `master_detail` | Parent-child relationship |
 | `user` | Person picker — searches the `sys_user` object (a lookup specialized to users) |
 | `owner` | Record owner — a `user` field, typically read-only and stamped with the current user |
+| `tags` | Removable string chips; each chip's remove button has a localized accessible name |
+
+The built-in `TagsField` translates its chip-removal button with
+`fields.tags.remove`, interpolating the tag value. Read-only fields continue to
+display the tags without edit controls.
 
 ## Label-stored text selects
 

@@ -296,8 +296,12 @@ const ar = {
       badInput:
         "لم يتم الحفظ: النص في هذا المربع ليس رقمًا. أدخل رقمًا عشريًا عاديًا (مثال: {{example}}).",
     },
+    permissions: {
+      editDenied: 'ليس لديك إذن لتعديل هذا الحقل.',
+    },
     tags: {
       placeholder: "اكتب واضغط Enter للإضافة…",
+      remove: 'إزالة {{tag}}',
     },
     // objectui#4028 — `AddressField`'s five sub-labels.
     address: {

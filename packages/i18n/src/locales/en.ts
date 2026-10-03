@@ -375,8 +375,12 @@ const en = {
     },
     // objectui#3342 — the tags widget's input hint, shown while the tag list
     // is empty. The author-declared `field.placeholder` always wins over this.
+    permissions: {
+      editDenied: 'You do not have edit access to this field.',
+    },
     tags: {
       placeholder: 'Type and press Enter to add…',
+      remove: 'Remove {{tag}}',
     },
     // objectui#4028 — `AddressField`'s five sub-labels, previously English
     // string literals with no key at all: on a Chinese console every address

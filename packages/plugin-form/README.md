@@ -1063,6 +1063,12 @@ unavailable, or uploading, validation returns `valid: false` without writing.
 mounts (so it can report a loading/unavailable result), then receives `null`
 when that ObjectForm unmounts.
 
+For a field the caller may read but not edit, the simple `ObjectForm` renders
+the localized `fields.permissions.editDenied` helper and disables the control.
+The same `checkField(..., 'write')` gate strips that field before a direct
+adapter write or a host-owned `submitHandler`, so the rendered restriction and
+the outgoing payload share one permission decision.
+
 Controlled mode supports `simple` forms, including grouped simple forms, in
 `create` and `edit`. Supplying these runtime props to another form variant or
 to a form with subforms renders an explicit unsupported-mode error; the

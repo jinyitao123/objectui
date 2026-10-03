@@ -59,6 +59,8 @@ const FIELD_DEFAULTS: Record<string, string> = {
   // renderer so both cannot drift apart in a locale.
   'fields.options.empty': 'No options available',
   'fields.options.selectFirst': 'Select {{fields}} first',
+  'fields.permissions.editDenied': 'You do not have edit access to this field.',
+  'fields.tags.remove': 'Remove {{tag}}',
   'fields.choiceCards.selectOnly': 'Choice cards require a select field.',
   'fields.choiceCards.singleValueOnly': 'Choice cards support one selected value. Use a multi-value widget for this field.',
   // objectui#4026 — the separator between the controlling-field names that

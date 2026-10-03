@@ -292,8 +292,12 @@ const ja = {
       badInput:
         "保存されていません: このボックスのテキストは数値ではありません。通常の小数で入力してください（例: {{example}}）。",
     },
+    permissions: {
+      editDenied: 'この項目を編集する権限がありません。',
+    },
     tags: {
       placeholder: "入力してEnterキーで追加…",
+      remove: '{{tag}}を削除',
     },
     // objectui#4028 — `AddressField`'s five sub-labels.
     address: {
