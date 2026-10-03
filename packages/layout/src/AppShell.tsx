@@ -268,9 +268,9 @@ export function AppShell({
   useAppShellBranding(branding, branding?.title);
 
   return (
-    <SidebarProvider defaultOpen={defaultOpen} className="!flex-col h-svh overflow-hidden">
+    <SidebarProvider defaultOpen={defaultOpen} className="!flex-col h-svh overflow-hidden [--sidebar-width:var(--ui-app-sidebar-width,16rem)]!">
       {/* 1. Full-width top bar spanning entire screen */}
-      <header className="sticky top-0 z-30 flex h-14 w-full shrink-0 items-center gap-2 border-b bg-background px-2 sm:px-4">
+      <header className="sticky top-0 z-30 flex h-[var(--ui-app-topbar-height,3.5rem)] w-full shrink-0 items-center gap-2 border-b bg-background px-2 sm:px-4">
         {navbar}
       </header>
 

@@ -371,3 +371,8 @@ For detailed API documentation, visit the [Object UI Documentation](https://www.
 ## License
 
 MIT — see [LICENSE](./LICENSE).
+
+
+### AppShell geometry profile
+
+`AppShell` consumes host CSS custom properties `--ui-app-sidebar-width` and `--ui-app-topbar-height`. Their defaults remain `16rem` and `3.5rem`. The compact Console profile supplies `240px` and `68px`; these dimensions belong to application chrome, independently of dialog summary columns and page content. Sidebar collapse and mobile behavior continue to use the native sidebar component.
