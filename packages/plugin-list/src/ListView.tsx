@@ -3883,6 +3883,23 @@ export const ListView = React.forwardRef<ListViewHandle, ListViewProps>(({
    */
   const viewDescription = pickLocalized(schema.description, displayLocale);
 
+  // Under ListView-owned server pagination, ObjectGrid hands the real match
+  // total to DataTable's own pager. That footer already reports the count, so
+  // this component's count bar would repeat it. Judge the child renderer's
+  // resolved public schema: an explicit `showPagination: false` or grouped
+  // table has no server-page footer and still needs ListView's count/cap note.
+  const gridSchema = viewComponentSchema as {
+    type?: string;
+    showPagination?: boolean;
+    grouping?: { fields?: unknown[] };
+  };
+  const dataTableOwnsServerPageFeedback =
+    paginate &&
+    serverTotal != null &&
+    gridSchema.type === 'object-grid' &&
+    gridSchema.showPagination !== false &&
+    !gridSchema.grouping?.fields?.length;
+
   return (
     <div
       ref={pullRef}
@@ -4886,16 +4903,15 @@ export const ListView = React.forwardRef<ListViewHandle, ListViewProps>(({
       )}
 
       {/* Record count status bar (Airtable-style) */}
-      {!loading && data.length > 0 && surfaceDrawsFetchedRows && schema.showRecordCount !== false && (
+      {!dataTableOwnsServerPageFeedback && !loading && data.length > 0 && surfaceDrawsFetchedRows && schema.showRecordCount !== false && (
         <div
           className="border-t px-4 py-2 flex items-center gap-3 text-xs text-muted-foreground bg-background shrink-0"
           data-testid="record-count-bar"
         >
           <span className="font-medium text-foreground/80">
-            {/* Under server pagination `data` is only the current page, so the
-                honest record count is the server's grand total (#586). When the
-                whole result set is in memory, serverTotal is null and data.length
-                already IS the total. */}
+            {/* If ListView knows a server total but the child has no pager, this
+                fallback bar reports the grand total; otherwise the rows are the
+                full client-side result and `data.length` is the total. */}
             {(() => {
               const totalCount = serverTotal ?? data.length;
               return totalCount === 1
@@ -4903,11 +4919,9 @@ export const ListView = React.forwardRef<ListViewHandle, ListViewProps>(({
                 : t('list.recordCount', { count: totalCount });
             })()}
           </span>
-          {/* The cap warning is about rows the user CANNOT REACH. A paged grid
-              with a known total can reach them all through its pager, so the
-              warning stays off there — the gate the fetch used to apply when it
-              wrote this flag (objectui#7394). */}
-          {dataLimitReached && !(paginate && serverTotal != null) && (
+          {/* The cap warning is about rows the user CANNOT REACH. Keep it when
+              this surface has no pager, even if the server reported a total. */}
+          {dataLimitReached && !dataTableOwnsServerPageFeedback && (
             <span className="text-amber-600" data-testid="data-limit-warning">
               {t('list.dataLimitReached', { limit: effectivePageSize })}
             </span>
