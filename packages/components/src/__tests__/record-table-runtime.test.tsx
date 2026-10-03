@@ -6,6 +6,35 @@ import type { DataTableSchema } from '@object-ui/types';
 import '../renderers/complex/data-table';
 
 describe('RecordTable runtime composition', () => {
+  it('applies compact header height to utility columns without replacing their widths', () => {
+    const registration = ComponentRegistry.getReactRuntimeComponents().find(item => item.name === 'RecordTable');
+    const RecordTable = registration!.component as React.ComponentType<{ schema: DataTableSchema }>;
+
+    render(<RecordTable schema={{
+      type: 'data-table',
+      data: [{ id: 'r1', name: 'Aster' }],
+      columns: [{ accessorKey: 'name', header: 'Name' }],
+      searchable: false,
+      exportable: false,
+      selectable: true,
+      showRowNumbers: true,
+      rowActions: true,
+    }} />);
+
+    const headers = screen.getAllByRole('columnheader');
+    expect(headers).toHaveLength(4);
+    for (const header of headers) {
+      expect(header).toHaveClass(
+        'h-[var(--ui-table-header-height,3rem)]',
+        'text-[length:var(--ui-table-header-font-size,0.875rem)]',
+        'leading-[var(--ui-table-header-line-height,1.25rem)]',
+      );
+    }
+    expect(headers[0]).toHaveClass('w-10', 'px-3');
+    expect(headers[1]).toHaveClass('w-10', 'px-3');
+    expect(headers[3]).toHaveClass('w-24');
+  });
+
   it('retains cell callbacks and server pagination without a second table implementation', () => {
     const registration = ComponentRegistry.getReactRuntimeComponents().find(item => item.name === 'RecordTable');
     expect(registration?.component).toBe(ComponentRegistry.get('data-table'));

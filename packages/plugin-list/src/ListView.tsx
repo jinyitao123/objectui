@@ -1167,6 +1167,7 @@ export const ListView = React.forwardRef<ListViewHandle, ListViewProps>(({
   );
   const [searchTerm, setSearchTerm] = React.useState(() => initialSearchTerm ?? '');
   const inlineSearchRef = React.useRef<HTMLInputElement>(null);
+  const searchPopoverInputRef = React.useRef<HTMLInputElement>(null);
   const [showSearchPopover, setShowSearchPopover] = React.useState(false);
   
   // Sort State
@@ -4513,6 +4514,7 @@ export const ListView = React.forwardRef<ListViewHandle, ListViewProps>(({
                 <div className="relative">
                   <Search className="absolute left-2 top-1/2 -translate-y-1/2 h-3.5 w-3.5 text-muted-foreground" />
                   <Input
+                    ref={searchPopoverInputRef}
                     placeholder={t('table.search')}
                     value={searchTerm}
                     onChange={(e) => handleSearchChange(e.target.value)}
@@ -4525,7 +4527,10 @@ export const ListView = React.forwardRef<ListViewHandle, ListViewProps>(({
                       size="sm"
                       className="absolute right-0.5 top-1/2 -translate-y-1/2 h-5 w-5 p-0 hover:bg-muted-foreground/20"
                       aria-label={t('list.clear')}
-                      onClick={() => handleSearchChange('')}
+                      onClick={() => {
+                        handleSearchChange('');
+                        searchPopoverInputRef.current?.focus();
+                      }}
                     >
                       <X className="h-3 w-3" />
                     </Button>

@@ -356,6 +356,12 @@ flat props rather than a nested `schema` object:
 <ListView objectName="showcase_project" fields={['name', 'status']} pagination={{ pageSize: 25 }} />
 ```
 
+`ListView` keeps its search term while data refreshes and while the desktop
+search popover closes with Escape. Search clear buttons return focus to their
+input. In dropdown `userFilters`, each active filter has a separate localized
+clear button; clearing returns focus to the filter trigger, while Escape only
+dismisses the open filter picker.
+
 Use the **canonical** spelling of each prop — the one the contract publishes.
 Several blocks still read older flat spellings as back-compat fallbacks but do
 not declare them, so they are not authoring surface: on `<ObjectGrid>`, for

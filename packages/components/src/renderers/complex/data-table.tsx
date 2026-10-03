@@ -649,10 +649,10 @@ const EMPTY_ROWS = Object.freeze([]) as unknown as DataTableSchema['data'];
 
 // Geometry is supplied by an ancestor host through CSS custom properties. The
 // fallbacks match the unchanged Shadcn table primitives so a host without a
-// profile keeps the existing table size. These are intentionally applied only
-// to model columns; selection and action affordances retain their own sizing.
+// profile keeps the existing table size. Header geometry applies to every
+// column; explicit utility-column widths and padding remain intact.
 const tableHeaderGeometryClass =
-  'h-[var(--ui-table-header-height,3rem)] px-[var(--ui-table-header-padding-x,var(--ui-table-cell-padding-x,1rem))] py-[var(--ui-table-header-padding-y,0px)]';
+  'h-[var(--ui-table-header-height,3rem)] px-[var(--ui-table-header-padding-x,var(--ui-table-cell-padding-x,1rem))] py-[var(--ui-table-header-padding-y,0px)] text-[length:var(--ui-table-header-font-size,0.875rem)] leading-[var(--ui-table-header-line-height,1.25rem)] font-[weight:var(--ui-table-header-font-weight,500)]';
 const tableCellGeometryClass =
   'px-[var(--ui-table-cell-padding-x,1rem)] py-[var(--ui-table-cell-padding-y,1rem)] text-[length:var(--ui-table-font-size,inherit)] leading-[var(--ui-table-cell-line-height,inherit)]';
 
@@ -2023,7 +2023,7 @@ const DataTableRenderer = ({ schema }: { schema: DataTableSchema }) => {
           <TableHeader className="sticky top-0 bg-background z-10">
             <TableRow ref={headerRowRef}>
               {selectable && (
-                <TableHead className={cn("w-10 bg-background px-3", frozenColumns > 0 && "sticky left-0 z-20")}>
+                <TableHead className={cn(tableHeaderGeometryClass, "w-10 bg-background px-3", frozenColumns > 0 && "sticky left-0 z-20")}>
                   {/* Select-all is a multi-select affordance; a 'single' view
                       keeps the column (alignment) but offers no way to select
                       more than one row (#2941). */}
@@ -2036,8 +2036,8 @@ const DataTableRenderer = ({ schema }: { schema: DataTableSchema }) => {
                 </TableHead>
               )}
               {showRowNumbers && (
-                <TableHead className={cn("w-10 bg-background text-center px-3", frozenColumns > 0 && "sticky z-20")} style={frozenColumns > 0 ? { left: measuredStickyLefts?.[selectable ? 1 : 0] ?? (selectable ? 40 : 0) } : undefined}>
-                  <span className="text-xs text-muted-foreground">#</span>
+                <TableHead className={cn(tableHeaderGeometryClass, "w-10 bg-background text-center px-3", frozenColumns > 0 && "sticky z-20")} style={frozenColumns > 0 ? { left: measuredStickyLefts?.[selectable ? 1 : 0] ?? (selectable ? 40 : 0) } : undefined}>
+                  <span className="text-[length:var(--ui-table-header-font-size,0.75rem)] leading-[var(--ui-table-header-line-height,1rem)] font-[weight:var(--ui-table-header-font-weight,500)] text-muted-foreground">#</span>
                 </TableHead>
               )}
               {columns.map((col, index) => {
@@ -2148,10 +2148,10 @@ const DataTableRenderer = ({ schema }: { schema: DataTableSchema }) => {
                 );
               })}
               {rowActions && (
-                <TableHead className="w-24 text-right bg-background">{t('common.actions')}</TableHead>
+                <TableHead className={cn(tableHeaderGeometryClass, 'w-24 text-right bg-background')}>{t('common.actions')}</TableHead>
               )}
               {addColumnEnabled && (
-                <TableHead className="w-10 bg-background px-1 text-center">
+                <TableHead className={cn(tableHeaderGeometryClass, 'w-10 bg-background px-1 text-center')}>
                   <button
                     type="button"
                     onClick={fieldAuthoring!.onAddColumn}

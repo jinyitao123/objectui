@@ -55,6 +55,13 @@ The toolbar and cell renderers are tuned for low visual noise on dense tables:
 - **Flat user-filter pills**: `userFilters` (dropdown mode) render as ghost
   text + count. Active state is shown via `text-foreground font-medium`
   rather than a filled / bordered pill.
+- **Keyboard-operable filter clearing**: an active filter has a separate,
+  localized clear button, so keyboard users can open the filter and clear it
+  independently. Escape closes an open filter popover without changing its
+  selection; clearing returns focus to that filter's trigger.
+- **Search focus recovery**: clearing either the inline or popover search
+  returns focus to its input. Escape closes the desktop search popover while
+  preserving the current keyword, and refresh continues to use that keyword.
 - **Quiet active state for tool buttons**: filter / group / sort / color /
   density / search no longer paint a `bg-primary/10 border` block when
   active — they switch to `text-foreground font-medium` and rely on the

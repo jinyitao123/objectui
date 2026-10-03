@@ -385,7 +385,9 @@ interface DropdownFiltersProps {
 
 function DropdownFilters({ fields, objectDef, data, onFilterChange, maxVisible, className, initialSelections, onSelectionsChange }: DropdownFiltersProps) {
   const { fieldLabel, translateOptions } = useSafeFieldLabel();
+  const { t } = useObjectTranslation();
   const moreLabel = useMoreLabel();
+  const badgeButtonRefs = React.useRef(new Map<string, HTMLButtonElement>());
   const objectName: string | undefined = objectDef?.name;
   // Control kind per field, from the AUTHORED type only. Keyed off the raw
   // config, not the resolved field: `resolveFields` back-fills `type` from
@@ -552,43 +554,53 @@ function DropdownFilters({ fields, objectDef, data, onFilterChange, maxVisible, 
 
     return (
       <Popover key={f.field}>
-        <PopoverTrigger asChild>
-          <button
-            // Inside a <form> a bare <button> defaults to type="submit", so an
-            // untyped trigger would submit the enclosing form on every click
-            // (objectui#3344). Radix's PopoverTrigger happens to supply
-            // type="button" via its Slot today, but that is an upstream
-            // implementation detail — declare the contract locally, exactly as
-            // the Combobox trigger does.
-            type="button"
-            data-testid={`filter-badge-${f.field}`}
-            className={cn(
-              'inline-flex items-center gap-1 h-7 px-2 text-xs transition-colors shrink-0 rounded-md',
-              hasSelection
-                ? 'text-foreground font-medium'
-                : 'text-muted-foreground hover:text-foreground',
-            )}
-          >
-            <span className="truncate max-w-[100px]">{f.label || f.field}</span>
-            {hasSelection && (
-              <span className="text-[10px] text-muted-foreground/80 tabular-nums">
-                {activeCount}
-              </span>
-            )}
-            {hasSelection ? (
-              <X
-                className="h-3 w-3 opacity-60 hover:opacity-100"
-                data-testid={`filter-clear-${f.field}`}
-                onClick={e => {
-                  e.stopPropagation();
-                  handleChange(f.field, []);
-                }}
-              />
-            ) : (
-              <ChevronDown className="h-3 w-3 opacity-60" />
-            )}
-          </button>
-        </PopoverTrigger>
+        <span className="inline-flex h-7 shrink-0">
+          <PopoverTrigger asChild>
+            <button
+              // Inside a <form> a bare <button> defaults to `type="submit"`, so an
+              // untyped trigger would submit the enclosing form on every click
+              // (objectui#3344). Radix's PopoverTrigger happens to supply
+              // `type="button"` via its Slot today, but that is an upstream
+              // implementation detail — declare the contract locally, exactly as
+              // the Combobox trigger does.
+              ref={(button) => {
+                if (button) badgeButtonRefs.current.set(f.field, button);
+                else badgeButtonRefs.current.delete(f.field);
+              }}
+              type="button"
+              data-testid={`filter-badge-${f.field}`}
+              className={cn(
+                'inline-flex items-center gap-1 h-7 px-2 text-xs transition-colors shrink-0',
+                hasSelection
+                  ? 'rounded-l-md pr-1 text-foreground font-medium'
+                  : 'rounded-md text-muted-foreground hover:text-foreground',
+              )}
+            >
+              <span className="truncate max-w-[100px]">{f.label || f.field}</span>
+              {hasSelection && (
+                <span className="text-[10px] text-muted-foreground/80 tabular-nums">
+                  {activeCount}
+                </span>
+              )}
+              {!hasSelection && <ChevronDown className="h-3 w-3 opacity-60" aria-hidden="true" />}
+            </button>
+          </PopoverTrigger>
+          {hasSelection && (
+            <button
+              type="button"
+              data-testid={`filter-clear-${f.field}`}
+              aria-label={t('filterBuilder.removeValue', { value: f.label || f.field })}
+              className="inline-flex h-7 w-6 shrink-0 items-center justify-center rounded-r-md pl-0.5 pr-1.5 text-foreground/70 transition-colors hover:text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+              onClick={(event) => {
+                event.stopPropagation();
+                handleChange(f.field, []);
+                badgeButtonRefs.current.get(f.field)?.focus();
+              }}
+            >
+              <X className="h-3 w-3" aria-hidden="true" />
+            </button>
+          )}
+        </span>
         <PopoverContent align="start" className={cn(popoverWidth, 'p-2')}>
           {isLookupLike ? (
             <div data-testid={`filter-lookup-${f.field}`}>

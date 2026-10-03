@@ -1,6 +1,7 @@
 import React from 'react';
 import { afterEach, describe, expect, it, vi } from 'vitest';
 import { cleanup, fireEvent, render, waitFor } from '@testing-library/react';
+import userEvent from '@testing-library/user-event';
 import { SchemaRendererProvider } from '@object-ui/react';
 import { ListView } from '../ListView';
 
@@ -57,5 +58,38 @@ describe('ListView persistent host search', () => {
     await waitFor(() => expect(adapter.find).toHaveBeenCalled());
     expect(queryByTestId('list-inline-search')).toBeNull();
     expect(queryByTestId('search-icon-button')).toBeNull();
+  });
+
+  it('preserves the popover search on Escape and returns focus after keyboard clear', async () => {
+    const user = userEvent.setup();
+    const { getByTestId, queryByTestId, adapter } = mount();
+    await waitFor(() => expect(adapter.find).toHaveBeenCalled());
+
+    const trigger = getByTestId('search-icon-button');
+    trigger.focus();
+    await user.keyboard('{Enter}');
+    let popover = getByTestId('search-popover');
+    let input = popover.querySelector('input') as HTMLInputElement;
+    expect(input).toHaveFocus();
+    fireEvent.change(input, { target: { value: 'Delivery' } });
+    await waitFor(() => expect(adapter.find.mock.lastCall?.[1]).toMatchObject({ $search: 'Delivery' }));
+
+    await user.keyboard('{Escape}');
+    expect(queryByTestId('search-popover')).toBeNull();
+    expect(trigger).toHaveFocus();
+
+    await user.keyboard('{Enter}');
+    popover = getByTestId('search-popover');
+    input = popover.querySelector('input') as HTMLInputElement;
+    expect(input).toHaveValue('Delivery');
+    expect(input).toHaveFocus();
+
+    await user.tab();
+    const clear = popover.querySelector('button[aria-label="Clear"]')!;
+    expect(clear).toHaveFocus();
+    await user.keyboard('{Enter}');
+    await waitFor(() => expect(adapter.find.mock.lastCall?.[1]).not.toHaveProperty('$search'));
+    expect(input).toHaveValue('');
+    expect(input).toHaveFocus();
   });
 });
