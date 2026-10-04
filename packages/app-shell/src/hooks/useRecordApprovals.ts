@@ -28,6 +28,7 @@
  */
 
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import { useAuth } from '@object-ui/auth';
 import { bearerAuthHeaders } from '../utils/authToken.js';
 import type { DecisionOutputDef } from '../utils/decisionOutputParams.js';
 
@@ -239,6 +240,10 @@ export function isSubmitterOf(
 interface UseRecordApprovalsResult {
   loading: boolean;
   available: boolean;
+  /** True only after a successful list read for the current record/auth scope. */
+  resolved: boolean;
+  /** True after a retryable read failure; false is not proof of no history. */
+  error: boolean;
   /**
    * Every approval request on the record, newest first — one per approval
    * node the flow has reached (and per ADR-0044 revision round), so a
@@ -256,6 +261,24 @@ interface UseRecordApprovalsResult {
   pendingRequest: ApprovalRequestLite | null;
   latestRequest: ApprovalRequestLite | null;
   refresh: () => Promise<void>;
+}
+
+type ApprovalReadStatus = 'idle' | 'loading' | 'refreshing' | 'resolved' | 'unavailable' | 'error';
+
+interface ApprovalReadState {
+  key: string | null;
+  status: ApprovalReadStatus;
+  requests: ApprovalRequestLite[];
+}
+
+interface ApprovalReadScope {
+  key: string;
+  objectName: string;
+  recordId: string;
+  activeScope: { current: string | null };
+  requestSequence: { current: number };
+  unavailableScope: { current: string | null };
+  setReadState: (state: ApprovalReadState | ((previous: ApprovalReadState) => ApprovalReadState)) => void;
 }
 
 function apiBase() {
@@ -319,6 +342,73 @@ async function fetchProgressEnrichment(
 }
 
 /**
+ * Read one immutable record/authentication scope. The component hook owns the
+ * refs and primitive key; keeping the request runner outside the hook means
+ * its effect can depend on those primitives rather than a `useCallback`
+ * identity (React may discard that cache at any time).
+ */
+async function readApprovalScope({
+  key,
+  objectName,
+  recordId,
+  activeScope,
+  requestSequence,
+  unavailableScope,
+  setReadState,
+}: ApprovalReadScope): Promise<void> {
+  if (unavailableScope.current === key) return;
+
+  const sequence = ++requestSequence.current;
+  const isCurrentRead = () =>
+    activeScope.current === key && requestSequence.current === sequence;
+
+  setReadState(previous => {
+    const hasResolvedAuthority =
+      previous.key === key
+      && (previous.status === 'resolved' || previous.status === 'refreshing');
+    return {
+      key,
+      status: hasResolvedAuthority ? 'refreshing' : 'loading',
+      requests: hasResolvedAuthority ? previous.requests : [],
+    };
+  });
+
+  try {
+    const reqResp = await fetchJson<{ data: ApprovalRequestLite[] }>(
+      `/approvals/requests?object=${encodeURIComponent(objectName)}&recordId=${encodeURIComponent(recordId)}`,
+    );
+    if (!Array.isArray(reqResp?.data)) {
+      throw new Error('Invalid approvals response');
+    }
+    const rows = reqResp.data;
+    // Only the pending row can have a live tally, and only it drives the
+    // header — so exactly one follow-up read, never one per row.
+    const pending = rows.find(row => row.status === 'pending');
+    const full = pending ? await fetchProgressEnrichment(pending) : null;
+    if (!isCurrentRead()) return;
+
+    setReadState({
+      key,
+      status: 'resolved',
+      requests: full ? rows.map(row => (row === pending ? full : row)) : rows,
+    });
+  } catch (err: any) {
+    // A superseded request may not poison the scope cache: an older 404 can
+    // otherwise suppress every later refresh after a newer read succeeded.
+    if (!isCurrentRead()) return;
+
+    if (err?.status === 404 || err?.status === 501) {
+      unavailableScope.current = key;
+      setReadState({ key, status: 'unavailable', requests: [] });
+    } else {
+      // A failed refresh cannot retain the previous Native result as authority.
+      // Only at this point does the host fall back to its conservative mirror.
+      setReadState({ key, status: 'error', requests: [] });
+    }
+  }
+}
+
+/**
  * Read a request's action thread (`sys_approval_action`) — who decided what,
  * when, with which comment/attachments. Same rows the Approval Center's
  * timeline draws; the record page's approval panel merges them across the
@@ -357,44 +447,55 @@ export function useRecordApprovals(
   objectName: string | undefined,
   recordId: string | undefined,
 ): UseRecordApprovalsResult {
-  const [loading, setLoading] = useState(false);
-  const [available, setAvailable] = useState(true);
-  const [requests, setRequests] = useState<ApprovalRequestLite[]>([]);
-  const unavailableRef = useRef(false);
+  const { user, activeOrganization } = useAuth();
+  const scopeKey = objectName && recordId
+    ? JSON.stringify([objectName, recordId, user?.id ?? null, activeOrganization?.id ?? null])
+    : null;
+  const [readState, setReadState] = useState<ApprovalReadState>({ key: null, status: 'idle', requests: [] });
+  const activeScopeRef = useRef<string | null>(null);
+  const requestSequenceRef = useRef(0);
+  const unavailableScopeRef = useRef<string | null>(null);
 
   const refresh = useCallback(async () => {
-    if (!objectName || !recordId) return;
-    if (unavailableRef.current) return;
-    setLoading(true);
-    try {
-      const reqResp = await fetchJson<{ data: ApprovalRequestLite[] }>(
-        `/approvals/requests?object=${encodeURIComponent(objectName)}&recordId=${encodeURIComponent(recordId)}`,
-      );
-      const rows = reqResp?.data ?? [];
-      // Only the pending row can have a live tally, and only it drives the
-      // header — so exactly one follow-up read, never one per row.
-      const pending = rows.find((r) => r.status === 'pending');
-      const full = pending ? await fetchProgressEnrichment(pending) : null;
-      setRequests(full ? rows.map((r) => (r === pending ? full : r)) : rows);
-      setAvailable(true);
-    } catch (err: any) {
-      if (err?.status === 404 || err?.status === 501) {
-        unavailableRef.current = true;
-        setAvailable(false);
-      }
-      // Other errors are transient — silently keep last state.
-    } finally {
-      setLoading(false);
-    }
-  }, [objectName, recordId]);
+    if (!objectName || !recordId || !scopeKey) return;
+    await readApprovalScope({
+      key: scopeKey,
+      objectName,
+      recordId,
+      activeScope: activeScopeRef,
+      requestSequence: requestSequenceRef,
+      unavailableScope: unavailableScopeRef,
+      setReadState,
+    });
+  }, [objectName, recordId, scopeKey]);
 
   useEffect(() => {
-    if (!objectName || !recordId) {
-      setRequests([]);
+    activeScopeRef.current = scopeKey;
+    requestSequenceRef.current += 1;
+    if (!objectName || !recordId || !scopeKey) {
+      setReadState({ key: null, status: 'idle', requests: [] });
       return;
     }
-    refresh();
-  }, [objectName, recordId, refresh]);
+    if (unavailableScopeRef.current !== scopeKey) unavailableScopeRef.current = null;
+    void readApprovalScope({
+      key: scopeKey,
+      objectName,
+      recordId,
+      activeScope: activeScopeRef,
+      requestSequence: requestSequenceRef,
+      unavailableScope: unavailableScopeRef,
+      setReadState,
+    });
+  }, [objectName, recordId, scopeKey]);
+
+  const stateMatchesScope = scopeKey !== null && readState.key === scopeKey;
+  const resolved = stateMatchesScope
+    && (readState.status === 'resolved' || readState.status === 'refreshing');
+  const loading = stateMatchesScope
+    && (readState.status === 'loading' || readState.status === 'refreshing');
+  const error = stateMatchesScope && readState.status === 'error';
+  const available = !stateMatchesScope || readState.status !== 'unavailable';
+  const requests = resolved ? readState.requests : [];
 
   const pendingRequest = useMemo(
     () => requests.find((r) => r.status === 'pending') ?? null,
@@ -422,6 +523,8 @@ export function useRecordApprovals(
   return {
     loading,
     available,
+    resolved,
+    error,
     requests: sortedRequests,
     pendingRequest,
     latestRequest,

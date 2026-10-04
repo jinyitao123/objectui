@@ -48,7 +48,7 @@ const baseSchema: DetailViewSchema = {
   // The band renders only when DetailView's own header is suppressed (composed
   // under a Lightning-style page header) and inline editing is on.
   showHeader: false,
-  data: { id: 'B1', name: 'Q3 Budget' },
+  data: { id: 'B1', name: 'Q3 Budget', approval_status: 'pending' },
   sections: [{ title: 'Basics', fields: [{ name: 'name', label: 'Name' }] }],
 };
 
@@ -78,6 +78,7 @@ function renderBand(
   providerProps: {
     locked?: boolean;
     approvalPending?: boolean;
+    approvalResolved?: boolean;
     approvalIsSubmitter?: boolean;
     approvalProgress?: ApprovalProgress;
     canEdit?: boolean;
@@ -155,6 +156,18 @@ describe('DetailView – recall is the submitter\'s lever (objectui#6464)', () =
 
     expectBandRendered('In approval · editable');
     expect(screen.getByRole('button', { name: RECALL })).toBeInTheDocument();
+  });
+
+  it('ignores a stale pending mirror after the host successfully reads no pending request', () => {
+    renderBand({
+      locked: false,
+      approvalPending: false,
+      approvalResolved: true,
+      approvalIsSubmitter: false,
+    });
+
+    expect(screen.queryByRole('status')).not.toBeInTheDocument();
+    expect(screen.queryByRole('button', { name: RECALL })).not.toBeInTheDocument();
   });
 
   /**

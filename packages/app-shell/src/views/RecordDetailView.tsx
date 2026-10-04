@@ -11,7 +11,7 @@
 import { useState, useEffect, useCallback, useMemo, useRef } from 'react';
 import { useParams, useNavigate, useLocation, useSearchParams, Link } from 'react-router-dom';
 import { activityRowToFeedItem, InlineEditSaveBar, buildDefaultPageSchema, deriveFieldGroupDetailSections, extractMentions, resolveTitleField, useRecordEditable } from '@object-ui/plugin-detail';
-import { Empty, EmptyTitle, EmptyDescription } from '@object-ui/components';
+import { Button, Empty, EmptyTitle, EmptyDescription } from '@object-ui/components';
 import { useAuth, createAuthenticatedFetch } from '@object-ui/auth';
 import { hasReportedCapabilities, usePermissions } from '@object-ui/permissions';
 import { ActionProvider, useObjectTranslation, useObjectLabel, useActionTextLocalizer, usePageAssignment, RecordContextProvider, SchemaRenderer, DiscussionContextProvider, HighlightFieldsProvider, InlineEditProvider, useGlobalUndo, useDataInvalidation, notifyDataChanged, useRowPredicate } from '@object-ui/react';
@@ -1088,17 +1088,21 @@ export function RecordDetailView({ dataSource, objects, onEdit, objectNameOverri
   // entirely, so the "approver may fill in the missing detail" case the flag
   // exists for was unreachable from the console.
   //
-  // The record's own `approval_status` field stays a fallback for backends
-  // that mirror status onto the record but expose no approvals API. It carries
-  // no node granularity, so it can only mean "locked" — the conservative read,
-  // and the same one `recordLockedByApproval` applies to a pre-framework#3814 backend.
+  // The record's own `approval_status` field is a fallback only until the
+  // Native request list succeeds for this exact record. It carries no node
+  // granularity, so it can only mean "locked" — the conservative read for an
+  // unsupported endpoint or an unsuccessful request.
   const approvalStatusPending =
     (pageRecord as any)?.approval_status === 'pending' ||
     (pageRecord as any)?.approval_status === 'in_approval';
-  const approvalPending = approvalStatusPending || !!approvals.pendingRequest;
+  const approvalPending = approvals.resolved
+    ? !!approvals.pendingRequest
+    : approvalStatusPending || !!approvals.pendingRequest;
   const approvalLocked = approvals.pendingRequest
     ? recordLockedByApproval(approvals.pendingRequest)
-    : approvalStatusPending;
+    : approvals.resolved
+      ? false
+      : approvalStatusPending;
   // How far the pending node's tally has got (objectstack#4478). Multi-approver
   // nodes — `quorum`, `unanimous`, `per_group` — do not finalize on one
   // decision, so an approver standing on the record needs the count to know
@@ -1112,14 +1116,16 @@ export function RecordDetailView({ dataSource, objects, onEdit, objectNameOverri
   // `isSubmitterOf` for both, so the two levers cannot disagree about who
   // submitted.
   //
-  // `undefined` when there is no pending request to consult: the band is then
-  // running off the record's `approval_status` mirror alone (a backend with no
-  // approvals API), the host has resolved no identity, and the DetailView keeps
-  // its pre-#6464 behaviour rather than hiding on absent information.
+  // `undefined` when no pending request is available and the Native request
+  // list did not resolve: the band is then running off the record mirror alone,
+  // and the DetailView keeps its legacy behaviour rather than hiding recall
+  // when approval identity is unavailable.
   //
   // This gates the AFFORDANCE only. `canEdit` / `approvalLocked` below are
   // untouched by it, and the recall endpoint authorizes the recall itself.
-  const approvalIsSubmitter = isSubmitterOf(approvals.pendingRequest, user?.id);
+  const approvalIsSubmitter = approvals.resolved && !approvals.pendingRequest
+    ? false
+    : isSubmitterOf(approvals.pendingRequest, user?.id);
 
   // A decision landed through the declared-action bar (objectui#3055). The
   // action itself already POSTed and the runtime already toasted; what the HOST
@@ -2487,6 +2493,7 @@ export function RecordDetailView({ dataSource, objects, onEdit, objectNameOverri
           }
           locked={approvalLocked}
           approvalPending={approvalPending}
+          approvalResolved={approvals.resolved}
           approvalProgress={approvalProgress}
           approvalIsSubmitter={approvalIsSubmitter}
           lockedReason={t('detail.lockedTooltip', {
@@ -2526,6 +2533,25 @@ export function RecordDetailView({ dataSource, objects, onEdit, objectNameOverri
                   <ChevronLeft className="h-4 w-4" />
                   <span>{originFrom.label}</span>
                 </Link>
+              )}
+              {(approvals.error || (approvals.loading && !approvals.resolved)) && (
+                <div
+                  role={approvals.error ? 'alert' : 'status'}
+                  className="mb-4 flex items-center justify-between gap-3 rounded-md border border-destructive/30 bg-destructive/5 px-3 py-2 text-sm text-destructive"
+                  data-testid="record-approvals-read-state"
+                >
+                  <span>{approvals.error ? t('detail.approvalsReadFailed') : t('detail.loading')}</span>
+                  {approvals.error && (
+                    <Button
+                      type="button"
+                      variant="outline"
+                      size="sm"
+                      onClick={() => { void approvals.refresh(); }}
+                    >
+                      {t('detail.retryApprovals')}
+                    </Button>
+                  )}
+                </div>
               )}
               {/* The pending approval's DECISION ACTIONS (objectui#3055).
                   `sys_approval_request` declares them as object metadata —

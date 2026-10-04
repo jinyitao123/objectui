@@ -1181,7 +1181,7 @@ describe('buildDefaultTabs — stable tab values (objectui#2257)', () => {
 
 describe('hidden object fields stay out of synthesized highlights', () => {
   const definition: ObjectDefLike = {
-    name: 'price_change', nameField: 'name',
+    name: 'price_change',
     fields: {
       name: { type: 'text' },
       owner_id: { type: 'user', hidden: true },

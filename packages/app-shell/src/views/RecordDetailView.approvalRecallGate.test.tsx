@@ -26,7 +26,7 @@
 
 import * as React from 'react';
 import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
-import { render, screen, waitFor, cleanup } from '@testing-library/react';
+import { fireEvent, render, screen, waitFor, cleanup, within } from '@testing-library/react';
 import { MemoryRouter } from 'react-router-dom';
 
 const SIGNED_IN_USER = 'u_qcdir';
@@ -91,13 +91,16 @@ vi.mock('@object-ui/react', async (importOriginal) => {
         data-testid="inline-probe"
         data-approval-is-submitter={String(inline?.approvalIsSubmitter)}
         data-approval-pending={String(inline?.approvalPending)}
+        data-approval-resolved={String(inline?.approvalResolved)}
       />
     );
   };
   return { ...actual, SchemaRenderer: Probe };
 });
 
-import { MetadataCtx } from '@object-ui/react';
+import { InlineEditProvider, MetadataCtx, useInlineEdit } from '@object-ui/react';
+import { DetailView } from '@object-ui/plugin-detail';
+import { useRecordApprovals, recordLockedByApproval, isSubmitterOf } from '../hooks/useRecordApprovals';
 import { RecordDetailView } from './RecordDetailView';
 
 const OBJECT_NAME = 'qif_report';
@@ -190,6 +193,55 @@ function renderRecordPage() {
   );
 }
 
+function ApprovalRendererHarness() {
+  const approvals = useRecordApprovals(OBJECT_NAME, RECORD_ID);
+  const mirroredPending = true;
+  const approvalPending = approvals.resolved
+    ? !!approvals.pendingRequest
+    : mirroredPending || !!approvals.pendingRequest;
+  const approvalLocked = approvals.pendingRequest
+    ? recordLockedByApproval(approvals.pendingRequest)
+    : approvals.resolved ? false : mirroredPending;
+  const approvalIsSubmitter = approvals.resolved && !approvals.pendingRequest
+    ? false
+    : isSubmitterOf(approvals.pendingRequest, SIGNED_IN_USER);
+
+  return (
+    <InlineEditProvider
+      canEdit={!approvalLocked}
+      locked={approvalLocked}
+      approvalPending={approvalPending}
+      approvalResolved={approvals.resolved}
+      approvalIsSubmitter={approvalIsSubmitter}
+    >
+      <ApprovalContextProbe />
+      <DetailView
+        schema={{
+          type: 'detail-view',
+          title: 'Order',
+          objectName: OBJECT_NAME,
+          showHeader: false,
+          data: { id: RECORD_ID, name: 'Order A', approval_status: 'pending' },
+          sections: [{ title: 'Basics', fields: [{ name: 'name', label: 'Name' }] }],
+        } as any}
+        dataSource={makeDataSource()}
+        inlineEdit
+      />
+    </InlineEditProvider>
+  );
+}
+
+function ApprovalContextProbe() {
+  const inline = useInlineEdit();
+  return (
+    <div
+      data-testid="approval-context-probe"
+      data-approval-pending={String(inline?.approvalPending)}
+      data-approval-resolved={String(inline?.approvalResolved)}
+    />
+  );
+}
+
 /**
  * Read the verdict off the live context. Waiting on `approval-pending` first is
  * what keeps every assertion below a MEASUREMENT: the approvals read is async,
@@ -237,6 +289,31 @@ describe('record page → band: who may see recall (objectui#6464)', () => {
     expect(probe.getAttribute('data-approval-is-submitter')).toBe('true');
   });
 
+  it('lets a successful native result suppress a stale pending record mirror in the renderer', async () => {
+    stubApprovalsApi({ ...pendingRequest(), status: 'rejected' });
+    render(<ApprovalRendererHarness />);
+
+    await waitFor(() =>
+      expect(screen.getByTestId('approval-context-probe').getAttribute('data-approval-resolved')).toBe('true'),
+    );
+    expect(screen.getByTestId('approval-context-probe').getAttribute('data-approval-pending')).toBe('false');
+    expect(screen.queryByRole('status')).not.toBeInTheDocument();
+    expect(screen.queryByRole('button', { name: /Recall approval/ })).not.toBeInTheDocument();
+  });
+
+  it('uses lock_record from a real pending request, including editable pending nodes', async () => {
+    stubApprovalsApi(pendingRequest({ lock_record: true, viewer: { can_act: true, is_submitter: false } }));
+    const first = render(<ApprovalRendererHarness />);
+    await waitFor(() => expect(screen.getByRole('status')).toHaveTextContent('Locked for approval'));
+    expect(screen.queryByRole('button', { name: /Recall approval/ })).not.toBeInTheDocument();
+
+    first.unmount();
+    stubApprovalsApi(pendingRequest({ lock_record: false, viewer: { can_act: true, is_submitter: true } }));
+    render(<ApprovalRendererHarness />);
+    await waitFor(() => expect(screen.getByRole('status')).toHaveTextContent('In approval · editable'));
+    expect(screen.getByRole('button', { name: /Recall approval/ })).toBeInTheDocument();
+  });
+
   /**
    * Older server, no `viewer` block: the page falls back to comparing the row's
    * `submitter_id` against the signed-in id — and must reach the SAME verdict,
@@ -265,13 +342,62 @@ describe('record page → band: who may see recall (objectui#6464)', () => {
    * gate existed". Threading `false` instead would hide recall from the
    * submitter on every backend without an approvals API.
    */
-  it('threads `undefined` — not `false` — when there is no request to consult', async () => {
-    stubApprovalsApi(null);
+  it('keeps the mirror fallback when the approvals endpoint is unavailable', async () => {
+    vi.stubGlobal('fetch', vi.fn(async () => ({
+      ok: false,
+      status: 404,
+      json: async () => ({ error: 'not installed' }),
+    } as any)));
     renderRecordPage();
 
-    // Still pending: `approval_status: 'pending'` on the record is the mirror
-    // that keeps the band up with no approvals row behind it.
+    // No successful native read exists, so the host preserves its conservative
+    // record mirror and legacy recall affordance.
     const probe = await settledProbe(true);
     expect(probe.getAttribute('data-approval-is-submitter')).toBe('undefined');
+  });
+
+  it('keeps the mirror fallback after a transient approvals read failure', async () => {
+    vi.stubGlobal('fetch', vi.fn(async () => ({
+      ok: false,
+      status: 503,
+      json: async () => ({ error: 'temporarily unavailable' }),
+    } as any)));
+    renderRecordPage();
+
+    const probe = await settledProbe(true);
+    expect(probe.getAttribute('data-approval-resolved')).toBe('false');
+    expect(probe.getAttribute('data-approval-is-submitter')).toBe('undefined');
+  });
+
+  it('shows a retryable read error instead of treating a failed read as empty history', async () => {
+    let approvalReadCount = 0;
+    const fetch = vi.fn(async (input: string) => {
+      if (input.includes('/approvals/requests?object=')) {
+        approvalReadCount += 1;
+      }
+      if (input.includes('/approvals/requests?object=') && approvalReadCount === 1) {
+        return {
+          ok: false,
+          status: 503,
+          json: async () => ({ error: 'private backend detail' }),
+        } as any;
+      }
+      return { ok: true, status: 200, json: async () => ({ data: [] }) } as any;
+    });
+    vi.stubGlobal('fetch', fetch);
+    renderRecordPage();
+
+    const errorNotice = await screen.findByTestId('record-approvals-read-state');
+    expect(errorNotice).toHaveAttribute('role', 'alert');
+    expect(errorNotice).not.toHaveTextContent('private backend detail');
+    const probe = screen.getByTestId('inline-probe');
+    expect(probe.getAttribute('data-approval-pending')).toBe('true');
+    expect(probe.getAttribute('data-approval-resolved')).toBe('false');
+
+    fireEvent.click(within(errorNotice).getByRole('button'));
+    await waitFor(() => expect(approvalReadCount).toBe(2));
+    await waitFor(() => expect(screen.queryByTestId('record-approvals-read-state')).not.toBeInTheDocument());
+    expect(probe.getAttribute('data-approval-pending')).toBe('false');
+    expect(probe.getAttribute('data-approval-resolved')).toBe('true');
   });
 });

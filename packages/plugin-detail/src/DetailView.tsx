@@ -1540,10 +1540,11 @@ export const DetailView: React.FC<DetailViewProps> = ({
         // approver — the very person the flag exists to let edit — never tried.
         //
         // The record's own `approval_status` is the fallback for bare/legacy
-        // DetailView usage where no host threads the state (objectui#2618 for
-        // why the record field alone is not enough). It carries no node
-        // granularity, so it can only mean "locked" — the safe read, since a
-        // wrongly-offered edit dies on the server with RECORD_LOCKED.
+        // DetailView usage or a host whose Native request read did not succeed
+        // (objectui#2618 for why the record field alone is not enough). It
+        // carries no node granularity, so it can only mean "locked" — the safe
+        // read, since a wrongly-offered edit dies on the server with
+        // RECORD_LOCKED.
         //
         // But it must NOT be OR-ed in unconditionally, because the two sources
         // genuinely disagree in a shipping configuration: a flow configuring an
@@ -1553,25 +1554,29 @@ export const DetailView: React.FC<DetailViewProps> = ({
         // "Locked for approval" on exactly the `lockRecord: false` node this
         // feature exists to free — pencils live and saves landing underneath it.
         //
-        // `approvalPending && !locked` is the tell that the host has an actual
-        // opinion. `InlineEditProvider` defaults `approvalPending` to `locked`,
-        // so a host threading only `locked` (pre-#2902) always reports the two
-        // equal and can never produce that combination; a host that resolved
-        // the pending node's `lock_record` is the only thing that can. When it
-        // speaks, it wins — it read the same snapshot the server's lock hook
-        // enforces.
+        // A successful host read is explicit: `approvalResolved` means its
+        // `approvalPending` and `locked` values also cover the empty-result
+        // case, so they supersede a stale mirror. For older hosts without that
+        // signal, `approvalPending && !locked` still identifies an editable
+        // pending node (`InlineEditProvider` otherwise defaults pending to
+        // locked), and the record mirror remains the conservative fallback.
         const approvalStatus = data?.approval_status;
         const statusPending =
           approvalStatus === 'pending' || approvalStatus === 'in_approval';
         const hostPending = inline?.approvalPending ?? false;
+        const hostResolved = inline?.approvalResolved === true;
         const hostSaysEditable = hostPending && !(inline?.locked ?? false);
-        const isLocked = hostSaysEditable
-          ? false
-          : ((inline?.locked ?? false) || statusPending);
+        const isLocked = hostResolved
+          ? !!inline?.locked
+          : hostSaysEditable
+            ? false
+            : ((inline?.locked ?? false) || statusPending);
         // A lock always implies an in-flight approval, so a host that threads
         // only `locked` (objectui#2618, before `approvalPending` existed) keeps
         // its band.
-        const isPending = isLocked || hostPending || statusPending;
+        const isPending = hostResolved
+          ? hostPending
+          : isLocked || hostPending || statusPending;
         // How many decisions the pending node still needs (objectstack#4478).
         // `lockRecord` told the approver they may not EDIT; this tells them
         // whether their own approval finalizes the step. A `quorum` node with
