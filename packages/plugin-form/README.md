@@ -59,6 +59,10 @@ computed cells, row validation or atomic `batchTransaction` persistence. The
 geometry gallery's Details sample only edits a draft because its in-memory
 adapter has no atomic persistence path.
 
+Auto-derived grids do not use an arbitrary quantity or rate column as their
+amount footer when no amount-like or currency column is available. Authors
+can explicitly choose a numeric `amountField` for a quantity total.
+
 Form plugin for Object UI - Advanced form components with validation, multi-step forms, and field-level control.
 
 ## Features

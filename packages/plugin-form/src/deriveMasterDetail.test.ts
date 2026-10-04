@@ -428,6 +428,17 @@ describe('deriveDetail', () => {
     expect(d.amountField).toBe('budget');
   });
 
+  it('does not mistake quantities or rates for an amount after money fields are absent', () => {
+    const schema = { fields: {
+      invoice: { type: 'master_detail', reference: 'inv' },
+      quantity_limit: { type: 'number' },
+      tax_rate: { type: 'number' },
+      discount_rate: { type: 'number' },
+    } };
+    expect(deriveDetail('inv_line', schema, 'inv').amountField).toBeUndefined();
+    expect(deriveDetail('inv_line', schema, 'inv', { amountField: 'quantity_limit' }).amountField).toBe('quantity_limit');
+  });
+
   it('throws a helpful error when no relationship can be resolved', () => {
     expect(() => deriveDetail('showcase_task', { fields: { title: { type: 'text' } } }, 'showcase_project'))
       .toThrow(/could not find a lookup\/master_detail field/i);

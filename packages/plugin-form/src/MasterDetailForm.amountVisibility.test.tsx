@@ -83,6 +83,24 @@ function renderInvoice(line: Record<string, unknown> | null, amountReadable: boo
 }
 
 describe('MasterDetailForm line totals preserve unknown field values', () => {
+  it('does not render a rate total in an auto-derived grid whose money schema is omitted', async () => {
+    const ds = dataSource({ id: 'line-1', invoice: 'invoice-1', description: 'Line A', quantity: 2, discount_rate: 0 });
+    ds.getObjectSchema = vi.fn(async (objectName: string) => objectName === 'invoice' ? parentSchema : {
+      name: 'invoice_line', fields: {
+        invoice: { type: 'master_detail', reference: 'invoice', inlineEdit: 'grid' },
+        description: { type: 'text', label: 'Description' },
+        quantity: { type: 'number', label: 'Quantity' },
+        discount_rate: { type: 'number', label: 'Discount rate' },
+      },
+    });
+    render(<MePermissionsProvider initialPermissions={permissions(false, false)}>
+      <MasterDetailForm schema={{ objectName: 'invoice', mode: 'edit', recordId: 'invoice-1', fields: ['reference'], details: [{ childObject: 'invoice_line' }] } as any} dataSource={ds} />
+    </MePermissionsProvider>);
+    expect(await screen.findByDisplayValue('Line A')).toBeInTheDocument();
+    expect(screen.getAllByRole('spinbutton', { name: 'Quantity' }).some(input => input.getAttribute('value') === '2')).toBe(true);
+    expect(screen.queryByTestId('line-items-total')).toBeNull();
+    expect(screen.queryByTestId('md-grand-total')).toBeNull();
+  });
   it('omits a masked amount column and shows unknown document totals', async () => {
     const ds = renderInvoice({ id: 'line-1', invoice: 'invoice-1', description: 'Line A' }, false, true);
     await waitFor(() => expect(ds.find).toHaveBeenCalledWith('invoice_line', {
