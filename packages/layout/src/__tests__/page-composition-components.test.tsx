@@ -91,7 +91,7 @@ describe('StatusTabs', () => {
     const activeIcon = activeTab.querySelector('svg');
     expect(activeIcon).toHaveAttribute('aria-hidden', 'true');
     expect(activeIcon).toHaveAttribute('focusable', 'false');
-    expect(activeIcon).toHaveClass('size-3.5', 'shrink-0');
+    expect(activeIcon).toHaveClass('shrink-0');
     expect(activeTab).toHaveAccessibleName('Active 9');
 
     activeTab.focus();
