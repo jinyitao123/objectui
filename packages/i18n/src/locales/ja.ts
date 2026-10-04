@@ -171,6 +171,8 @@ const ja = {
     // objectui#4024 — the create/edit dialog's `sr-only` accessible
     // description, used when the form declares no `description` of its own.
     dialogDescriptionFallback: "フォームの項目を入力してから、送信またはキャンセルしてください。",
+    compoundDialogDescription: 'レコードと明細行を入力して保存してください。',
+    compoundLineItems: '明細行',
     keepEditing: "編集を続ける",
     discard: "破棄",
     conflictTitle: "保存の競合",
@@ -320,6 +322,7 @@ const ja = {
     sortDesc: "降順",
     filterColumn: "{{column}}でフィルター",
     columns: "列",
+    optionalColumns: '任意の列',
     exportCSV: "CSVエクスポート",
     exportExcel: "Excelエクスポート",
     selectRow: "行を選択",

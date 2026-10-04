@@ -170,6 +170,8 @@ const pt = {
     // objectui#4024 — the create/edit dialog's `sr-only` accessible
     // description, used when the form declares no `description` of its own.
     dialogDescriptionFallback: "Preencha os campos do formulário e depois envie ou cancele.",
+    compoundDialogDescription: 'Preencha o registo e os respetivos itens e, em seguida, guarde.',
+    compoundLineItems: 'Itens',
     keepEditing: "Continuar editando",
     discard: "Descartar",
     conflictTitle: "Conflito ao salvar",
@@ -319,6 +321,7 @@ const pt = {
     sortDesc: "Ordenar decrescente",
     filterColumn: "Filtrar {{column}}",
     columns: "Colunas",
+    optionalColumns: 'Colunas opcionais',
     exportCSV: "Exportar CSV",
     exportExcel: "Exportar Excel",
     selectRow: "Selecionar linha",

@@ -50,9 +50,14 @@ Keep editing returns to the existing draft. The default host retains immediate
 explicit cancellation.
 
 Inline master-detail grids consume the same control and table geometry tokens.
-This does not alter typed columns, computation, row validation or atomic
-`batchTransaction` persistence. The geometry gallery's Details sample only
-edits a draft because its in-memory adapter has no atomic persistence path.
+Their modal accessible description and default line-items heading resolve
+through the active locale. A per-line or document amount total displays an em
+dash when the caller cannot read the amount field or the adapter did not return
+a finite value for a populated row; an explicit readable zero and a readable
+empty create-mode collection remain zero. This does not alter typed columns,
+computed cells, row validation or atomic `batchTransaction` persistence. The
+geometry gallery's Details sample only edits a draft because its in-memory
+adapter has no atomic persistence path.
 
 Form plugin for Object UI - Advanced form components with validation, multi-step forms, and field-level control.
 

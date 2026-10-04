@@ -201,6 +201,8 @@ export type GridSelectionToolbarRenderer = (
 export interface GridFieldRuntimeProps {
   /** Code-derived columns for direct React composition, separate from field metadata. */
   columns?: GridColumn[];
+  /** Host-resolved field-level read result for the running amount footer. */
+  totalUnavailable?: boolean;
   /**
    * Stable, unique identity for rows that may be cloned by a controlled host.
    * Without it, GridField keeps selection through its own edits/reorders using
@@ -531,6 +533,7 @@ export function GridField({
   displayMode,
   onAdd,
   columns: runtimeColumns,
+  totalUnavailable = false,
   getRowKey,
   renderSelectionToolbar,
   ...props
@@ -922,7 +925,7 @@ export function GridField({
           data-testid="line-items-columns"
         >
           <SlidersHorizontal className="h-3.5 w-3.5" />
-          Columns
+          {t('table.columns', { defaultValue: 'Columns' })}
           {extraShown.size > 0 && (
             <span className="rounded-full bg-primary/10 px-1.5 text-[10px] font-medium text-primary">
               +{extraShown.size}
@@ -931,7 +934,7 @@ export function GridField({
         </Button>
       </PopoverTrigger>
       <PopoverContent align="end" className="w-56 p-2">
-        <div className="px-1 pb-1.5 text-xs font-medium text-muted-foreground">Optional columns</div>
+        <div className="px-1 pb-1.5 text-xs font-medium text-muted-foreground">{t('table.optionalColumns')}</div>
         <div className="max-h-64 space-y-0.5 overflow-y-auto">
           {optionalColumns.map((c) => {
             const id = `col-toggle-${c.name}`;
@@ -1053,7 +1056,7 @@ export function GridField({
                   {t('report.total')}
                 </td>
                 <td className="px-[var(--ui-table-cell-padding-x,0.75rem)] py-2 text-right font-semibold text-foreground tabular-nums">
-                  {total.toLocaleString()}
+                  {totalUnavailable ? '—' : total.toLocaleString()}
                 </td>
                 {columns.length - totalColIndex - 1 > 0 && (
                   <td colSpan={columns.length - totalColIndex - 1} />
@@ -1492,7 +1495,7 @@ export function GridField({
                   {t('report.total')}
                 </td>
                 <td className="px-[var(--ui-table-cell-padding-x,0.75rem)] py-2 text-right font-semibold text-foreground tabular-nums" data-testid="line-items-total">
-                  {total.toLocaleString()}
+                  {totalUnavailable ? '—' : total.toLocaleString()}
                 </td>
                 {(columns.length - totalColIndex - 1 + (hasRowActions ? 1 : 0)) > 0 && (
                   <td colSpan={columns.length - totalColIndex - 1 + (hasRowActions ? 1 : 0)} />

@@ -35,10 +35,22 @@ import type { DataSource } from '@object-ui/types';
 import { runBatchTransaction } from '@object-ui/core';
 import { LineItemsField, type GridColumn } from '@object-ui/fields';
 import { Button, Card, CardContent, CardHeader, CardTitle, cn, toast } from '@object-ui/components';
+import { createSafeTranslation } from '@object-ui/i18n';
+import { usePermissions } from '@object-ui/permissions';
 import { ObjectForm } from './ObjectForm';
 import { useUploadGate, UploadGateProvider, UploadInFlightNotice } from './uploadGate';
-import { buildMasterDetailBatch, buildMasterDetailEditBatch, sumRows } from './masterDetailTx';
+import { buildMasterDetailBatch, buildMasterDetailEditBatch, idOf, sumRows } from './masterDetailTx';
 import { deriveDetail, hydrateColumns, type InlineMode } from './deriveMasterDetail';
+
+const useMasterDetailTranslation = createSafeTranslation(
+  { 'form.compoundLineItems': 'Line Items' },
+  'form.compoundLineItems',
+);
+// The host supplies this permission-derived state at runtime; keep it out of
+// the serializable field metadata and ordinary authoring contract.
+const LineItemsWithTotalStatus = LineItemsField as React.ComponentType<
+  React.ComponentProps<typeof LineItemsField> & { totalUnavailable?: boolean }
+>;
 
 export interface MasterDetailDetailConfig {
   /** Child object name, e.g. 'expense_line'. */
@@ -176,6 +188,46 @@ interface DetailEntry {
   /** The authored config, with derived columns / FK folded in once resolved. */
   config: MasterDetailDetailConfig;
   status: DetailResolution;
+  /** Whether the resolved child schema contains the configured amount field. */
+  amountFieldSchemaExists?: boolean;
+}
+
+function amountFieldForConfig(config: MasterDetailDetailConfig): string | undefined {
+  return config.amountField || (config.totalField ? 'amount' : undefined);
+}
+
+function hasAmountField(config: MasterDetailDetailConfig, childSchema: unknown): boolean {
+  const fieldName = amountFieldForConfig(config);
+  if (!fieldName) return false;
+  const schema = childSchema && typeof childSchema === 'object'
+    ? childSchema as { fields?: Record<string, unknown> }
+    : undefined;
+  if (schema?.fields && !Object.prototype.hasOwnProperty.call(schema.fields, fieldName)) return false;
+  return true;
+}
+
+function canReadResolvedAmount(
+  entry: DetailEntry,
+  permissions: ReturnType<typeof usePermissions>,
+): boolean {
+  const fieldName = amountFieldForConfig(entry.config);
+  return !!fieldName && entry.amountFieldSchemaExists !== false
+    && (!permissions.isLoaded || permissions.checkField(entry.config.childObject, fieldName, 'read'));
+}
+
+function hasKnownAmounts(rows: Record<string, unknown>[], fieldName: string): boolean {
+  return rows.every(row => {
+    const persisted = Boolean(idOf(row));
+    const hasBusinessData = Object.entries(row).some(([key, value]) =>
+      !['id', '_id', 'recordId', 'created_at', 'created_by', 'updated_at', 'updated_by', 'owner_id', 'organization_id']
+        .includes(key) && value !== undefined && value !== null && value !== '',
+    );
+    if (!persisted && !hasBusinessData) return true;
+    const value = row[fieldName];
+    if (typeof value === 'number') return Number.isFinite(value);
+    if (typeof value !== 'string' || value.trim() === '') return false;
+    return Number.isFinite(Number(value));
+  });
 }
 
 /**
@@ -301,6 +353,8 @@ const MasterDetailLines: React.FC<MasterDetailLinesProps> = ({
   onAddViaForm,
   parentObjectName,
 }) => {
+  const { t } = useMasterDetailTranslation();
+  const permissions = usePermissions();
   const [parentRecord, setParentRecord] = useState<Record<string, unknown>>({});
   const parentKeyRef = useRef<string>('');
 
@@ -334,20 +388,32 @@ const MasterDetailLines: React.FC<MasterDetailLinesProps> = ({
   // Shown only when the header carries the tax-rate field AND a detail has an
   // amount column; otherwise each grid keeps its own footer total.
   const taxRaw = parentRecord[taxRateField];
-  const taxRate = taxRaw === undefined ? null : (Number.isFinite(Number(taxRaw)) ? Number(taxRaw) : 0);
+  const taxRate = typeof taxRaw === 'number' && Number.isFinite(taxRaw)
+    ? taxRaw
+    : typeof taxRaw === 'string' && taxRaw.trim() !== '' && Number.isFinite(Number(taxRaw))
+      ? Number(taxRaw)
+      : null;
+  const amountEntries = entries.flatMap(entry => {
+    const amountField = amountFieldForConfig(entry.config);
+    const amountFieldReadable = canReadResolvedAmount(entry, permissions);
+    return amountField ? [{ entry, amountField, amountFieldReadable, rows: rowState[entry.id]?.rows ?? [] }] : [];
+  });
+  const totalsAvailable = amountEntries.every(({ amountFieldReadable, amountField, rows }) =>
+    amountFieldReadable && hasKnownAmounts(rows, amountField),
+  );
   // ⚠️ Addressed by ENTRY ID. This reducer read `state[i]` — so a reorder did
   // not merely show a collection the wrong grid, it MIS-COMPUTED the document
   // total: each entry summed a different collection's rows, under its own
   // `amountField` (objectui#6371).
-  const subtotal = entries.reduce(
-    (acc, e) => acc + sumRows(rowState[e.id]?.rows ?? [], e.config.amountField || 'amount'),
-    0,
-  );
-  const showTaxStack = taxRate !== null && entries.some((e) => !!e.config.amountField);
+  const subtotal = totalsAvailable
+    ? amountEntries.reduce((acc, item) => acc + sumRows(item.rows, item.amountField), 0)
+    : null;
+  const showTaxStack = taxRate !== null && amountEntries.length > 0;
   const taxPct = taxRate ?? 0;
-  const taxAmount = subtotal * (taxPct / 100);
-  const grandTotal = subtotal + taxAmount;
+  const taxAmount = subtotal === null ? null : subtotal * (taxPct / 100);
+  const grandTotal = subtotal === null || taxAmount === null ? null : subtotal + taxAmount;
   const money = (n: number) => `¥${n.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
+  const moneyOrUnknown = (value: number | null) => value === null ? '—' : money(value);
 
   return (
     <>
@@ -357,6 +423,15 @@ const MasterDetailLines: React.FC<MasterDetailLinesProps> = ({
           table needs. */}
       {entries.map((entry) => {
         const d = entry.config;
+        const amountField = amountFieldForConfig(d);
+        const rows = rowState[entry.id]?.rows ?? [];
+        const amountFieldReadable = canReadResolvedAmount(entry, permissions);
+        const totalUnavailable = !!amountField && (
+          !amountFieldReadable || !hasKnownAmounts(rows, amountField)
+        );
+        const visibleColumns = !amountFieldReadable && amountField
+          ? d.columns?.filter(column => column.name !== amountField)
+          : d.columns;
         return (
         // Keyed on the entry's SYNTHESIZED identity, not on the map index. The
         // old key put `d.childObject` — `undefined` for a declined entry —
@@ -364,7 +439,7 @@ const MasterDetailLines: React.FC<MasterDetailLinesProps> = ({
         // its position, so a sibling moving above it re-associated the section
         // and its rows with a different collection (objectui#6371).
         <section key={entry.id} className="space-y-2">
-          <h3 className="text-sm font-medium text-foreground">{d.title || 'Line Items'}</h3>
+          <h3 className="text-sm font-medium text-foreground">{d.title || t('form.compoundLineItems')}</h3>
           {/* A detail whose child object never resolved gets its OWN branch,
               ahead of the columns/loading one (objectui#6360) — the render half
               of the decline at `MasterDetailForm`'s resolve effect, and the same
@@ -433,8 +508,8 @@ const MasterDetailLines: React.FC<MasterDetailLinesProps> = ({
           ) : !d.columns?.length ? (
             <p className="py-4 text-sm text-muted-foreground">Loading columns…</p>
           ) : (
-            <LineItemsField
-              value={rowState[entry.id]?.rows ?? []}
+            <LineItemsWithTotalStatus
+              value={rows}
               onChange={(rows) => setRows(entry.id, rows)}
               // The live header record — a line cell's readonlyWhen/requiredWhen
               // CEL rule evaluates against it as `parent` (e.g. lock when
@@ -452,7 +527,7 @@ const MasterDetailLines: React.FC<MasterDetailLinesProps> = ({
               {...(d.inlineMode === 'form' ? { onAdd: () => onAddViaForm(entry.id) } : {})}
               field={
                 {
-                  columns: d.columns,
+                  columns: visibleColumns,
                   // Show the per-grid running total whenever an amount column is
                   // set — unless the document totals stack below subsumes it.
                   total_field: showTaxStack ? undefined : (d.amountField || (d.totalField ? 'amount' : undefined)),
@@ -460,8 +535,9 @@ const MasterDetailLines: React.FC<MasterDetailLinesProps> = ({
                   min_rows: d.minRows,
                   max_rows: d.maxRows,
                   add_label: d.inlineMode === 'form' ? (d.addLabel || 'Add') : d.addLabel,
-                } as any
+                  } as any
               }
+              totalUnavailable={totalUnavailable}
             />
           )}
         </section>
@@ -475,15 +551,15 @@ const MasterDetailLines: React.FC<MasterDetailLinesProps> = ({
           <dl className="w-64 space-y-1.5 text-sm" data-testid="md-totals">
             <div className="flex items-center justify-between">
               <dt className="text-muted-foreground">Subtotal</dt>
-              <dd className="tabular-nums" data-testid="md-subtotal">{money(subtotal)}</dd>
+              <dd className="tabular-nums" data-testid="md-subtotal">{moneyOrUnknown(subtotal)}</dd>
             </div>
             <div className="flex items-center justify-between">
               <dt className="text-muted-foreground">Tax ({taxPct}%)</dt>
-              <dd className="tabular-nums" data-testid="md-tax">{money(taxAmount)}</dd>
+              <dd className="tabular-nums" data-testid="md-tax">{moneyOrUnknown(taxAmount)}</dd>
             </div>
             <div className="flex items-center justify-between border-t border-border pt-1.5 text-base font-semibold">
               <dt>Total</dt>
-              <dd className="tabular-nums" data-testid="md-grand-total">{money(grandTotal)}</dd>
+              <dd className="tabular-nums" data-testid="md-grand-total">{moneyOrUnknown(grandTotal)}</dd>
             </div>
           </dl>
         </div>
@@ -503,6 +579,7 @@ export const MasterDetailForm: React.FC<MasterDetailFormProps> = ({
   dataSource,
   className,
 }) => {
+  const permissions = usePermissions();
   const rawDetails = schema.details || [];
   const isEdit = schema.mode === 'edit' && !!schema.recordId;
 
@@ -533,6 +610,7 @@ export const MasterDetailForm: React.FC<MasterDetailFormProps> = ({
         id: detailIds[i],
         config: d,
         status: needsDerive ? ('pending' as const) : ('ready' as const),
+        amountFieldSchemaExists: hasAmountField(d, undefined),
       })),
     // eslint-disable-next-line react-hooks/exhaustive-deps
     [schema.details, detailIds, needsDerive],
@@ -542,7 +620,10 @@ export const MasterDetailForm: React.FC<MasterDetailFormProps> = ({
   const entries = resolvedEntries ?? baseEntries; // length always matches rawDetails
 
   useEffect(() => {
-    if (!needsDerive) { setResolvedEntries(baseEntries); return; }
+    if (!needsDerive) {
+      setResolvedEntries(baseEntries);
+      return;
+    }
     if (!dataSource || typeof (dataSource as any).getObjectSchema !== 'function') return;
     let cancelled = false;
     (async () => {
@@ -551,7 +632,9 @@ export const MasterDetailForm: React.FC<MasterDetailFormProps> = ({
           const d = entry.config;
           const columnsTyped = d.columns?.length ? d.columns.every((c) => !!c.type) : false;
           // Fully configured (FK + every column typed) — nothing to resolve.
-          if (d.relationshipField && columnsTyped) return { ...entry, status: 'ready' };
+          if (d.relationshipField && columnsTyped) {
+            return { ...entry, status: 'ready', amountFieldSchemaExists: hasAmountField(d, undefined) };
+          }
           // Decline to fetch when the child object never resolved (objectui#5940).
           // `childObject` is REQUIRED on `MasterDetailDetailConfig`, but a detail
           // entry reaches this renderer straight off an authored schema, so a
@@ -615,25 +698,28 @@ export const MasterDetailForm: React.FC<MasterDetailFormProps> = ({
             // untyped — hydrate just their widget types from the schema, keeping
             // their exact column set / order / labels (don't re-derive columns).
             if (d.relationshipField && d.columns?.length) {
-              return { ...entry, config: { ...d, columns: hydrateColumns(d.columns, childSchema) }, status: 'ready' };
+              const config = { ...d, columns: hydrateColumns(d.columns, childSchema) };
+              return { ...entry, config, amountFieldSchemaExists: hasAmountField(config, childSchema), status: 'ready' };
             }
             const derived = deriveDetail(d.childObject, childSchema, schema.objectName, {
               relationshipField: d.relationshipField,
               columns: d.columns,
               amountField: d.amountField,
             });
+            const config = {
+              ...d,
+              relationshipField: derived.relationshipField,
+              columns: derived.columns,
+              formFields: d.formFields ?? derived.formFields,
+              inlineMode: d.inlineMode ?? derived.mode,
+              amountField: d.amountField ?? derived.amountField,
+              sortField: d.sortField ?? derived.sortField,
+            };
             return {
               ...entry,
               status: 'ready',
-              config: {
-                ...d,
-                relationshipField: derived.relationshipField,
-                columns: derived.columns,
-                formFields: d.formFields ?? derived.formFields,
-                inlineMode: d.inlineMode ?? derived.mode,
-                amountField: d.amountField ?? derived.amountField,
-                sortField: d.sortField ?? derived.sortField,
-              },
+              config,
+              amountFieldSchemaExists: hasAmountField(config, childSchema),
             };
           } catch (err) {
             // THE DERIVE FAILED, on a schema that loaded fine — almost always
@@ -921,11 +1007,15 @@ export const MasterDetailForm: React.FC<MasterDetailFormProps> = ({
       if (!dataSource) throw new Error('MasterDetailForm: dataSource is required');
       const parentData: Record<string, any> = { ...parentValues };
       // Client-side rollups merged into the parent payload (hooks can't do
-      // nested writes — see ADR-0001).
+      // nested writes — see ADR-0001). Never replace a prior/default parent
+      // value with zero when the caller cannot read the child amount or the
+      // adapter omitted/returned an invalid value for a populated row.
       entries.forEach((e) => {
         const d = e.config;
-        if (d.totalField) {
-          parentData[d.totalField] = sumRows(rowStateRef.current[e.id]?.rows ?? [], d.amountField || 'amount');
+        const amountField = amountFieldForConfig(d);
+        const rows = rowStateRef.current[e.id]?.rows ?? [];
+        if (d.totalField && amountField && canReadResolvedAmount(e, permissions) && hasKnownAmounts(rows, amountField)) {
+          parentData[d.totalField] = sumRows(rows, amountField);
         }
       });
       const ops = isEdit
@@ -963,7 +1053,7 @@ export const MasterDetailForm: React.FC<MasterDetailFormProps> = ({
       // create → parent is op 0; edit → echo the parent values back.
       return res?.results?.[0] ?? { ...parentData, id: schema.recordId };
     },
-    [dataSource, entries, schema.objectName, schema.recordId, isEdit],
+    [dataSource, entries, schema.objectName, schema.recordId, isEdit, permissions.isLoaded, permissions.checkField],
   );
 
   // The parent form renders WITHOUT its own submit button — the master-detail

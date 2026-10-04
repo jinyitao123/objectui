@@ -197,6 +197,20 @@ whose business contract requires all-or-none creation must instead require
 `batchTransaction`; a missing probe, false, or unknown capability prevents Save.
 The ObjectStack adapter's probe reads discovery only and performs no writes.
 
+`MasterDetailForm` derives its line and document totals only from a readable
+amount field with finite values in the rows the adapter returned. If
+field-level permissions mask the amount, a populated row omits it, or a
+returned amount is invalid, the corresponding total displays `—`; a readable
+numeric zero remains zero. A readable, genuinely empty create-mode collection
+totals zero, and an untouched blank row is ignored. The form does not issue a second
+read to reconstruct a masked amount.
+
+When a populated row has an unknown amount, the form also omits that rollup
+from the parent write batch. In edit mode this preserves the existing parent
+total rather than replacing it with zero. Child rows are currently fetched
+through the existing `$top: 500` query; this behavior does not claim complete
+pagination for collections larger than that limit.
+
 The `@object-ui/data-objectstack` adapter decides whether it can trust server
 atomicity **declaratively**, at connect time: it reads the
 `capabilities.transactionalBatch` flag from `GET /api/v1/discovery`

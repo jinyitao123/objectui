@@ -12,6 +12,8 @@ const FIELD_DEFAULTS: Record<string, string> = {
   'common.noData': 'No data',
   'table.selectRow': 'Select row',
   'table.selectAllRows': 'Select all rows',
+  'table.columns': 'Columns',
+  'table.optionalColumns': 'Optional columns',
   'grid.selectRowNumber': 'Select row {{row}}',
   'grid.removeRow': 'Remove row',
   'grid.duplicateRow': 'Duplicate row',

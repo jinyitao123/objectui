@@ -175,6 +175,8 @@ const ar = {
     // objectui#4024 — the create/edit dialog's `sr-only` accessible
     // description, used when the form declares no `description` of its own.
     dialogDescriptionFallback: "املأ حقول النموذج ثم أرسل أو ألغِ.",
+    compoundDialogDescription: 'أدخل السجل وبنوده ثم احفظه.',
+    compoundLineItems: 'البنود',
     keepEditing: "متابعة التحرير",
     discard: "تجاهل",
     conflictTitle: "تعارض في الحفظ",
@@ -324,6 +326,7 @@ const ar = {
     sortDesc: "ترتيب تنازلي",
     filterColumn: "تصفية {{column}}",
     columns: "الأعمدة",
+    optionalColumns: 'أعمدة اختيارية',
     exportCSV: "تصدير CSV",
     exportExcel: "تصدير Excel",
     selectRow: "تحديد صف",

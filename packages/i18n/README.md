@@ -175,6 +175,10 @@ await loadBuiltInLocale('tlh');     // null — not a code this package ships
 it boots into, and `changeLanguage()` awaits the new catalogue before switching,
 so a switcher needs no extra wiring.
 
+Shared field controls use the `table.columns` and `table.optionalColumns` keys
+for grid column choosers. The built-in packs carry both labels; a custom locale
+may omit the optional label and rely on the configured English fallback.
+
 #### Resolving before the first render
 
 Without a resolve, a provider booting into `zh` paints once through the `en`

@@ -177,6 +177,8 @@ const ru = {
     // objectui#4024 — the create/edit dialog's `sr-only` accessible
     // description, used when the form declares no `description` of its own.
     dialogDescriptionFallback: "Заполните поля формы, затем отправьте или отмените.",
+    compoundDialogDescription: 'Заполните запись и её позиции, затем сохраните.',
+    compoundLineItems: 'Позиции',
     keepEditing: "Продолжить редактирование",
     discard: "Отменить",
     conflictTitle: "Конфликт сохранения",
@@ -326,6 +328,7 @@ const ru = {
     sortDesc: "Сортировка по убыванию",
     filterColumn: "Фильтр по {{column}}",
     columns: "Столбцы",
+    optionalColumns: 'Дополнительные столбцы',
     exportCSV: "Экспорт в CSV",
     exportExcel: "Экспорт в Excel",
     selectRow: "Выбрать строку",

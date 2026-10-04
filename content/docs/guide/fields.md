@@ -213,6 +213,11 @@ batch-patching a row includes recomputed values in the controlled update.
 `GridColumnDefinition` is available from `@object-ui/types`, and its strict
 validator is `GridColumnDefinitionSchema` from `@object-ui/types/zod`.
 
+The line-grid column chooser reads the shared `table.columns` and
+`table.optionalColumns` translations. The shipped English and Chinese packs
+provide both labels, as do the other built-in packs. A custom locale that omits
+the optional-columns label falls back to English.
+
 ## Editing date fields
 
 `DateField` keeps the browser's native `input[type=date]` unless the host sets

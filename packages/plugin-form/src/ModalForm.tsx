@@ -74,6 +74,7 @@ const useDiscardTranslation = createSafeTranslation(
     // English sentence instead of a raw key — the #4514 trap, and the reason
     // this factory exists.
     'form.dialogDescriptionFallback': 'Complete the form fields, then submit or cancel.',
+    'form.compoundDialogDescription': 'Enter the record and its line items, then save.',
     'form.keepEditing': 'Keep editing',
     'form.discard': 'Discard',
   },
@@ -870,7 +871,7 @@ export const ModalForm: React.FC<ModalFormProps> = ({
               {schema.description ? (
                 <DialogDescription>{schema.description}</DialogDescription>
               ) : (
-                <DialogDescription className="sr-only">Enter the record and its line items, then save.</DialogDescription>
+                <DialogDescription className="sr-only">{t('form.compoundDialogDescription')}</DialogDescription>
               )}
             </DialogHeader>
           )}

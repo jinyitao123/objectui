@@ -184,6 +184,8 @@ const zh = {
     // objectui#4024 — the create/edit dialog's `sr-only` accessible
     // description, used when the form declares no `description` of its own.
     dialogDescriptionFallback: '填写表单字段,然后提交或取消。',
+    compoundDialogDescription: '填写主记录及其明细行，然后保存。',
+    compoundLineItems: '明细行',
     keepEditing: '继续编辑',
     discard: '放弃',
     conflictTitle: '保存冲突',
@@ -330,6 +332,7 @@ const zh = {
     sortDesc: '降序排列',
     filterColumn: '筛选{{column}}',
     columns: '列',
+    optionalColumns: '可选列',
     exportCSV: '导出CSV',
     exportExcel: '导出Excel',
     selectRow: '选择行',

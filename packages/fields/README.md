@@ -27,6 +27,12 @@ and `max_date` bound selectable days in either path. Read-only fields remain
 formatted display values. See the [fields guide](../../content/docs/guide/fields.md#editing-date-fields)
 for the date, locale, accessibility and keyboard behavior.
 
+The inline `GridField` column chooser resolves `table.columns` and
+`table.optionalColumns` through the built-in locale catalogue. Packs that omit
+the optional-columns label use the English fallback instead of exposing a raw
+translation key. The running total accepts a host-only unreadable-state signal;
+it displays an em dash without changing the serializable grid-field contract.
+
 ## Features
 
 - 📚 **Standard Fields** - Implementation of all ObjectStack protocol fields (Text, Number, Date, Lookup, etc.)

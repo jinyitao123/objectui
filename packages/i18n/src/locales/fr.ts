@@ -171,6 +171,8 @@ const fr = {
     // objectui#4024 — the create/edit dialog's `sr-only` accessible
     // description, used when the form declares no `description` of its own.
     dialogDescriptionFallback: "Remplissez les champs du formulaire, puis envoyez ou annulez.",
+    compoundDialogDescription: 'Saisissez l’enregistrement et ses lignes, puis enregistrez-le.',
+    compoundLineItems: 'Lignes',
     keepEditing: "Continuer l'édition",
     discard: "Abandonner",
     conflictTitle: "Conflit d'enregistrement",
@@ -320,6 +322,7 @@ const fr = {
     sortDesc: "Tri décroissant",
     filterColumn: "Filtrer {{column}}",
     columns: "Colonnes",
+    optionalColumns: 'Colonnes facultatives',
     exportCSV: "Exporter en CSV",
     exportExcel: "Exporter en Excel",
     selectRow: "Sélectionner la ligne",

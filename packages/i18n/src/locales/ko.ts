@@ -171,6 +171,8 @@ const ko = {
     // objectui#4024 — the create/edit dialog's `sr-only` accessible
     // description, used when the form declares no `description` of its own.
     dialogDescriptionFallback: "양식 필드를 작성한 다음 제출하거나 취소하세요.",
+    compoundDialogDescription: '레코드와 항목을 입력한 후 저장하세요.',
+    compoundLineItems: '항목',
     keepEditing: "계속 편집",
     discard: "버리기",
     conflictTitle: "저장 충돌",
@@ -320,6 +322,7 @@ const ko = {
     sortDesc: "내림차순 정렬",
     filterColumn: "{{column}} 필터",
     columns: "열",
+    optionalColumns: '선택 열',
     exportCSV: "CSV 내보내기",
     exportExcel: "Excel 내보내기",
     selectRow: "행 선택",

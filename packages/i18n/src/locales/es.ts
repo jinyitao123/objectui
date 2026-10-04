@@ -175,6 +175,8 @@ const es = {
     // objectui#4024 — the create/edit dialog's `sr-only` accessible
     // description, used when the form declares no `description` of its own.
     dialogDescriptionFallback: "Complete los campos del formulario y luego envíe o cancele.",
+    compoundDialogDescription: 'Introduzca el registro y sus líneas y, a continuación, guárdelo.',
+    compoundLineItems: 'Líneas',
     keepEditing: "Seguir editando",
     discard: "Descartar",
     conflictTitle: "Conflicto al guardar",
@@ -324,6 +326,7 @@ const es = {
     sortDesc: "Ordenar descendente",
     filterColumn: "Filtrar {{column}}",
     columns: "Columnas",
+    optionalColumns: 'Columnas opcionales',
     exportCSV: "Exportar CSV",
     exportExcel: "Exportar Excel",
     selectRow: "Seleccionar fila",

@@ -209,6 +209,8 @@ const en = {
     // only displace it by authoring a `description`, which makes a VISIBLE
     // subtitle appear on every form — so the fallback has to come from here.
     dialogDescriptionFallback: 'Complete the form fields, then submit or cancel.',
+    compoundDialogDescription: 'Enter the record and its line items, then save.',
+    compoundLineItems: 'Line Items',
     keepEditing: 'Keep editing',
     discard: 'Discard',
     conflictTitle: 'Save conflict',
@@ -436,6 +438,7 @@ const en = {
     sortDesc: 'Sort descending',
     filterColumn: 'Filter {{column}}',
     columns: 'Columns',
+    optionalColumns: 'Optional columns',
     exportCSV: 'Export CSV',
     exportExcel: 'Export Excel',
     selectRow: 'Select row',

@@ -171,6 +171,8 @@ const de = {
     // objectui#4024 — the create/edit dialog's `sr-only` accessible
     // description, used when the form declares no `description` of its own.
     dialogDescriptionFallback: "Füllen Sie die Formularfelder aus und senden Sie ab oder brechen Sie ab.",
+    compoundDialogDescription: 'Geben Sie den Datensatz und seine Positionen ein und speichern Sie.',
+    compoundLineItems: 'Positionen',
     keepEditing: "Weiter bearbeiten",
     discard: "Verwerfen",
     conflictTitle: "Speicherkonflikt",
@@ -320,6 +322,7 @@ const de = {
     sortDesc: "Absteigend sortieren",
     filterColumn: "{{column}} filtern",
     columns: "Spalten",
+    optionalColumns: 'Optionale Spalten',
     exportCSV: "CSV exportieren",
     exportExcel: "Excel exportieren",
     selectRow: "Zeile auswählen",
