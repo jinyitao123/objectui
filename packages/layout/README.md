@@ -176,9 +176,42 @@ existing tab geometry; hosts can scope measured surface values on the
 component or an ancestor without changing its controlled state or Radix
 keyboard behavior.
 
-Importing `@object-ui/layout` also registers `WorkspaceHeader`, `ListSummary` and
-`StatusTabs` as presentation-only React Page runtime components. This is a
-code-only runtime capability: the names are not schema component keys or
+### WorkspaceToolbar
+
+`WorkspaceToolbar` lays out host-owned search, filter, secondary-action, and
+primary-action content in a wrapping workspace control group. It does not
+create controls, hold filter state, issue queries, or decide whether actions
+are permitted. The required `aria-label` names the group; controls keep their
+own labels and normal keyboard tab order.
+
+```tsx
+import { StatusTabs, WorkspaceToolbar } from '@object-ui/layout';
+
+<WorkspaceToolbar
+  aria-label="Project task controls"
+  search={<input aria-label="Search tasks" value={search} onChange={onSearchChange} />}
+  filters={
+    <StatusTabs
+      aria-label="Task status"
+      panelId="task-results"
+      items={statuses}
+      value={status}
+      onValueChange={setStatus}
+    />
+  }
+  auxiliaryActions={<button type="button" onClick={refresh}>Refresh</button>}
+  primaryAction={<button type="button" onClick={createTask}>New task</button>}
+/>
+```
+
+The search slot flexes into available width; filters and action groups wrap
+when their content no longer fits. `className` lets a host scope additional layout
+geometry. The default group gap uses the existing `--ui-button-gap` token.
+Control state, queries, and permission checks stay in the host.
+
+Importing `@object-ui/layout` also registers `WorkspaceHeader`, `WorkspaceToolbar`,
+`ListSummary` and `StatusTabs` as presentation-only React Page runtime
+components. This is a code-only runtime capability: the names are not schema component keys or
 `@objectstack/spec` authoring props. The registration happens when the package
 loads, before a React Page builds its stable component scope.
 

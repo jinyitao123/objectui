@@ -5,6 +5,7 @@
 
 import { ComponentRegistry } from '@object-ui/core';
 import { PageHeader } from './PageHeader';
+import { WorkspaceToolbar } from './WorkspaceToolbar';
 import { ListSummary } from './ListSummary';
 import { StatusTabs } from './StatusTabs';
 import { PageCard } from './PageCard';
@@ -13,6 +14,7 @@ import { NavigationRenderer } from './NavigationRenderer';
 import { AppSchemaRenderer } from './AppSchemaRenderer';
 
 export * from './PageHeader';
+export * from './WorkspaceToolbar';
 export * from './ListSummary';
 export * from './StatusTabs';
 export * from './AppShell';
@@ -27,6 +29,7 @@ export * from './AppSchemaRenderer';
 // marks the package entry as side-effectful so production bundlers preserve them.
 const reactPageRuntimeComponents = [
   ['WorkspaceHeader', PageHeader],
+  ['WorkspaceToolbar', WorkspaceToolbar],
   ['ListSummary', ListSummary],
   ['StatusTabs', StatusTabs],
 ] as const;

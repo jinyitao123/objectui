@@ -7,6 +7,7 @@ import { ComponentRegistry } from '@object-ui/core';
 import { ListSummary } from '../ListSummary';
 import { PageHeader } from '../PageHeader';
 import { StatusTabs } from '../StatusTabs';
+import { WorkspaceToolbar } from '../WorkspaceToolbar';
 import '../index';
 
 describe('ListSummary', () => {
@@ -95,6 +96,55 @@ describe('StatusTabs', () => {
   });
 });
 
+describe('WorkspaceToolbar', () => {
+  it('lays out host-owned controls in accessible, normal tab order', async () => {
+    const user = userEvent.setup();
+    const onSearch = vi.fn();
+    const onCreate = vi.fn();
+
+    render(
+      <WorkspaceToolbar
+        aria-label="Project task controls"
+        search={<input aria-label="Search tasks" onChange={onSearch} />}
+        filters={(
+          <select aria-label="Task status" defaultValue="all">
+            <option value="all">All statuses</option>
+            <option value="open">Open</option>
+          </select>
+        )}
+        auxiliaryActions={<button type="button">Refresh</button>}
+        primaryAction={<button type="button" onClick={onCreate}>New task</button>}
+      />,
+    );
+
+    const group = screen.getByRole('group', { name: 'Project task controls' });
+    const search = screen.getByRole('textbox', { name: 'Search tasks' });
+    const filter = screen.getByRole('combobox', { name: 'Task status' });
+    const refresh = screen.getByRole('button', { name: 'Refresh' });
+    const create = screen.getByRole('button', { name: 'New task' });
+
+    expect(group).toHaveAttribute('data-slot', 'workspace-toolbar');
+    expect(group).toHaveClass('w-full', 'min-w-0', 'flex-wrap', 'max-w-full');
+    expect(group.querySelector('[data-slot="workspace-toolbar-search"]')).toContainElement(search);
+    expect(group.querySelector('[data-slot="workspace-toolbar-filters"]')).toContainElement(filter);
+    expect(group.querySelector('[data-slot="workspace-toolbar-auxiliary-actions"]')).toContainElement(refresh);
+    expect(group.querySelector('[data-slot="workspace-toolbar-primary-action"]')).toContainElement(create);
+
+    await user.tab();
+    expect(search).toHaveFocus();
+    await user.type(search, 'handoff');
+    expect(onSearch).toHaveBeenCalled();
+    await user.tab();
+    expect(filter).toHaveFocus();
+    await user.tab();
+    expect(refresh).toHaveFocus();
+    await user.tab();
+    expect(create).toHaveFocus();
+    await user.keyboard('{Enter}');
+    expect(onCreate).toHaveBeenCalledTimes(1);
+  });
+});
+
 describe('PageHeader action slot', () => {
   it('isolates action clicks from a clickable page container', () => {
     const pageClick = vi.fn();
@@ -119,7 +169,7 @@ describe('PageHeader action slot', () => {
 describe('React Page runtime registration', () => {
   it('registers the composition components as data-source-free runtime capabilities', () => {
     const registrations = ComponentRegistry.getReactRuntimeComponents();
-    const registered = ['WorkspaceHeader', 'ListSummary', 'StatusTabs'].map((name) =>
+    const registered = ['WorkspaceHeader', 'WorkspaceToolbar', 'ListSummary', 'StatusTabs'].map((name) =>
       registrations.find((entry) => entry.name === name),
     );
 
@@ -128,9 +178,11 @@ describe('React Page runtime registration', () => {
     expect(registered.every(entry => entry && !schemaDerivedNames.has(entry.name))).toBe(true);
     expect(registrations.find(entry => entry.name === 'PageHeader')).toBeUndefined();
     expect(registered[0]?.component).toBe(PageHeader);
+    expect(registered[1]?.component).toBe(WorkspaceToolbar);
     expect(registered.every(Boolean)).toBe(true);
     expect(registered.every((entry) => entry?.injectDataSource === false)).toBe(true);
     expect(ComponentRegistry.getConfig('ListSummary')).toBeUndefined();
+    expect(ComponentRegistry.getConfig('WorkspaceToolbar')).toBeUndefined();
     expect(ComponentRegistry.getConfig('StatusTabs')).toBeUndefined();
   });
 });

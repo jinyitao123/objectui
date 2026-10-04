@@ -14,6 +14,7 @@ The layout system provides:
 - **AppShell** - Full application container with a top navbar, sidebar, and content areas
 - **Page** - Individual page wrapper with header and body
 - **PageHeader** - Consistent page headers with title, breadcrumbs, and actions
+- **WorkspaceToolbar** - Responsive placement for host-owned search, filters, and actions
 - **SidebarNav** - Navigation sidebar with menu items
 
 ## Installation

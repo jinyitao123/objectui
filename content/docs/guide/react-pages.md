@@ -177,18 +177,23 @@ are not part of the generated `@objectstack/spec` React Page authoring contract.
 Runtime availability does not mean `os validate` or publish validation accepts
 them.
 
-Importing `@object-ui/layout` registers `<WorkspaceHeader>`, `<ListSummary>` and
-`<StatusTabs>` as presentation-only runtime components. They receive no
-`dataSource`, add no schema type or Spec authoring props, and must be registered
-before the first React Page mounts. `WorkspaceHeader` uses the existing `PageHeader` React implementation and accepts its action controls as
-React children. `ListSummary` renders only the label/value items supplied by the
-host. `StatusTabs` is controlled: the host supplies its current value, tab
-labels and counts, and the `onValueChange` handler that updates the page's
-filter state.
+Importing `@object-ui/layout` registers `<WorkspaceHeader>`,
+`<WorkspaceToolbar>`, `<ListSummary>` and `<StatusTabs>` as presentation-only
+runtime components. They receive no `dataSource`, add no schema type or Spec
+authoring props, and must be registered before the first React Page mounts.
+`WorkspaceHeader` uses the existing `PageHeader` React implementation and
+accepts its action controls as React children. `ListSummary` renders only the
+label/value items supplied by the host. `StatusTabs` is controlled: the host
+supplies its current value, tab labels and counts, and the `onValueChange`
+handler that updates the page's filter state. `WorkspaceToolbar` places the
+host's search controls, filters, secondary actions and primary action into a
+responsive group; it does not own their state, queries or permission checks.
 
 ```jsx
-function ContactsPage() {
+function ContactsPage({ refreshContacts, openContactForm }) {
   const [status, setStatus] = React.useState('all');
+  const [query, setQuery] = React.useState('');
+  const [role, setRole] = React.useState('all');
   const stats = [
     { id: 'all', label: 'All contacts', value: 128 },
     { id: 'active', label: 'Active', value: 96 },
@@ -214,6 +219,16 @@ function ContactsPage() {
         value={status}
         onValueChange={setStatus}
       />
+      <WorkspaceToolbar
+        aria-label="Contact list controls"
+        search={<input aria-label="Search contacts" value={query} onChange={event => setQuery(event.target.value)} />}
+        filters={<select aria-label="Contact role" value={role} onChange={event => setRole(event.target.value)}>
+          <option value="all">All roles</option>
+          <option value="buyer">Buyer</option>
+        </select>}
+        auxiliaryActions={<button type="button" onClick={() => refreshContacts()}>Refresh</button>}
+        primaryAction={<button type="button" onClick={() => openContactForm()}>New contact</button>}
+      />
       <section id="contact-results" role="tabpanel" aria-label="Contact results" tabIndex={0}>
         {/* Render the host's already-filtered list here. */}
       </section>
@@ -226,10 +241,10 @@ Counts and filters must use the same scope when the host provides both. The
 summary grid uses container queries and shrinks from four columns to two or one
 as the available width narrows; its cards have no fixed width. `StatusTabs`
 requires an accessible tab-list label and the id of its matching `tabpanel`.
-The three components expose `className` or named slot class props for host
-styling. Their
-geometry can also be set with the public `--ui-page-title-*`,
-`--ui-list-summary-*` and `--ui-status-tabs-*` CSS custom properties.
+The components expose `className` or named slot class props for host styling.
+Their geometry can also be set with the public `--ui-page-title-*`,
+`--ui-list-summary-*`, `--ui-status-tabs-*` and `--ui-button-gap` CSS custom
+properties.
 For a status-tab surface, the host may scope
 `--ui-status-tabs-height`, `--ui-status-tabs-padding-inline`,
 `--ui-status-tabs-padding-block`, `--ui-status-tabs-font-size`,
