@@ -26,6 +26,15 @@ row. Hosts can scope values through a wrapper or the existing
 for a stable selector. Column `className` and `cellClassName` remain explicit
 overrides. Selection and action columns keep their utility sizing.
 
+In the default scroll mode, an empty table keeps its header and spacer row but
+renders the empty content beside the table track, pinned to the visible
+horizontal viewport. A wide `DataTableSchema.className` table therefore does
+not move its empty message to the center of the full column width. With
+`disableInnerScroll`, the parent owns horizontal scrolling, so the renderer
+keeps empty content in its table row instead of guessing the parent's viewport.
+Hosts that can produce empty data in this shared-scroll mode must place any
+viewport-centered empty content at their own scroll owner.
+
 `CompositeDialog` accepts an optional React `sidebar` and `sidebarLabel` for a
 profile or document summary. On desktop the summary precedes the form in a
 236px column (`--ui-dialog-sidebar-width`); narrow dialogs stack it above the

@@ -301,6 +301,12 @@ headers and data cells: `--ui-table-header-height`,
 existing `className`; no new table schema is needed. The table root exposes
 `data-slot="record-table"`. Data row height remains content-driven, so wrapping
 or longer values can expand a row instead of being clipped to a fixed height.
+When the table owns its scroll container, its empty message is a viewport-width
+sibling to the table track, so wide columns do not shift the message off center.
+`disableInnerScroll` means the parent owns horizontal scrolling; in that mode the
+renderer keeps empty content inside the table row rather than guessing the
+parent viewport. A host that can return an empty shared-scroll table should
+position its empty content at that parent scroll owner.
 
 The form plugin also registers `<GridField>` as a direct React component. Use
 this tag for a controlled line editor with `getRowKey` and

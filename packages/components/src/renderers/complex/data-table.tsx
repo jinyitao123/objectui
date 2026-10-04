@@ -27,6 +27,7 @@ import {
   TableCaption 
 } from '../../ui/table';
 import { Button, Input } from '../../custom/profile-controls';
+import { DataEmptyState } from '../../custom/view-states';
 import { Checkbox } from '../../ui/checkbox';
 import {
   Select,
@@ -1920,6 +1921,33 @@ const DataTableRenderer = ({ schema }: { schema: DataTableSchema }) => {
   const hasPendingChanges = pendingChanges.size > 0;
   const showToolbar = searchEnabled || exportable || (showSelectionCount && selectable && selectedRowIds.size > 0) || hasPendingChanges;
 
+  // The empty body row remains in the table to preserve its header and body
+  // geometry, but its message cannot live in a colspan cell: that cell is as
+  // wide as the entire table track, so a host min-width centers the message
+  // beyond the visible scrollport. In the default mode the shared empty-state
+  // content is mounted as a viewport-width sibling below the table instead.
+  // Keep the authored action on SchemaRenderer so its normal visibility gate
+  // continues to apply (pinned in data-table-empty-action-visible-when.test).
+  // Preserve the truthy ternary and the SchemaNode bridge together: falsy
+  // numeric actions must not leak a React "0", while truthy primitive actions
+  // remain renderable (pinned in data-table-empty-action-primitive-node.test).
+  const emptyStateContent = (
+    <DataEmptyState
+      className="min-h-0 gap-3 p-0 text-center text-muted-foreground"
+      icon={<Search className="h-8 w-8 text-muted-foreground/50" />}
+      iconWrapperClassName="flex size-8 items-center justify-center bg-transparent"
+      title=""
+    >
+      <div className="space-y-1">
+        <p>{t('table.noResults')}</p>
+        <p className="text-xs text-muted-foreground/50">{t('table.noResultsHint')}</p>
+      </div>
+      {schema.emptyAction ? (
+        <SchemaRenderer schema={toRenderableSchema(schema.emptyAction)} />
+      ) : null}
+    </DataEmptyState>
+  );
+
   return (
     <div data-slot="record-table" className={`flex flex-col h-full gap-2 sm:gap-4 ${className || ''}`}>
       {/* Toolbar */}
@@ -2168,101 +2196,18 @@ const DataTableRenderer = ({ schema }: { schema: DataTableSchema }) => {
           </TableHeader>
           <TableBody>
             {paginatedData.length === 0 ? (
-              <TableRow className="hover:bg-transparent">
+              <TableRow
+                aria-hidden={!disableInnerScroll || undefined}
+                className="hover:bg-transparent"
+              >
                 <TableCell
                   colSpan={columns.length + (selectable ? 1 : 0) + (showRowNumbers ? 1 : 0) + (rowActions ? 1 : 0) + (addColumnEnabled ? 1 : 0)}
-                  className="h-48 text-center text-muted-foreground border-0"
+                  className={cn(
+                    'h-48 border-0',
+                    disableInnerScroll ? 'text-center text-muted-foreground' : 'p-0',
+                  )}
                 >
-                  <div className="flex flex-col items-center justify-center gap-3">
-                    <Search className="h-8 w-8 text-muted-foreground/50" />
-                    <div className="space-y-1">
-                      <p>{t('table.noResults')}</p>
-                      <p className="text-xs text-muted-foreground/50">{t('table.noResultsHint')}</p>
-                    </div>
-                    {/* CTA slot — when the schema declares an `emptyAction`,
-                        render it as an inviting follow-up instead of leaving
-                        the user at a dead end. The node can be any schema node
-                        (button, link, action) authored in JSON.
-
-                        Mounted through `SchemaRenderer`, NOT by resolving the
-                        registry here. `visibleWhen` is enforced once and
-                        generically in `packages/react/src/SchemaRenderer.tsx`:
-                        `shouldHide` tests it ahead of the hoisted `visible`
-                        (objectui#5454), sets `_hidden`, and the `_hidden` early
-                        return fires BEFORE the registry dispatches. The direct
-                        `ComponentRegistry.get(node.type)` this replaced skipped
-                        that path entirely, so an authored `visibleWhen` on an
-                        `emptyAction` was accepted by the spec and then never
-                        evaluated — declared-not-enforced (objectui#5926 gap 1),
-                        the same class objectui#5401 / #5505 closed for
-                        `record:alert`, one level down.
-
-                        Routing to the ONE gate rather than adding a local
-                        `visibleWhen` test here is the whole point: a second
-                        check on this slot would be a FOURTH evaluator, which is
-                        exactly the drift `page:tabs`' item-level predicate
-                        already records. Same shape as the `empty` renderer's
-                        `action` slot, which has always mounted its authored
-                        node this way. Consequence worth stating: a node whose
-                        `type` is missing or unregistered now gets the
-                        platform's uniform "unknown component type" report
-                        instead of rendering as silent nothing here — one
-                        answer for malformed metadata, not a private one.
-
-                        No object-only guard either (objectui#8331), ruled one
-                        slot over together with the declaration: objectui#7105
-                        (director seat, decision batch #69, 2026-09-07) settled
-                        the identical shape on `EmptySchema.action` as RELAX THE
-                        RENDERER, do not narrow the declaration. `emptyAction`
-                        is declared `SchemaNode` on BOTH published faces, and a
-                        `typeof === 'object'` test made this slot narrower than
-                        the thing it declares: a bare string was silently
-                        DROPPED instead of rendering as its own text.
-
-                        The truthiness leg STAYS and the `&&` chain became a
-                        ternary. Both are load-bearing, and together they make
-                        this slot behave exactly as handing the raw node to
-                        `SchemaRenderer` would - the "one answer, not a private
-                        one" rule above, extended to the non-object members of
-                        the union:
-
-                        - `toRenderableSchema` is the repo's permanent bridge
-                          onto `SchemaRendererProps['schema']`, which declares
-                          no `number` / `boolean` (objectui#4548 ruling Q2).
-                          Since objectui#8908 it is behaviour-preserving across
-                          the WHOLE union: a truthy primitive becomes its text,
-                          which is what the renderer's own defensive branch
-                          produces, and a falsy one becomes nothing, which is
-                          what the renderer's first leg produces. Until then it
-                          mapped every `number` / `boolean` onto its `String`
-                          form, so `0` / `false` arrived as the text "0" and
-                          "false" while `SchemaRenderer` renders them as nothing
-                          (pinned, objectui#4548) - and gating on truthiness is
-                          what kept THIS slot out of that defect while the
-                          shipped `empty` renderer, which gates on nullish,
-                          printed a stray "0".
-                        - So the truthiness leg no longer DECIDES the answer;
-                          it reaches the same one a step earlier. It stays
-                          anyway, and objectui#8908 said so rather than letting
-                          it vanish as tidying: it is what makes this slot's
-                          answer independent of the bridge, which is the whole
-                          reason this slot survived the bridge being wrong. ⛔ Do
-                          not drop it as redundant without re-measuring both
-                          paths - the pins below assert the OUTCOME, and they
-                          would stay green through the removal right up until
-                          the bridge regressed again.
-                        - The ternary replaces an `&&` chain that LEAKED: with
-                          `emptyAction: 0` the chain evaluated to the number `0`
-                          itself, which React renders as a stray "0" inside the
-                          empty state. That is the numeric-falsy JSX trap, not a
-                          decision; a ternary yields `null` instead.
-
-                        Both legs are pinned in
-                        `__tests__/data-table-empty-action-primitive-node.test.tsx`. */}
-                    {schema.emptyAction ? (
-                      <SchemaRenderer schema={toRenderableSchema(schema.emptyAction)} />
-                    ) : null}
-                  </div>
+                  {disableInnerScroll ? emptyStateContent : null}
                 </TableCell>
               </TableRow>
             ) : (
@@ -2749,6 +2694,14 @@ const DataTableRenderer = ({ schema }: { schema: DataTableSchema }) => {
             )}
           </TableBody>
         </Table>
+        {paginatedData.length === 0 && !disableInnerScroll && (
+          <div
+            className="sticky left-0 z-10 -mt-48 flex h-48 w-full items-center justify-center"
+            data-slot="record-table-empty-viewport"
+          >
+            {emptyStateContent}
+          </div>
+        )}
       </div>
 
       {/* Server totals and page size remain useful for a single or empty page. */}
