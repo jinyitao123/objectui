@@ -577,6 +577,7 @@ const de = {
     },
   },
   calendar: {
+    datePickerPlaceholder: 'Datum auswählen',
     today: "Heute",
     month: "Monat",
     week: "Woche",

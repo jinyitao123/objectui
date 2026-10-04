@@ -581,6 +581,7 @@ const ar = {
     },
   },
   calendar: {
+    datePickerPlaceholder: 'اختر تاريخًا',
     today: "اليوم",
     month: "شهر",
     week: "أسبوع",

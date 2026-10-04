@@ -583,6 +583,7 @@ const ru = {
     },
   },
   calendar: {
+    datePickerPlaceholder: 'Выберите дату',
     today: "Сегодня",
     month: "Месяц",
     week: "Неделя",

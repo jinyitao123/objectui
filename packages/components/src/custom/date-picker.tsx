@@ -334,7 +334,7 @@ export function DatePicker({
   value: valueProp,
   onValueChange,
   label,
-  placeholder = "Pick a date",
+  placeholder,
   className,
   disabled,
   minDate: minDateValue,
@@ -343,6 +343,7 @@ export function DatePicker({
 }: DatePickerProps) {
   const locale = useDisplayLocale()
   const { t, language } = useObjectTranslation()
+  const datePlaceholder = placeholder ?? t("calendar.datePickerPlaceholder")
   const inputRef = React.useRef<HTMLInputElement>(null)
   const editingRef = React.useRef(false)
   const inputErrorId = React.useId()
@@ -547,7 +548,7 @@ export function DatePicker({
             ref={inputRef}
             type="text"
             value={draft}
-            placeholder={placeholder}
+            placeholder={datePlaceholder}
             disabled={disabled}
             className={cn(
               "pr-[var(--ui-icon-button-size,2.5rem)]",

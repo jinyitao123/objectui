@@ -576,6 +576,7 @@ const pt = {
     },
   },
   calendar: {
+    datePickerPlaceholder: 'Selecione uma data',
     today: "Hoje",
     month: "Mês",
     week: "Semana",

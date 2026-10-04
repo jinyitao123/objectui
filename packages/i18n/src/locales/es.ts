@@ -581,6 +581,7 @@ const es = {
     },
   },
   calendar: {
+    datePickerPlaceholder: 'Selecciona una fecha',
     today: "Hoy",
     month: "Mes",
     week: "Semana",

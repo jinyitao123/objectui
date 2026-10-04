@@ -596,6 +596,7 @@ const zh = {
     },
   },
   calendar: {
+    datePickerPlaceholder: '请选择日期',
     today: '今天',
     month: '月',
     week: '周',

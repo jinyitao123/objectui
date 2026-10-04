@@ -709,6 +709,7 @@ const en = {
     },
   },
   calendar: {
+    datePickerPlaceholder: 'Pick a date',
     today: 'Today',
     month: 'Month',
     week: 'Week',

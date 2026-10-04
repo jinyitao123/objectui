@@ -577,6 +577,7 @@ const ko = {
     },
   },
   calendar: {
+    datePickerPlaceholder: '날짜 선택',
     today: "오늘",
     month: "월",
     week: "주",

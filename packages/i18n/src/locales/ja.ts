@@ -577,6 +577,7 @@ const ja = {
     },
   },
   calendar: {
+    datePickerPlaceholder: '日付を選択',
     today: "今日",
     month: "月",
     week: "週",
