@@ -1177,3 +1177,25 @@ describe('buildDefaultTabs — stable tab values (objectui#2257)', () => {
     expect(tabItems(onlyB).some((i: any) => i.value === 'related')).toBe(true);
   });
 });
+
+
+describe('hidden object fields stay out of synthesized highlights', () => {
+  const definition: ObjectDefLike = {
+    name: 'price_change', nameField: 'name',
+    fields: {
+      name: { type: 'text' },
+      owner_id: { type: 'user', hidden: true },
+      request_key: { type: 'text', hidden: true },
+      request_fingerprint: { type: 'text', hidden: true },
+      code: { type: 'text' },
+      line_count: { type: 'number' },
+    },
+  };
+  it('filters both preferred and type-based fallback candidates', () => {
+    expect(deriveHighlightFields(definition, null)).toEqual(['code', 'line_count']);
+  });
+  it('filters hidden declared candidates before applying the field limit', () => {
+    expect(deriveHighlightFields({ ...definition, highlightFields: ['request_key', 'owner_id', 'code', 'line_count'] }, null, 2))
+      .toEqual(['code', 'line_count']);
+  });
+});
