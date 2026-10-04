@@ -144,6 +144,14 @@
   --ui-page-content-padding-inline: 21px;
   --ui-page-content-padding-block: 17.5px;
   --ui-page-title-font-size: 21px;
+  --ui-workspace-header-padding-block: 17.5px;
+  --ui-workspace-header-padding-inline: 21px;
+  --ui-workspace-header-breadcrumb-font-size: 10.5px;
+  --ui-workspace-header-breadcrumb-line-height: 14px;
+  --ui-workspace-header-breadcrumb-margin-bottom: 10.5px;
+  --ui-workspace-header-icon-size: 35px;
+  --ui-workspace-header-row-gap: 14px;
+  --ui-workspace-header-min-height: 105px;
   --ui-table-header-line-height: 14px;
   --ui-table-header-font-weight: 600;
   --ui-table-border-width: 1px;

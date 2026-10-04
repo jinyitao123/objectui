@@ -258,7 +258,8 @@ Available values:
 ## PageHeader Component
 
 The `PageHeader` provides consistent page headers with a title, an optional subtitle,
-an icon chip, and an action row.
+an icon chip, and an action row. Its `WorkspaceHeader` runtime registration also
+has an opt-in frame and breadcrumb layout for trusted React Pages.
 
 > **The canonical author key is `page:header`; `page-header` is a legacy alias.** The
 > snippets in this section are the `@object-ui/layout` component, which `registerLayout()`
@@ -315,6 +316,41 @@ own `actions` metadata, which keeps the definitions in one place — or inline `
 objects. They are **not** `SchemaNode` nodes: a `{ "type": "button", … }` entry
 renders nothing here.
 
+### React runtime workspace variant
+
+Trusted React Pages receive `<WorkspaceHeader>` from the host runtime. Set
+`variant="workspace"` to render a breadcrumb row above the existing title and
+action row. Pass `breadcrumbItems` using the standard breadcrumb item shape;
+items with `href` render as links and the final item is the current page. The
+title and subtitle may wrap, and the frame grows with the content.
+
+```jsx
+<WorkspaceHeader
+  variant="workspace"
+  title="Shipments"
+  breadcrumbItems={[
+    { label: 'Sales', href: '/sales' },
+    { label: 'Orders', href: '/sales/orders' },
+    { label: 'Shipments' },
+  ]}
+>
+  <button type="button" onClick={createShipment}>New shipment</button>
+</WorkspaceHeader>
+```
+
+`variant` and `breadcrumbItems` are code-only React props. They are not added to
+the `page-header` registration inputs or to the `page:header` Spec contract.
+The canonical schema's singular `breadcrumb` remains a boolean that controls
+the host-provided breadcrumb slot; it is not a list of links. The workspace
+variant consumes `--ui-workspace-header-padding-block`,
+`--ui-workspace-header-padding-inline`,
+`--ui-workspace-header-breadcrumb-font-size`,
+`--ui-workspace-header-breadcrumb-line-height`,
+`--ui-workspace-header-breadcrumb-margin-bottom`,
+`--ui-workspace-header-icon-size`, `--ui-workspace-header-row-gap`, and the
+optional `--ui-workspace-header-min-height`. Its title continues to consume
+`--ui-page-title-*`.
+
 > **Write `subtitle`. `description` is retired.** `@objectstack/spec/ui`'s
 > `PageHeaderProps` — the contract for the canonical `page:header` node — declares
 > `title / subtitle / breadcrumb / actions / recordChrome / showStar / showCopyId /
@@ -335,10 +371,10 @@ renders nothing here.
 > rest. See the [PageHeader reference](/docs/layout/page-header) for the per-key
 > reference face.
 
-> **There is no `breadcrumbs` array.** The component reads no breadcrumb property of any
-> kind, in either spelling. The spec's `breadcrumb` is singular and a **boolean** — a
-> display toggle on the canonical `page:header` node (see
-> [Slotted pages](/docs/guide/slotted-pages)), not a list of links.
+> **There is no schema `breadcrumbs` array.** The canonical `page:header` schema's
+> `breadcrumb` is singular and a **boolean** — a display toggle for the host-provided
+> slot, not a list of links. `breadcrumbItems` exists only on the trusted React
+> `WorkspaceHeader` runtime component described above.
 
 ## SidebarNav Component
 

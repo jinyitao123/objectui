@@ -92,6 +92,37 @@ import { PageHeader } from '@object-ui/layout';
 <PageHeader title="Dashboard" subtitle="View your metrics" />
 ```
 
+Trusted React Pages can use the registered `WorkspaceHeader` runtime component
+with its code-only workspace variant. The variant adds a breadcrumb row and
+tokenized frame around the existing title and action slots; omitting `variant`
+keeps the current header layout. These props are React runtime inputs, not
+authorable `page:header` schema fields.
+
+```jsx
+<WorkspaceHeader
+  variant="workspace"
+  title="Shipments"
+  breadcrumbItems={[
+    { label: 'Sales', href: '/sales' },
+    { label: 'Orders', href: '/sales/orders' },
+    { label: 'Shipments' },
+  ]}
+>
+  <button type="button" onClick={createShipment}>New shipment</button>
+</WorkspaceHeader>
+```
+
+`breadcrumbItems` uses the standard breadcrumb item shape. Earlier items with
+`href` render as links; the final item is marked as the current page. The title
+can wrap in this variant, and the frame grows with its content. Hosts may set
+`--ui-workspace-header-padding-block`, `--ui-workspace-header-padding-inline`,
+`--ui-workspace-header-breadcrumb-font-size`,
+`--ui-workspace-header-breadcrumb-line-height`,
+`--ui-workspace-header-breadcrumb-margin-bottom`,
+`--ui-workspace-header-icon-size`, `--ui-workspace-header-row-gap`, and the
+optional `--ui-workspace-header-min-height`. The title continues to use
+`--ui-page-title-*`.
+
 `subtitle` is the only spelling for the secondary line — it is the key
 `@objectstack/spec/ui`'s `PageHeaderProps` declares. The legacy `description`
 alias this component used to read as well was retired in objectui#3789; stored

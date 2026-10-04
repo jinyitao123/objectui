@@ -26,6 +26,11 @@ toolbar and table geometry. It does not replace field metadata, validation,
 permissions or business actions. Without that build option, the token
 fallbacks keep the existing Console dimensions.
 
+The opt-in `WorkspaceHeader` workspace variant reads
+`--ui-workspace-header-*` tokens for its frame, breadcrumb and icon geometry.
+Its minimum height is a presentation baseline; content can grow when a title
+or action wraps. The regular header variant remains unchanged.
+
 The profile is a presentation baseline rather than a claim of page parity.
 Compare concrete controls and states at a fixed viewport before declaring a
 sample aligned. Color calibration is independent of these geometry tokens.
