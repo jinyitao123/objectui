@@ -19,9 +19,18 @@ import type { DataSource, ObjectFormSchema } from '@object-ui/types';
 import { CompositeDialog, DocumentWorkspace, DocumentSection, type ObjectFormController } from '@object-ui/components';
 import { GridField } from '@object-ui/fields';
 import { ObjectForm } from './ObjectForm';
+import { ExportConfigurationDialog } from './ExportConfigurationDialog';
 import { RelationshipCollectionEditor } from './RelationshipCollectionEditor';
 
 export { ObjectForm };
+export { ExportConfigurationDialog };
+export type {
+  ExportConfigurationDialogProps,
+  ExportConfigurationField,
+  ExportConfigurationFormat,
+  ExportConfigurationPreviewRow,
+  ExportConfigurationScope,
+} from './ExportConfigurationDialog';
 export type { ObjectFormComponentProps } from './ObjectForm';
 export type { ObjectFormController, ObjectFormValidationResult } from '@object-ui/components';
 export {
@@ -572,6 +581,9 @@ ComponentRegistry.registerReactRuntimeComponent(
 ComponentRegistry.registerReactRuntimeComponent('CompositeDialog', CompositeDialog, {
   injectDataSource: false,
 });
+ComponentRegistry.registerReactRuntimeComponent('ExportConfigurationDialog', ExportConfigurationDialog, {
+  injectDataSource: false,
+});
 ComponentRegistry.registerReactRuntimeComponent('DocumentWorkspace', DocumentWorkspace, { injectDataSource: false });
 ComponentRegistry.registerReactRuntimeComponent('DocumentSection', DocumentSection, { injectDataSource: false });
 ComponentRegistry.registerReactRuntimeComponent('GridField', GridField);
@@ -586,6 +598,7 @@ formHot?.dispose(() => {
   for (const [name, component] of [
     ['RelationshipCollectionEditor', RelationshipCollectionEditor],
     ['CompositeDialog', CompositeDialog],
+    ['ExportConfigurationDialog', ExportConfigurationDialog],
     ['DocumentWorkspace', DocumentWorkspace],
     ['DocumentSection', DocumentSection],
     ['GridField', GridField],

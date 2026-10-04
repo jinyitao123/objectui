@@ -1170,6 +1170,9 @@ components for the host's `kind:'react'` runtime scope:
 - `<CompositeDialog>` is a presentation frame from `@object-ui/components`;
   its `children` and function-valued `footer` are passed through without
   injecting a `dataSource` prop.
+- `<ExportConfigurationDialog>` collects a host-owned export scope, ordered
+  display fields, format, and file name. It receives no `dataSource` and does
+  not create an export job or persist a template.
 
 These registrations are code-only runtime entries, not schema registrations or
 `PUBLIC_BLOCKS`/`REACT_BLOCKS` authoring declarations. The host imports this
@@ -1179,6 +1182,39 @@ scope. See the React Pages guide for the authoring-contract boundary.
 In development, module replacement releases this module's runtime
 registrations before installing the replacement. Production registration
 continues to reject duplicate component names.
+
+### ExportConfigurationDialog
+
+The host supplies the fields it permits, page and filtered-result counts,
+already formatted preview values, and initial draft values. The dialog owns
+only the temporary selection state while it is open. Field keys are passed
+back to the host but never shown; visible labels and preview values are host
+resolved. The preview displays at most five rows.
+
+```tsx
+<ExportConfigurationDialog
+  open={exportOpen}
+  onOpenChange={setExportOpen}
+  permittedFields={exportFields}
+  initialFields={initialExportFields}
+  initialScope="all"
+  initialFormat="csv"
+  initialFileName="project-tasks"
+  currentPageCount={pageRows.length}
+  filteredTotalCount={filteredTotal}
+  previewRows={previewRows}
+  onExport={(scope, fields, format, fileName) =>
+    downloadExport({ scope, fields, format, fileName })
+  }
+/>
+```
+
+`onExport(scope, fields, format, fileName)` is the only submission callback.
+It may return a promise; the dialog disables editing while it runs and closes
+after success. A rejection leaves the draft open and shows a localized generic
+error. The dialog does not fetch rows, choose permitted fields, infer display
+values, change filtering, or save field order for later sessions. Closing an
+edited draft uses `CompositeDialog`'s discard confirmation.
 
 ## Relationship collection drafts
 

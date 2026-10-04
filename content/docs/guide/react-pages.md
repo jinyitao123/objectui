@@ -172,10 +172,18 @@ fails in production.
 `@object-ui/plugin-form` registers `<RelationshipCollectionEditor>` and
 `<CompositeDialog>` this way. The former gets the authenticated adapter and
 keeps its function-valued `children` slot; the latter is presentation-only and
-does not receive an injected `dataSource`. These tags and their runtime props
+does not receive an injected `dataSource`. It also registers
+`<ExportConfigurationDialog>` as a presentation-only export-configuration
+dialog. These tags and their runtime props
 are not part of the generated `@objectstack/spec` React Page authoring contract.
 Runtime availability does not mean `os validate` or publish validation accepts
 them.
+
+`ExportConfigurationDialog` receives permitted field keys and display labels,
+row counts, already formatted preview values, and host-selected initial values.
+It returns the temporary selection through `onExport(scope, fields, format,
+fileName)`. It does not read data, determine permissions, or use the separate
+async `ExportJob` lifecycle; the host performs the synchronous export.
 
 Importing `@object-ui/layout` registers `<WorkspaceHeader>`,
 `<WorkspaceToolbar>`, `<ListSummary>` and `<StatusTabs>` as presentation-only
