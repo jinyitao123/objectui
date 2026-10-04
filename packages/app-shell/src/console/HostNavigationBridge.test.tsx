@@ -41,6 +41,11 @@ function LocationProbe() {
   return <div data-testid="at">{pathname}</div>;
 }
 
+function FullLocationProbe() {
+  const { pathname, search, hash } = useLocation();
+  return <div data-testid="full-location">{pathname + search + hash}</div>;
+}
+
 /**
  * What a renderer below the bridge sees. Rendered into the DOM rather than
  * captured into an outer variable — assigning during render is a side effect
@@ -88,6 +93,44 @@ describe('HostNavigationBridge — the console supplies a basename-aware navigat
     // have put the browser at `/thanks` — OUTSIDE the mounted app. Through this
     // supplier the same string lands at `/_console/thanks`, still inside it.
     await waitFor(() => expect(window.location.pathname).toBe(`${MOUNT}/thanks`));
+  });
+
+  it('strips an existing mount before the BrowserRouter applies its basename', async () => {
+    const existingBase = document.querySelector('base');
+    const originalHref = existingBase?.getAttribute('href') ?? null;
+    const base = existingBase ?? document.createElement('base');
+    if (!existingBase) document.head.appendChild(base);
+    base.setAttribute('href', `${MOUNT}/`);
+
+    const appPath = '/apps/forge/page_sales_contracts/record/SC-1';
+    const target = `${MOUNT}${appPath}?tab=detail#materials`;
+    try {
+      render(
+        <BrowserRouter basename={MOUNT}>
+          <HostNavigationBridge>
+            <Routes>
+              <Route path="/start" element={<RendererStub to={target} />} />
+              <Route path="/apps/:appName/:pageName/record/:recordId" element={<FullLocationProbe />} />
+            </Routes>
+          </HostNavigationBridge>
+        </BrowserRouter>,
+      );
+
+      fireEvent.click(screen.getByRole('button', { name: 'go' }));
+
+      await waitFor(() => expect(screen.getByTestId('full-location').textContent)
+        .toBe(`${appPath}?tab=detail#materials`));
+      expect(window.location.pathname).toBe(`${MOUNT}${appPath}`);
+      expect(window.location.search).toBe('?tab=detail');
+      expect(window.location.hash).toBe('#materials');
+    } finally {
+      if (existingBase) {
+        if (originalHref === null) existingBase.removeAttribute('href');
+        else existingBase.setAttribute('href', originalHref);
+      } else {
+        base.remove();
+      }
+    }
   });
 
   it('keeps the transition in-app: the destination route renders, no page load', async () => {

@@ -35,6 +35,7 @@ import { RECORD_DETAIL_TAB_PARAM, RECORD_TRAIL_PARAM, decodeRecordTrail, buildRe
 import { resolveActionParams } from '../utils/resolveActionParams.js';
 import { createConsoleServerActionHandler } from '../utils/consoleServerAction.js';
 import { modalTargetRefusalMessage } from '../utils/modalTargetDiagnostics.js';
+import { useConsoleActionNavigation } from '../hooks/useConsoleActionNavigation.js';
 import { interpretFlowResponse } from '../utils/flowResponse.js';
 import { useRecordBreadcrumbTitle } from '../context/NavigationContext.js';
 // Audit provenance renders as the one-line <RecordMetaFooter>; the other
@@ -692,13 +693,7 @@ export function RecordDetailView({ dataSource, objects, onEdit, objectNameOverri
     toast.success(message, { duration: options?.duration });
   }, [undoCtl]);
 
-  const navigateHandler = useCallback((url: string, options?: { external?: boolean; newTab?: boolean }) => {
-    if (options?.external || options?.newTab) {
-      window.open(url, '_blank', 'noopener,noreferrer');
-    } else {
-      navigate(url);
-    }
-  }, [navigate]);
+  const navigateHandler = useConsoleActionNavigation(navigate);
 
   // Authenticated fetch for direct backend calls (absolute `type:'api'`
   // targets below + the flow trigger). Declared before apiHandler.
@@ -987,8 +982,8 @@ export function RecordDetailView({ dataSource, objects, onEdit, objectNameOverri
   // `action.recordId`; header/more actions carry none and use this page's id.
   // The env ref keeps the handler instance stable across renders (authFetch is
   // memoized once) while the thunks read the live record/object.
-  const serverActionEnvRef = useRef({ objectName, pureRecordId, notifyRecordChanged, t, navigate });
-  serverActionEnvRef.current = { objectName, pureRecordId, notifyRecordChanged, t, navigate };
+  const serverActionEnvRef = useRef({ objectName, pureRecordId, notifyRecordChanged, t, navigate: navigateHandler });
+  serverActionEnvRef.current = { objectName, pureRecordId, notifyRecordChanged, t, navigate: navigateHandler };
   const serverActionHandler = useMemo(
     () => createConsoleServerActionHandler({
       fetch: authFetch,

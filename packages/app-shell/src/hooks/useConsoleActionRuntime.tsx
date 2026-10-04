@@ -52,6 +52,7 @@ import { resolvePageVarTokens } from '../utils/resolvePageVarTokens.js';
 import { interpretFlowResponse } from '../utils/flowResponse.js';
 import { createConsoleServerActionHandler } from '../utils/consoleServerAction.js';
 import { modalTargetRefusalMessage } from '../utils/modalTargetDiagnostics.js';
+import { useConsoleActionNavigation } from './useConsoleActionNavigation.js';
 import type { ConsoleActionDispatch } from '../consoleActionDispatch.js';
 
 const FALLBACK_USER = { id: 'current-user', name: 'Demo User', isPlatformAdmin: false };
@@ -332,13 +333,7 @@ export function useConsoleActionRuntime(opts: ConsoleActionRuntimeOptions): Cons
     toast.success(message, { duration: options?.duration });
   }, [undoCtl]);
 
-  const navigateHandler = useCallback<NavigationHandler>((url, options) => {
-    if (options?.external || options?.newTab) {
-      window.open(url, '_blank', 'noopener,noreferrer');
-    } else {
-      navigate(url);
-    }
-  }, [navigate]);
+  const navigateHandler = useConsoleActionNavigation(navigate);
 
   // Authenticated fetch for direct backend calls. Declared before apiHandler.
   //
@@ -632,8 +627,8 @@ export function useConsoleActionRuntime(opts: ConsoleActionRuntimeOptions): Cons
   // memoized once) while the config thunks read the latest object scope and
   // refresh callback — the factory's in-flight guard only spans invocations of
   // the same instance.
-  const serverActionEnvRef = useRef({ objApiName, refresh, t, navigate });
-  serverActionEnvRef.current = { objApiName, refresh, t, navigate };
+  const serverActionEnvRef = useRef({ objApiName, refresh, t, navigate: navigateHandler });
+  serverActionEnvRef.current = { objApiName, refresh, t, navigate: navigateHandler };
   const serverActionHandler = useMemo(
     () => createConsoleServerActionHandler({
       fetch: authFetch,

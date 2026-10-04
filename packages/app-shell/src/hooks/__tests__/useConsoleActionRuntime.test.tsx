@@ -98,6 +98,40 @@ beforeEach(() => {
 });
 
 describe('useConsoleActionRuntime — authenticated handlers', () => {
+  it('normalizes a mount-qualified same-tab action while preserving external and new-tab destinations', () => {
+    const existingBase = document.querySelector('base');
+    const originalHref = existingBase?.getAttribute('href') ?? null;
+    const base = existingBase ?? document.createElement('base');
+    if (!existingBase) document.head.appendChild(base);
+    base.setAttribute('href', '/_console/');
+    const openSpy = vi.spyOn(window, 'open').mockImplementation(() => null);
+
+    try {
+      const { result } = renderHook(() =>
+        useConsoleActionRuntime({ dataSource: {}, objects: [] }),
+      );
+
+      act(() => result.current.navigateHandler(
+        '/_console/apps/forge/page_contracts/record/SC-1?tab=detail#materials',
+      ));
+      expect(navigateSpy).toHaveBeenCalledWith('/apps/forge/page_contracts/record/SC-1?tab=detail#materials');
+
+      act(() => result.current.navigateHandler('/_console/apps/forge/page_external', { external: true }));
+      act(() => result.current.navigateHandler('/_console/apps/forge/page_new_tab', { newTab: true }));
+      expect(openSpy).toHaveBeenNthCalledWith(1, '/_console/apps/forge/page_external', '_blank', 'noopener,noreferrer');
+      expect(openSpy).toHaveBeenNthCalledWith(2, '/_console/apps/forge/page_new_tab', '_blank', 'noopener,noreferrer');
+      expect(navigateSpy).toHaveBeenCalledTimes(1);
+    } finally {
+      openSpy.mockRestore();
+      if (existingBase) {
+        if (originalHref === null) existingBase.removeAttribute('href');
+        else existingBase.setAttribute('href', originalHref);
+      } else {
+        base.remove();
+      }
+    }
+  });
+
   it('apiHandler calls an absolute endpoint via the authenticated fetch and refreshes', async () => {
     authFetchSpy.mockResolvedValue({ ok: true, json: async () => ({ id: 'env_1' }) });
     const onRefresh = vi.fn();
