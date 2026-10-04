@@ -1,7 +1,7 @@
 import '@testing-library/jest-dom/vitest';
 import React from 'react';
 import { afterEach, describe, expect, it, vi } from 'vitest';
-import { cleanup, render, screen, waitFor } from '@testing-library/react';
+import { cleanup, render, screen, waitFor, within } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { ComponentRegistry } from '@object-ui/core';
 import { I18nProvider } from '@object-ui/i18n';
@@ -65,6 +65,18 @@ describe('ExportConfigurationDialog', () => {
     expect(screen.getByRole('radio', { name: '当前页：12 条' })).toBeInTheDocument();
     expect(screen.getByRole('radio', { name: '全部筛选结果：37 条' })).toBeInTheDocument();
     expect(screen.getByRole('button', { name: '导出' })).toBeInTheDocument();
+  });
+
+  it('keeps the shared description fallback screen-reader-only and the body scrollable between fixed chrome', async () => {
+    renderDialog('en');
+    const dialog = await screen.findByRole('dialog', { name: 'Export data' });
+
+    expect(within(dialog).getByText('Complete the form fields, then submit or cancel.'))
+      .toHaveClass('sr-only');
+    expect(dialog.querySelector('[data-slot="composite-dialog-body"]'))
+      .toHaveClass('min-h-0', 'overflow-y-auto');
+    expect(dialog.querySelector('[data-testid="composite-dialog-footer"]'))
+      .toHaveClass('shrink-0');
   });
 
   it('emits the exact host-selected scope, ordered fields, format, and file name', async () => {

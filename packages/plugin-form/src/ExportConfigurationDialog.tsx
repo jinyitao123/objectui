@@ -238,7 +238,7 @@ export function ExportConfigurationDialog({
         </div>
       )}
     >
-      <div className="space-y-5">
+      <div className="space-y-4">
         {error && <p role="alert" className="text-sm text-destructive">{error}</p>}
 
         <fieldset className="space-y-2">
@@ -269,7 +269,7 @@ export function ExportConfigurationDialog({
           </RadioGroup>
         </fieldset>
 
-        <div className="grid min-w-0 grid-cols-1 gap-5 lg:grid-cols-2">
+        <div className="grid min-w-0 grid-cols-1 gap-4 lg:grid-cols-2">
           <section aria-labelledby={`${idPrefix}-available-fields`} className="min-w-0 space-y-2">
             <h3 id={`${idPrefix}-available-fields`} className="text-sm font-medium">
               {t('form.exportConfiguration.availableFields')}
