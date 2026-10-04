@@ -55,7 +55,7 @@ describe('StatusTabs', () => {
           }}
           items={[
             { value: 'all', label: 'All', count: 12 },
-            { value: 'active', label: 'Active', count: 9 },
+            { value: 'active', label: 'Active', count: 9, icon: 'list' },
             { value: 'inactive', label: 'Inactive', count: 3 },
           ]}
         />
@@ -83,10 +83,16 @@ describe('StatusTabs', () => {
     expect(allTab).toHaveAttribute('aria-controls', 'contact-results');
     expect(screen.getByRole('tabpanel', { name: 'Contact results' })).toBeInTheDocument();
     expect(allTab).toHaveAttribute('aria-selected', 'true');
+    expect(allTab.querySelector('svg')).toBeNull();
 
     await user.click(activeTab);
     expect(onChange).toHaveBeenLastCalledWith('active');
     expect(activeTab).toHaveAttribute('aria-selected', 'true');
+    const activeIcon = activeTab.querySelector('svg');
+    expect(activeIcon).toHaveAttribute('aria-hidden', 'true');
+    expect(activeIcon).toHaveAttribute('focusable', 'false');
+    expect(activeIcon).toHaveClass('size-3.5', 'shrink-0');
+    expect(activeTab).toHaveAccessibleName('Active 9');
 
     activeTab.focus();
     await user.keyboard('{ArrowRight}');
@@ -142,6 +148,30 @@ describe('WorkspaceToolbar', () => {
     expect(create).toHaveFocus();
     await user.keyboard('{Enter}');
     expect(onCreate).toHaveBeenCalledTimes(1);
+  });
+
+  it('places the primary action before auxiliary actions when requested', async () => {
+    const user = userEvent.setup();
+
+    render(
+      <WorkspaceToolbar
+        aria-label="Sales order controls"
+        primaryActionPlacement="start"
+        primaryAction={<button type="button">Create order</button>}
+        auxiliaryActions={<button type="button">Import or export</button>}
+      />,
+    );
+
+    const group = screen.getByRole('group', { name: 'Sales order controls' });
+    const create = screen.getByRole('button', { name: 'Create order' });
+    const importExport = screen.getByRole('button', { name: 'Import or export' });
+    const buttons = Array.from(group.querySelectorAll('button'));
+
+    expect(buttons).toEqual([create, importExport]);
+    await user.tab();
+    expect(create).toHaveFocus();
+    await user.tab();
+    expect(importExport).toHaveFocus();
   });
 });
 

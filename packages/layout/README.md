@@ -148,7 +148,7 @@ status into a query.
 import { StatusTabs, type StatusTabItem } from '@object-ui/layout';
 
 const statuses: StatusTabItem[] = [
-  { value: 'all', label: 'All', count: 128 },
+  { value: 'all', label: 'All', count: 128, icon: 'list' },
   { value: 'active', label: 'Active', count: 96 },
   { value: 'inactive', label: 'Inactive', count: 32 },
 ];
@@ -176,6 +176,12 @@ existing tab geometry; hosts can scope measured surface values on the
 component or an ancestor without changing its controlled state or Radix
 keyboard behavior.
 
+`StatusTabItem.icon` optionally names a Lucide icon resolved through the shared
+`LazyIcon` helper. It renders before the label at 14px with a 5.25px default
+gap, adjustable with `--ui-status-tabs-icon-size` and
+`--ui-status-tabs-icon-gap`. The icon is decorative and hidden from the tab's accessible name; the
+label and optional count remain the tab's text.
+
 ### WorkspaceToolbar
 
 `WorkspaceToolbar` lays out host-owned search, filter, secondary-action, and
@@ -189,6 +195,7 @@ import { StatusTabs, WorkspaceToolbar } from '@object-ui/layout';
 
 <WorkspaceToolbar
   aria-label="Project task controls"
+  primaryActionPlacement="start"
   search={<input aria-label="Search tasks" value={search} onChange={onSearchChange} />}
   filters={
     <StatusTabs
@@ -203,6 +210,10 @@ import { StatusTabs, WorkspaceToolbar } from '@object-ui/layout';
   primaryAction={<button type="button" onClick={createTask}>New task</button>}
 />
 ```
+
+`primaryActionPlacement` controls the primary action's DOM, visual, and keyboard
+order relative to auxiliary actions. It defaults to `"end"`; use `"start"` when
+the main action should be the first control in the action group.
 
 The search slot flexes into available width; filters and action groups wrap
 when their content no longer fits. `className` lets a host scope additional layout

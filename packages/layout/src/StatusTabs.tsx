@@ -1,10 +1,12 @@
 import React from 'react';
-import { Tabs, TabsList, TabsTrigger, cn } from '@object-ui/components';
+import { LazyIcon, Tabs, TabsList, TabsTrigger, cn } from '@object-ui/components';
 
 export interface StatusTabItem {
   /** Stable controlled value sent to `onValueChange`. */
   value: string;
   label: string;
+  /** Optional Lucide icon name rendered decoratively before the label. */
+  icon?: string;
   /** Optional count supplied by the host using the same filter scope. */
   count?: string | number;
   disabled?: boolean;
@@ -70,7 +72,22 @@ export function StatusTabs({
               tabClassName,
             )}
           >
-            <span>{item.label}</span>
+            <span
+              className={cn(
+                'inline-flex min-w-0 items-center',
+                item.icon && 'gap-[var(--ui-status-tabs-icon-gap,5.25px)]',
+              )}
+            >
+              {item.icon && (
+                <LazyIcon
+                  name={item.icon}
+                  aria-hidden="true"
+                  focusable="false"
+                  className="h-[var(--ui-status-tabs-icon-size,14px)] w-[var(--ui-status-tabs-icon-size,14px)] shrink-0"
+                />
+              )}
+              <span className="min-w-0">{item.label}</span>
+            </span>
             {item.count !== undefined && (
               <span
                 className={cn(

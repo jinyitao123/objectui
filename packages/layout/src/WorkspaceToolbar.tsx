@@ -13,6 +13,8 @@ export interface WorkspaceToolbarProps
   auxiliaryActions?: React.ReactNode;
   /** The primary action for the current workspace. */
   primaryAction?: React.ReactNode;
+  /** Place the primary action before or after auxiliary actions in visual and DOM order. */
+  primaryActionPlacement?: 'start' | 'end';
 }
 
 /**
@@ -24,6 +26,7 @@ export function WorkspaceToolbar({
   filters,
   auxiliaryActions,
   primaryAction,
+  primaryActionPlacement = 'end',
   className,
   'aria-label': ariaLabel,
   ...props
@@ -62,6 +65,11 @@ export function WorkspaceToolbar({
           data-slot="workspace-toolbar-actions"
           className="ml-auto flex min-w-0 max-w-full flex-wrap items-center justify-end gap-[var(--ui-button-gap,0.5rem)]"
         >
+          {primaryActionPlacement === 'start' && primaryAction != null && (
+            <div data-slot="workspace-toolbar-primary-action" className="flex shrink-0 items-center">
+              {primaryAction}
+            </div>
+          )}
           {auxiliaryActions != null && (
             <div
               data-slot="workspace-toolbar-auxiliary-actions"
@@ -70,7 +78,7 @@ export function WorkspaceToolbar({
               {auxiliaryActions}
             </div>
           )}
-          {primaryAction != null && (
+          {primaryActionPlacement === 'end' && primaryAction != null && (
             <div data-slot="workspace-toolbar-primary-action" className="flex shrink-0 items-center">
               {primaryAction}
             </div>
