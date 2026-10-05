@@ -186,7 +186,8 @@ fileName)`. It does not read data, determine permissions, or use the separate
 async `ExportJob` lifecycle; the host performs the synchronous export.
 
 Importing `@object-ui/layout` registers `<WorkspaceHeader>`,
-`<WorkspaceToolbar>`, `<ListSummary>`, `<StatusTabs>` and `<DateRangeControl>` as presentation-only
+`<WorkspaceToolbar>`, `<ListSummary>`, `<StatusTabs>`, `<DateRangeControl>`,
+`<DocumentSection>` and `<DocumentWorkspace>` as presentation-only
 runtime components. They receive no `dataSource`, add no schema type or Spec
 authoring props, and must be registered before the first React Page mounts.
 `WorkspaceHeader` uses the existing `PageHeader` React implementation and

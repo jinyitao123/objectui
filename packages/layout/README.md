@@ -258,7 +258,7 @@ geometry. The default group gap uses the existing `--ui-button-gap` token.
 Control state, queries, and permission checks stay in the host.
 
 Importing `@object-ui/layout` also registers `WorkspaceHeader`, `WorkspaceToolbar`,
-`ListSummary`, `StatusTabs` and `DateRangeControl` as presentation-only React Page runtime
+`ListSummary`, `StatusTabs`, `DateRangeControl`, `DocumentSection` and `DocumentWorkspace` as presentation-only React Page runtime
 components. This is a code-only runtime capability: the names are not schema component keys or
 `@objectstack/spec` authoring props. The registration happens when the package
 loads, before a React Page builds its stable component scope.

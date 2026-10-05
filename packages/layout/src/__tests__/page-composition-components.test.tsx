@@ -200,7 +200,7 @@ describe('PageHeader action slot', () => {
 describe('React Page runtime registration', () => {
   it('registers the composition components as data-source-free runtime capabilities', () => {
     const registrations = ComponentRegistry.getReactRuntimeComponents();
-    const registered = ['WorkspaceHeader', 'WorkspaceToolbar', 'ListSummary', 'StatusTabs', 'DateRangeControl'].map((name) =>
+    const registered = ['WorkspaceHeader', 'WorkspaceToolbar', 'ListSummary', 'StatusTabs', 'DateRangeControl', 'DocumentSection', 'DocumentWorkspace'].map((name) =>
       registrations.find((entry) => entry.name === name),
     );
 
@@ -217,5 +217,7 @@ describe('React Page runtime registration', () => {
     expect(ComponentRegistry.getConfig('WorkspaceToolbar')).toBeUndefined();
     expect(ComponentRegistry.getConfig('StatusTabs')).toBeUndefined();
     expect(ComponentRegistry.getConfig('DateRangeControl')).toBeUndefined();
+    expect(ComponentRegistry.getConfig('DocumentSection')).toBeUndefined();
+    expect(ComponentRegistry.getConfig('DocumentWorkspace')).toBeUndefined();
   });
 });
