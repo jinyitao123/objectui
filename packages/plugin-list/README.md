@@ -264,6 +264,11 @@ column headers; once they resolve, the grid receives only the readable
 projection. The React node passed through the grid is internal composition,
 not an additional schema key.
 
+Trusted React hosts may pass `mobileLayout="table"` to keep a ListView's child
+grid as a horizontally scrollable table on narrow screens. The default remains
+`"cards"` for populated mobile grids. `mobileLayout` is forwarded as a React
+prop to ObjectGrid and is not part of `ListViewSchema` or persisted metadata.
+
 ## Page binding — `dataSource` (referencing a saved view by name)
 
 On a metadata page, a `list-view` component can bind its data through the spec's

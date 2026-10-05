@@ -584,6 +584,11 @@ const schema: ObjectGridSchema = {
 them, and writing one into a schema does nothing at all: the grid builds the inner
 table's handlers itself and never reads any of these nine off the schema.
 
+`mobileLayout` is another React-only `ObjectGridComponentProps` option. It accepts
+`'cards'` (the default) or `'table'`; choose `'table'` when a host needs a
+horizontally scrollable grid on narrow screens. It is not an `ObjectGridSchema`
+key or an authoring input.
+
 The one callback the grid does read off the schema is `onNavigate`, declared on
 `ObjectGridSchema` for programmatic callers only. It is a function value too, so
 it is no more authorable than the nine — it is deliberately absent from the

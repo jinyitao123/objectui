@@ -503,6 +503,12 @@ export interface ObjectGridComponentProps extends ObjectGridExternalPaginationPr
   dataSource?: DataSource;
   className?: string;
   /**
+   * React-only responsive presentation choice. `cards` preserves the default
+   * mobile card layout; `table` keeps the horizontally scrollable table.
+   * This is a host prop and is never authored in ObjectGrid metadata.
+   */
+  mobileLayout?: 'cards' | 'table';
+  /**
    * Internal ListView-to-grid React handoff for its existing empty-state node.
    * This is runtime composition only and is never authored in metadata.
    */
@@ -1279,6 +1285,7 @@ function describeNonPositivePageSize(
 export const ObjectGrid: React.FC<ObjectGridComponentProps> = ({
   schema,
   dataSource,
+  mobileLayout = 'cards',
   emptyStateContent,
   onEdit,
   onDelete,
@@ -3013,9 +3020,6 @@ export const ObjectGrid: React.FC<ObjectGridComponentProps> = ({
             const effectiveType = inferredType || col.type;
             const inferredAlign = col.align || (effectiveType && numericTypes.includes(effectiveType) ? 'right' as const : undefined);
 
-            // Determine if column should be hidden on mobile
-            const isEssential = colIndex === 0;
-
             return {
               header,
               accessorKey: col.field,
@@ -3024,7 +3028,6 @@ export const ObjectGrid: React.FC<ObjectGridComponentProps> = ({
               // rather than the renderer type so e.g. `date` stays `date`.
               ...(baseInferredType && { type: baseInferredType }),
               ...(schema.showColumnTypeIcons && { headerIcon: getTypeIcon(inferredType) }),
-              ...(!isEssential && { className: 'hidden sm:table-cell' }),
               ...(col.width && { width: col.width }),
               ...(inferredAlign && { align: inferredAlign }),
               sortable: col.sortable !== false,
@@ -3575,7 +3578,7 @@ export const ObjectGrid: React.FC<ObjectGridComponentProps> = ({
   }
 
   if (loading && data.length === 0) {
-    if (useCardView) {
+    if (mobileLayout === 'cards' && useCardView) {
       return (
         <div className="space-y-2 p-2">
           {[1, 2, 3].map((i) => (
@@ -5095,7 +5098,7 @@ export const ObjectGrid: React.FC<ObjectGridComponentProps> = ({
   // Mobile card-view: below the 768px app breakpoint (matches useIsMobile /
   // Tailwind md: / the responsive page+grid layout), render stacked cards
   // instead of a side-scrolling wide table.
-  if (useCardView && data.length > 0 && !isGrouped) {
+  if (mobileLayout === 'cards' && useCardView && data.length > 0 && !isGrouped) {
     const displayColumns = generateColumns().filter((c) => c.accessorKey !== '_actions');
 
     // Build a lookup of column metadata for smart rendering

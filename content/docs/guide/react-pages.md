@@ -385,6 +385,10 @@ the field policy is unresolved, the empty state remains visible without
 mounting headers. This is a React-only composition across ListView, ObjectGrid
 and the existing table viewport; it adds no metadata key, and the table's
 `emptyAction` remains independently gated by `visibleWhen`.
+For a host that needs a full-width table on a narrow screen, pass
+`mobileLayout="table"` to `<ListView>`; the default `"cards"` keeps the existing
+populated mobile card layout. This is a React runtime prop, not a serialized
+ListView or ObjectGrid schema key.
 For a direct `data-table` schema, a column may declare `fixed: 'left'` or
 `fixed: 'right'`; the renderer pins its header and body cells using offsets
 measured from the rendered column widths, so multiple fixed columns do not

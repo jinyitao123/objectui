@@ -256,6 +256,12 @@ export interface ListViewProps {
   schema: ListViewSchema;
   className?: string;
   /**
+   * React-only responsive presentation choice forwarded to the grid renderer.
+   * Defaults to `cards`; `table` keeps the grid's horizontal table on narrow
+   * viewports. This prop is not part of ListView metadata.
+   */
+  mobileLayout?: 'cards' | 'table';
+  /**
    * Data-source adapter. Read directly (`dataSource.find`,
    * `dataSource.getObjectSchema`, `dataSource.onMutation`) and forwarded to the
    * active view component. Typed `any` deliberately: that is what it resolved
@@ -1058,6 +1064,7 @@ export interface ListViewHandle {
 export const ListView = React.forwardRef<ListViewHandle, ListViewProps>(({
   schema: propSchema,
   className,
+  mobileLayout,
   onViewChange,
   onFilterChange,
   onSortChange,
@@ -4762,6 +4769,7 @@ export const ListView = React.forwardRef<ListViewHandle, ListViewProps>(({
           <SchemaRenderer
             schema={viewComponentSchema}
             {...props}
+            {...(mobileLayout ? { mobileLayout } : {})}
             {...(gridEmptyStateContent ? { emptyStateContent: gridEmptyStateContent } : {})}
             {...(ganttOwnsData
               // Withheld, not dropped. See `ganttOwnsData` above for why this

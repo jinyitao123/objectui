@@ -1,7 +1,7 @@
 import React from 'react';
 import { describe, expect, it, vi } from 'vitest';
 import '@testing-library/jest-dom/vitest';
-import { render, screen } from '@testing-library/react';
+import { render, screen, within } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { ListSummary } from '../ListSummary';
 
@@ -139,5 +139,101 @@ describe('ListSummary interactive host mode', () => {
 
     await user.click(screen.getByRole('button', { name: 'Valid quote amount $1,200' }));
     expect(onItemSelect).not.toHaveBeenCalled();
+  });
+});
+
+describe('ListSummary compact navigation mode', () => {
+  const items = [
+    { id: 'quotes', label: 'My quotations', icon: <span>Decorative icon</span>, value: 0, description: 'Recent customer quotations', actionLabel: 'View details' },
+    { id: 'long', label: 'A deliberately long label that must wrap without widening its card', value: 'Unavailable', description: 'Supporting text can wrap within the compact card width without overflowing.', actionLabel: 'Open record details' },
+    { id: 'no-action', label: 'No footer action', value: 2 },
+    { id: 'disabled', label: 'Unavailable amount', value: '—', actionLabel: 'View details', disabled: true },
+  ];
+
+  it('keeps a static compact definition list and adds footer content only when supplied', () => {
+    const { container } = render(<ListSummary variant="compact" aria-label="Personal documents" items={items} />);
+    const list = container.querySelector('dl');
+    expect(list).toBeInTheDocument();
+    if (!list) throw new Error('Expected the compact summary definition list');
+    expect(list).toHaveAttribute('data-slot', 'list-summary');
+    expect(list.querySelectorAll('dt')).toHaveLength(4);
+    expect(list.querySelectorAll('button')).toHaveLength(0);
+    expect(list.querySelector('[aria-pressed]')).toBeNull();
+    expect(screen.getByText('0')).toBeInTheDocument();
+    expect(list.querySelectorAll('[data-slot="list-summary-action"]')).toHaveLength(3);
+    expect(list.querySelectorAll('[data-slot="list-summary-description"]')).toHaveLength(2);
+    const cards = [...list.querySelectorAll('[data-slot="list-summary-item"]')];
+    expect(cards[0]).toHaveClass('min-h-[var(--ui-list-summary-compact-card-height,84.75px)]');
+    expect(cards[0]).toHaveClass('rounded-[var(--ui-list-summary-compact-card-radius,7px)]');
+    expect(cards[0]).toHaveClass('p-[var(--ui-list-summary-compact-padding,10.5px)]');
+    expect(cards[0]?.querySelector('[data-slot="list-summary-value"]')).toHaveClass('rounded-[var(--ui-list-summary-compact-value-radius,3.5px)]');
+    expect(cards[0]?.querySelector('[data-slot="list-summary-value"]')).toHaveClass('self-center');
+    expect(cards[1]?.querySelector('dt')).toHaveClass('min-w-0', 'break-words');
+    expect(cards[1]?.querySelector('[data-slot="list-summary-value"]')).toHaveClass('max-w-full', 'min-w-0', 'break-words');
+    expect(cards[1]?.querySelector('[data-slot="list-summary-description"]')).toHaveClass('max-w-full', 'min-w-0', 'break-words');
+    expect(cards[2]?.querySelector('[data-slot="list-summary-action"]')).toBeNull();
+    expect(container.querySelector('[data-slot="list-summary"]')).toHaveClass('grid-cols-1');
+  });
+
+  it('activates only enabled compact cards by click, Enter, and Space without selection semantics', async () => {
+    const user = userEvent.setup();
+    const onItemActivate = vi.fn();
+    render(<ListSummary variant="compact" aria-label="Personal documents" items={items} onItemActivate={onItemActivate} selectedItemId="quotes" />);
+
+    const group = screen.getByRole('group', { name: 'Personal documents' });
+    const quotes = within(group).getByRole('button', { name: 'My quotations 0 Recent customer quotations View details' });
+    const disabled = within(group).getByRole('button', { name: 'Unavailable amount — View details' });
+    expect(quotes).not.toHaveAttribute('aria-pressed');
+    expect(disabled).toBeDisabled();
+    expect(within(group).getByRole('button', { name: /No footer action 2/ }).querySelector('[data-slot="list-summary-action"]')).toBeNull();
+
+    await user.click(quotes);
+    quotes.focus();
+    await user.keyboard('{Enter}');
+    await user.keyboard(' ');
+    await user.click(disabled);
+    expect(onItemActivate.mock.calls).toEqual([['quotes'], ['quotes'], ['quotes']]);
+  });
+
+  it('prioritizes controlled selection when both activation callbacks are provided', async () => {
+    const user = userEvent.setup();
+    const onItemSelect = vi.fn();
+    const onItemActivate = vi.fn();
+    render(
+      <ListSummary
+        variant="compact"
+        items={items}
+        selectedItemId="quotes"
+        onItemSelect={onItemSelect}
+        onItemActivate={onItemActivate}
+      />,
+    );
+
+    const quotes = screen.getByRole('button', { name: 'My quotations 0 Recent customer quotations View details' });
+    const other = screen.getByRole('button', { name: 'No footer action 2' });
+    expect(quotes).toHaveAttribute('aria-pressed', 'true');
+    expect(other).toHaveAttribute('aria-pressed', 'false');
+    await user.click(other);
+    expect(onItemSelect).toHaveBeenCalledExactlyOnceWith('no-action');
+    expect(onItemActivate).not.toHaveBeenCalled();
+  });
+
+  it('supports default-variant navigation activation without adding selection semantics', async () => {
+    const user = userEvent.setup();
+    const onItemActivate = vi.fn();
+    render(
+      <ListSummary
+        items={[{ id: 'open', label: 'Open details', value: 1 }]}
+        onItemActivate={onItemActivate}
+        selectedItemId="open"
+      />,
+    );
+
+    const button = screen.getByRole('button', { name: 'Open details 1' });
+    expect(button).not.toHaveAttribute('aria-pressed');
+    expect(button).not.toHaveClass('aria-pressed:border-primary');
+    button.focus();
+    await user.keyboard('{Enter}');
+    expect(onItemActivate).toHaveBeenCalledExactlyOnceWith('open');
   });
 });

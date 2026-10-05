@@ -146,11 +146,24 @@ profile.
 
 `ListSummary` renders a host-provided collection of labels and values as a
 responsive summary. It does not read a data source or derive business counts.
-Without `onItemSelect`, it retains a semantic `<dl>` with `<dt>` labels and
-`<dd>` values. When the host supplies `onItemSelect`, each item becomes a
-native button in a labeled group; `selectedItemId` controls its `aria-pressed`
-state and `item.disabled` disables that button. The callback receives only the
-activated item's stable `id`; selection state remains host-owned.
+The default variant preserves the existing responsive summary cards. The
+`compact` variant renders single-column navigation cards with an icon, label,
+right-aligned value, optional description and optional action footer. Both
+variants use a semantic `<dl>` with `<dt>` labels and `<dd>` values when neither
+activation callback is supplied.
+
+When the host supplies `onItemSelect`, each item becomes a native button in a
+labeled group; `selectedItemId` controls its `aria-pressed` state and
+`item.disabled` disables that button. This remains a controlled selection
+interaction. `onItemActivate` also renders native buttons but represents
+navigation/activation and does not emit `aria-pressed`. If both callbacks are
+passed, `onItemSelect` takes precedence. Either callback receives only the
+activated item's stable `id`; the host owns all state and navigation.
+
+In the compact variant, `actionLabel` adds a footer with a decorative
+chevron; omitting it keeps the footer out of the card. The compact card does
+not use the desktop four-column token: hosts may set a grid class when a wider
+arrangement is appropriate.
 
 ```tsx
 import { ListSummary, type ListSummaryItem } from '@object-ui/layout';
@@ -173,7 +186,9 @@ also tune the geometry with `--ui-list-summary-gap`,
 `--ui-list-summary-columns` custom properties. The last token sets the desktop
 column count and defaults to four; narrow container breakpoints remain one and
 two columns. The responsive grid uses its own container width, so the desktop
-cards do not depend on a fixed card width.
+cards do not depend on a fixed card width. The compact variant has independent
+`--ui-list-summary-compact-*` tokens for its grid gap, card height/radius/
+padding, header/icon/label, value badge, description and action footer geometry.
 
 An item may supply `icon` as an icon name or React node. Icons are decorative
 and hidden from accessibility; the label remains the accessible text.
