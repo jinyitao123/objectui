@@ -169,6 +169,12 @@ also tune the geometry with `--ui-list-summary-gap`,
 The responsive grid uses its own container width, so four cards do not depend
 on a fixed card width.
 
+An item may supply `icon` as an icon name or React node. Icons are decorative
+and hidden from accessibility; the label remains the accessible text.
+Items without icons retain their existing label DOM. Optional icon geometry
+uses `--ui-list-summary-icon-size` (16px) and
+`--ui-list-summary-icon-gap` (0.5rem).
+
 ### StatusTabs
 
 `StatusTabs` is a controlled status filter strip. The host supplies the selected
@@ -252,10 +258,16 @@ geometry. The default group gap uses the existing `--ui-button-gap` token.
 Control state, queries, and permission checks stay in the host.
 
 Importing `@object-ui/layout` also registers `WorkspaceHeader`, `WorkspaceToolbar`,
-`ListSummary` and `StatusTabs` as presentation-only React Page runtime
+`ListSummary`, `StatusTabs` and `DateRangeControl` as presentation-only React Page runtime
 components. This is a code-only runtime capability: the names are not schema component keys or
 `@objectstack/spec` authoring props. The registration happens when the package
 loads, before a React Page builds its stable component scope.
+
+`DateRangeControl` is re-exported from `@object-ui/components` and registered
+without a data source. It accepts a complete date-only `value` and a controlled
+`onValueChange` callback; pages map the result to their own date filters.
+Its optional shortcuts use explicit `daysBack` offsets and host-owned labels.
+It is not registered in the schema component registry.
 
 > **Rendering a whole `page` node?** That belongs to `PageRenderer` in
 > `@object-ui/components`, which is what the `page` component key resolves to —

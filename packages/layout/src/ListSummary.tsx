@@ -1,11 +1,13 @@
 import React from 'react';
-import { cn } from '@object-ui/components';
+import { cn, LazyIcon } from '@object-ui/components';
 
 export interface ListSummaryItem {
   /** Stable key for this summary item. */
   id: string;
   /** Short label shown above the value. */
   label: string;
+  /** Optional decorative icon; labels remain the accessible name. */
+  icon?: string | React.ReactNode;
   /** Value already resolved by the host; this component never queries data. */
   value: React.ReactNode;
 }
@@ -55,7 +57,14 @@ export function ListSummary({
                 labelClassName,
               )}
             >
-              {item.label}
+              {item.icon != null ? (
+                <span data-slot="list-summary-label-row" className="flex min-w-0 items-center gap-[var(--ui-list-summary-icon-gap,0.5rem)]">
+                  <span data-slot="list-summary-label-icon" aria-hidden="true" className="inline-flex size-[var(--ui-list-summary-icon-size,16px)] shrink-0 items-center justify-center [&>svg]:size-full">
+                    {typeof item.icon === 'string' ? <LazyIcon name={item.icon} /> : item.icon}
+                  </span>
+                  <span className="min-w-0 break-words">{item.label}</span>
+                </span>
+              ) : item.label}
             </dt>
             <dd
               className={cn(

@@ -186,7 +186,7 @@ fileName)`. It does not read data, determine permissions, or use the separate
 async `ExportJob` lifecycle; the host performs the synchronous export.
 
 Importing `@object-ui/layout` registers `<WorkspaceHeader>`,
-`<WorkspaceToolbar>`, `<ListSummary>` and `<StatusTabs>` as presentation-only
+`<WorkspaceToolbar>`, `<ListSummary>`, `<StatusTabs>` and `<DateRangeControl>` as presentation-only
 runtime components. They receive no `dataSource`, add no schema type or Spec
 authoring props, and must be registered before the first React Page mounts.
 `WorkspaceHeader` uses the existing `PageHeader` React implementation and
@@ -196,6 +196,28 @@ supplies its current value, tab labels and counts, and the `onValueChange`
 handler that updates the page's filter state. `WorkspaceToolbar` places the
 host's search controls, filters, secondary actions and primary action into a
 responsive group; it does not own their state, queries or permission checks.
+
+`ListSummary` items may include a decorative `icon` name or React node.
+Labels and already resolved values remain host-owned.
+
+`DateRangeControl` emits a complete local `{ from, to }` date range or
+`undefined` on explicit clear. Its two-month calendar keeps the first selection
+as a draft; Escape discards that draft and returns focus to the trigger.
+The host supplies labels, optional bounds and explicit shortcut offsets:
+
+```jsx
+const [dates, setDates] = React.useState(undefined);
+<DateRangeControl
+  label="Receipt dates"
+  value={dates}
+  onValueChange={setDates}
+  quickRanges={[{ label: 'Previous seven days through today', daysBack: 7 }]}
+/>
+```
+
+These bounds are date-only local calendar strings. A host filtering timestamp
+fields must resolve day boundaries in its business timezone. The component
+does not turn offsets into dashboard presets, ObjectQL, permissions or actions.
 
 ```jsx
 function ContactsPage({ refreshContacts, openContactForm }) {

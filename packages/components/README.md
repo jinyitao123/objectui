@@ -140,6 +140,35 @@ import { DocumentSection, DocumentWorkspace } from '@object-ui/components';
 />
 ```
 
+## Controlled date ranges
+
+`DateRangeControl` is a code-authored React control built from the shared
+Calendar, Popover and profile Button. It accepts `value?: { from: string;
+to: string }` in local `YYYY-MM-DD` form and calls `onValueChange` only after
+two calendar selections complete a range. Closing an unfinished selection
+discards the draft; the clear action emits `undefined`. Reopening starts at
+the committed range's first month. `disabled`, `minDate` and `maxDate` apply
+to calendar selection and shortcuts.
+
+```tsx
+import { DateRangeControl } from '@object-ui/components';
+
+<DateRangeControl
+  value={range}
+  onValueChange={setRange}
+  label="Receipt dates"
+  quickRanges={[{ label: 'Previous week through today', daysBack: 7 }]}
+/>
+```
+
+`quickRanges` contains host-owned labels and calendar-day offsets. An offset
+of seven subtracts seven local calendar days and includes both endpoints;
+the default inclusive seven-day shortcut uses six. This control does not
+emit dashboard macros or query data. Trigger geometry uses profile Button
+tokens and `--ui-date-range-control-width` (260px),
+`--ui-date-range-control-icon-size` (14px) and
+`--ui-date-range-control-gap` (7px). There is no serialized schema type.
+
 ## Features
 
 - 🎨 **Tailwind Native** - Built entirely with Tailwind CSS utility classes

@@ -8,6 +8,7 @@ import { ListSummary } from '../ListSummary';
 import { PageHeader } from '../PageHeader';
 import { StatusTabs } from '../StatusTabs';
 import { WorkspaceToolbar } from '../WorkspaceToolbar';
+import { DateRangeControl } from '@object-ui/components';
 import '../index';
 
 describe('ListSummary', () => {
@@ -199,7 +200,7 @@ describe('PageHeader action slot', () => {
 describe('React Page runtime registration', () => {
   it('registers the composition components as data-source-free runtime capabilities', () => {
     const registrations = ComponentRegistry.getReactRuntimeComponents();
-    const registered = ['WorkspaceHeader', 'WorkspaceToolbar', 'ListSummary', 'StatusTabs'].map((name) =>
+    const registered = ['WorkspaceHeader', 'WorkspaceToolbar', 'ListSummary', 'StatusTabs', 'DateRangeControl'].map((name) =>
       registrations.find((entry) => entry.name === name),
     );
 
@@ -209,10 +210,12 @@ describe('React Page runtime registration', () => {
     expect(registrations.find(entry => entry.name === 'PageHeader')).toBeUndefined();
     expect(registered[0]?.component).toBe(PageHeader);
     expect(registered[1]?.component).toBe(WorkspaceToolbar);
+    expect(registered[4]?.component).toBe(DateRangeControl);
     expect(registered.every(Boolean)).toBe(true);
     expect(registered.every((entry) => entry?.injectDataSource === false)).toBe(true);
     expect(ComponentRegistry.getConfig('ListSummary')).toBeUndefined();
     expect(ComponentRegistry.getConfig('WorkspaceToolbar')).toBeUndefined();
     expect(ComponentRegistry.getConfig('StatusTabs')).toBeUndefined();
+    expect(ComponentRegistry.getConfig('DateRangeControl')).toBeUndefined();
   });
 });
