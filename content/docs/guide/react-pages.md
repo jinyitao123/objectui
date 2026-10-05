@@ -206,7 +206,9 @@ owns period selection, data, permissions and the unplanned-items list; the
 component places only events with an exact `resourceId` and `dateKey` match.
 Without `onEventClick`, event cards remain display-only. With it, each card is a
 keyboard-operable native button; `renderEvent` and `renderResource` customize
-presentation only.
+presentation only. The resource label column keeps its configured width while
+date columns flex into the remaining viewport space down to their minimum; a
+wider date range scrolls inside the same grid viewport.
 
 ```jsx
 <ResourceScheduleGrid
