@@ -10,6 +10,12 @@ retain the existing geometry. Authored column widths, row height/density,
 selection, inline editing and query behavior remain controlled by the schema.
 Typed cell renderers consume the same table font token through `@object-ui/fields`.
 
+When ListView owns an empty result, its existing React empty state is passed
+through ObjectGrid to the table's viewport slot. The authorized column headers
+remain visible without also showing the table's default empty copy. Standalone
+tables keep their default empty state; this host composition does not add a
+serialized ObjectGrid or DataTable key.
+
 ## Features
 
 - **Data grid** — enterprise-grade grid over one ObjectQL object

@@ -4,6 +4,7 @@ import '@testing-library/jest-dom/vitest';
 import { render, screen, within } from '@testing-library/react';
 import { ComponentRegistry } from '@object-ui/core';
 import { SchemaRenderer } from '@object-ui/react';
+import { DataEmptyState } from '../../../custom/view-states';
 import '../data-table';
 
 const EMPTY_ACTION_TYPE = 'test:data-table-empty-viewport-action';
@@ -11,7 +12,10 @@ ComponentRegistry.register(EMPTY_ACTION_TYPE, () => (
   <button type="button">Create a record</button>
 ));
 
-function renderEmptyTable(overrides: Record<string, unknown> = {}) {
+function renderEmptyTable(
+  overrides: Record<string, unknown> = {},
+  runtimeProps: Record<string, unknown> = {},
+) {
   return render(
     <SchemaRenderer
       schema={{
@@ -23,6 +27,7 @@ function renderEmptyTable(overrides: Record<string, unknown> = {}) {
         rowActions: false,
         ...overrides,
       } as never}
+      {...runtimeProps}
     />,
   );
 }
@@ -53,6 +58,34 @@ describe('data-table empty state placement', () => {
     const emptyState = screen.getByRole('status');
     expect(within(emptyState).getByRole('button', { name: 'Create a record' })).toBeInTheDocument();
     expect(screen.getAllByRole('button', { name: 'Create a record' })).toHaveLength(1);
+  });
+
+  it('uses one host-supplied empty state in the existing viewport and keeps the table header', () => {
+    const { container } = renderEmptyTable(
+      { emptyAction: { type: EMPTY_ACTION_TYPE } },
+      {
+        emptyStateContent: (
+          <DataEmptyState
+            data-testid="host-empty-state"
+            title="Nothing here yet"
+            action={<button type="button">Add record</button>}
+          />
+        ),
+      },
+    );
+
+    const table = screen.getByRole('table');
+    const viewport = container.querySelector('[data-slot="record-table-empty-viewport"]');
+
+    expect(screen.getByRole('columnheader', { name: 'Name' })).toBeInTheDocument();
+    expect(screen.getByTestId('host-empty-state')).toHaveAttribute('role', 'status');
+    expect(viewport).toContainElement(screen.getByTestId('host-empty-state'));
+    expect(table).not.toContainElement(screen.getByTestId('host-empty-state'));
+    expect(container.querySelectorAll('[data-slot="record-table-empty-viewport"]')).toHaveLength(1);
+    expect(screen.getAllByRole('status')).toHaveLength(1);
+    expect(screen.queryByText(/No results found/)).not.toBeInTheDocument();
+    expect(screen.getByRole('button', { name: 'Add record' })).toBeInTheDocument();
+    expect(screen.getByRole('button', { name: 'Create a record' })).toBeInTheDocument();
   });
 
   it('leaves empty content in the table cell when the parent owns scrolling', () => {

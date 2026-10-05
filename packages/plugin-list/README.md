@@ -252,6 +252,18 @@ const viewTypes: Record<NonNullable<ListViewSchema['viewType']>, string> = {
 export { view, richColumns, viewTypes };
 ```
 
+## Empty grid state
+
+An empty grid-backed ListView still renders its ObjectGrid after the list's
+loading and error states settle. The table therefore keeps the same field
+projection and visible column headers as a populated grid. `emptyState` keeps
+controlling the first-run or filtered copy, while `addRecord.enabled` and the
+host's `onAddRecord` callback continue to control the empty-state action. Until
+field permissions resolve, ListView shows that empty state without mounting
+column headers; once they resolve, the grid receives only the readable
+projection. The React node passed through the grid is internal composition,
+not an additional schema key.
+
 ## Page binding — `dataSource` (referencing a saved view by name)
 
 On a metadata page, a `list-view` component can bind its data through the spec's

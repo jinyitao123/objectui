@@ -503,6 +503,11 @@ export interface ObjectGridComponentProps extends ObjectGridExternalPaginationPr
   dataSource?: DataSource;
   className?: string;
   /**
+   * Internal ListView-to-grid React handoff for its existing empty-state node.
+   * This is runtime composition only and is never authored in metadata.
+   */
+  emptyStateContent?: React.ReactNode;
+  /**
    * [objectui#8674] Narrow ONE row's generic Edit / Delete entries — the layer
    * that lets a host withhold an operation the record itself cannot accept.
    *
@@ -1274,6 +1279,7 @@ function describeNonPositivePageSize(
 export const ObjectGrid: React.FC<ObjectGridComponentProps> = ({
   schema,
   dataSource,
+  emptyStateContent,
   onEdit,
   onDelete,
   rowOperations,
@@ -5543,7 +5549,7 @@ export const ObjectGrid: React.FC<ObjectGridComponentProps> = ({
   // BulkActionBar rendered *after* gridContent stays inside the flex column
   // and remains visible; otherwise an h-full table pushes the bar past the
   // bottom of an overflow-hidden ancestor and clips it.
-  const gridContent = isGrouped ? (
+  const gridContent = isGrouped && groups.length > 0 ? (
     <div className="flex flex-col flex-1 min-h-0">
       {/* The partial-grouping disclosure sits INSIDE the grouped region,
           directly above the first group header — not in the paging footer.
@@ -5571,7 +5577,7 @@ export const ObjectGrid: React.FC<ObjectGridComponentProps> = ({
   ) : (
     <div className="flex flex-col flex-1 min-h-0">
       <div className="flex flex-col flex-1 min-h-0">
-        <SchemaRenderer schema={dataTableSchema} />
+        <SchemaRenderer schema={dataTableSchema} emptyStateContent={emptyStateContent} />
       </div>
       {summaryFooter}
     </div>

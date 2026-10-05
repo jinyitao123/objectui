@@ -761,7 +761,14 @@ function columnsAreEquivalent(a: readonly unknown[], b: readonly unknown[]): boo
  * @param {DataTableSchema} props.schema - Table schema configuration
  * @returns {JSX.Element} Rendered data table component
  */
-const DataTableRenderer = ({ schema }: { schema: DataTableSchema }) => {
+const DataTableRenderer = ({
+  schema,
+  emptyStateContent: hostEmptyStateContent,
+}: {
+  schema: DataTableSchema;
+  /** Internal React-only slot; it is not a DataTableSchema metadata key. */
+  emptyStateContent?: React.ReactNode;
+}) => {
   const {
     caption,
     // Module-scope empties, never `[]` literals — see EMPTY_COLUMNS/EMPTY_ROWS.
@@ -2017,7 +2024,10 @@ const DataTableRenderer = ({ schema }: { schema: DataTableSchema }) => {
   // Preserve the truthy ternary and the SchemaNode bridge together: falsy
   // numeric actions must not leak a React "0", while truthy primitive actions
   // remain renderable (pinned in data-table-empty-action-primitive-node.test).
-  const emptyStateContent = (
+  const emptyActionContent = schema.emptyAction ? (
+    <SchemaRenderer schema={toRenderableSchema(schema.emptyAction)} />
+  ) : null;
+  const defaultEmptyStateContent = (
     <DataEmptyState
       className="min-h-0 gap-3 p-0 text-center text-muted-foreground"
       icon={<Search className="h-8 w-8 text-muted-foreground/50" />}
@@ -2028,11 +2038,19 @@ const DataTableRenderer = ({ schema }: { schema: DataTableSchema }) => {
         <p>{t('table.noResults')}</p>
         <p className="text-xs text-muted-foreground/50">{t('table.noResultsHint')}</p>
       </div>
-      {schema.emptyAction ? (
-        <SchemaRenderer schema={toRenderableSchema(schema.emptyAction)} />
-      ) : null}
+      {emptyActionContent}
     </DataEmptyState>
   );
+  // A parent such as ListView can supply its existing, fully composed React
+  // empty state without adding a schema key or duplicating the default copy.
+  // `emptyAction` remains an independent authored node on either path, so its
+  // normal SchemaRenderer visibility gate is unchanged.
+  const emptyStateContent = hostEmptyStateContent != null ? (
+    <>
+      {hostEmptyStateContent}
+      {emptyActionContent}
+    </>
+  ) : defaultEmptyStateContent;
 
   return (
     <div data-slot="record-table" className={`flex flex-col h-full gap-2 sm:gap-4 ${className || ''}`}>

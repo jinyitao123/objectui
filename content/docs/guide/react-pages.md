@@ -314,6 +314,12 @@ cell callbacks own their visible content and tooltips; the table does not add
 the raw backing value as a hover title to those cells. This introduces no second
 table schema or data-fetching service. Ordinary object lists continue to use
 `ListView`; callbacks belong to React source, not persisted JSON metadata.
+When an empty ListView grid has resolved field permissions, its authorized
+column headers stay visible beside the ListView's configured empty state. While
+the field policy is unresolved, the empty state remains visible without
+mounting headers. This is a React-only composition across ListView, ObjectGrid
+and the existing table viewport; it adds no metadata key, and the table's
+`emptyAction` remains independently gated by `visibleWhen`.
 For a direct `data-table` schema, a column may declare `fixed: 'left'` or
 `fixed: 'right'`; the renderer pins its header and body cells using offsets
 measured from the rendered column widths, so multiple fixed columns do not

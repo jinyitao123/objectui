@@ -61,14 +61,16 @@ const OBJECT = 'opportunity';
 
 let lastGridProps: any = null;
 
-function makeDataSource() {
+type OpportunityRow = { id: string; name: string; amount: number };
+
+function makeDataSource(rows: OpportunityRow[] = [
+  { id: 'o-1', name: 'Acme expansion', amount: 1000 },
+  { id: 'o-2', name: 'Globex renewal', amount: 2000 },
+]) {
   return {
     find: vi.fn(async () => ({
-      data: [
-        { id: 'o-1', name: 'Acme expansion', amount: 1000 },
-        { id: 'o-2', name: 'Globex renewal', amount: 2000 },
-      ],
-      total: 2,
+      data: rows,
+      total: rows.length,
       hasMore: false,
     })),
     findOne: vi.fn(),
@@ -116,8 +118,12 @@ afterEach(() => { cleanup(); lastGridProps = null; });
  */
 const gridSchema = () => lastGridProps?.schema;
 
-async function renderList(schema: ListViewSchema, wrap?: (el: React.ReactElement) => React.ReactElement) {
-  const ds = makeDataSource();
+async function renderList(
+  schema: ListViewSchema,
+  wrap?: (el: React.ReactElement) => React.ReactElement,
+  rows?: OpportunityRow[],
+) {
+  const ds = makeDataSource(rows);
   const inner = <ListView schema={schema} dataSource={ds} />;
   render(
     <SchemaRendererProvider dataSource={ds}>{wrap ? wrap(inner) : inner}</SchemaRendererProvider>,
@@ -190,5 +196,39 @@ describe('ListView → object-grid: the unauthored column projection (#6598)', (
     expect(gridSchema()).toBeTruthy();
     expect(gridSchema().columns).toEqual([]);
     expect(gridSchema().fields).toEqual([]);
+  });
+
+  it('hands an empty grid only its readable columns after field permissions resolve', async () => {
+    const roles: RoleDefinition[] = [{ name: 'restricted', label: 'Restricted' }];
+    const permissions: ObjectPermissionConfig[] = [
+      {
+        object: OBJECT,
+        roles: {
+          restricted: {
+            actions: ['read'],
+            fieldPermissions: [
+              { field: 'name', read: false, write: false },
+              { field: 'amount', read: true, write: false },
+            ],
+          },
+        },
+      },
+    ];
+
+    await renderList(
+      listSchema({ columns: ['name', 'amount'] }),
+      (el) => (
+        <PermissionProvider roles={roles} permissions={permissions} userRoles={['restricted']}>
+          {el}
+        </PermissionProvider>
+      ),
+      [],
+    );
+
+    expect(gridSchema()).toBeTruthy();
+    expect(gridSchema().columns).toEqual(['amount']);
+    expect(gridSchema().fields).toEqual(['amount']);
+    expect(lastGridProps.data).toEqual([]);
+    expect(React.isValidElement(lastGridProps.emptyStateContent)).toBe(true);
   });
 });

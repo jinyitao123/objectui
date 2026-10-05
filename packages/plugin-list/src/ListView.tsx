@@ -3900,6 +3900,60 @@ export const ListView = React.forwardRef<ListViewHandle, ListViewProps>(({
     gridSchema.showPagination !== false &&
     !gridSchema.grouping?.fields?.length;
 
+  // Keep the ListView's established copy and add-record action when an empty
+  // grid is rendered by ObjectGrid. This is a React-only handoff: the node is
+  // never added to the persisted ListView schema or its metadata projection.
+  const gridEmptyStateContent = currentView === 'grid' && data.length === 0
+    ? (() => {
+        const iconName = schema.emptyState?.icon;
+        // objectui#5935: normalisation through the ONE seam. The `Inbox`
+        // fallback remains this surface's decision for an empty list.
+        const ResolvedIcon: LucideIcon = resolveIcon(iconName) ?? Inbox;
+        const hasBaseFilter =
+          Array.isArray(schema.filter)
+            ? schema.filter.length > 0
+            : !!schema.filter && typeof schema.filter === 'object'
+              ? Object.keys(schema.filter).length > 0
+              : false;
+        const hasActiveQuery =
+          !!(searchTerm && searchTerm.trim()) ||
+          hasBaseFilter ||
+          (Array.isArray(userFilterConditions) && userFilterConditions.length > 0) ||
+          (Array.isArray(currentFilters?.conditions) && currentFilters.conditions.length > 0);
+        const title = (typeof schema.emptyState?.title === 'string' ? schema.emptyState.title : undefined)
+          ?? (hasActiveQuery ? t('list.noMatches') : t('list.firstRunTitle'));
+        const description = (typeof schema.emptyState?.message === 'string' ? schema.emptyState.message : undefined)
+          ?? (hasActiveQuery ? t('list.noMatchesMessage') : t('list.firstRunMessage'));
+
+        return (
+          <DataEmptyState
+            data-testid="empty-state"
+            className="h-full min-h-[200px] p-8 gap-1 [&>h3]:text-lg [&>h3]:font-medium [&>h3]:text-foreground [&>p]:max-w-md"
+            icon={<ResolvedIcon className="h-12 w-12 text-muted-foreground/50" />}
+            iconWrapperClassName="mb-3"
+            title={title}
+            description={description}
+            action={toolbarFlags.showAddRecord ? (
+              <Button
+                variant="default"
+                size="sm"
+                data-testid="empty-state-add-record"
+                onClick={() => props.onAddRecord?.()}
+              >
+                <Plus className="h-4 w-4 mr-1.5" />
+                {t('list.addRecord')}
+              </Button>
+            ) : undefined}
+          />
+        );
+      })()
+    : undefined;
+
+  // A not-yet-resolved field policy is not permission to reveal column names.
+  // Keep the familiar empty state visible until the effective projection can
+  // be handed to ObjectGrid; the non-empty and non-grid paths are unchanged.
+  const canRenderEmptyGridHeaders = perms.isLoaded;
+
   return (
     <div
       ref={pullRef}
@@ -4702,69 +4756,13 @@ export const ListView = React.forwardRef<ListViewHandle, ListViewProps>(({
               />
             ))}
           </div>
-        ) : !loading && data.length === 0 && currentView === 'grid' ? (
-          (() => {
-            const iconName = schema.emptyState?.icon;
-            // objectui#5935: normalisation through the ONE seam. This site had
-            // its own inline `split('-')` and no rename map, so `home` and every
-            // snake_case spelling fell through to `Inbox` here while resolving
-            // elsewhere. ⛔ The `Inbox` fallback itself stays at this call site
-            // — an empty state always shows a glyph, and that is this surface's
-            // decision, not the seam's (maintainer ruling 2026-09-03, option C).
-            const ResolvedIcon: LucideIcon = resolveIcon(iconName) ?? Inbox;
-            // Distinguish "filtered/searched to empty" from "truly empty
-            // (first run)". A new user with no filters shouldn't be told to
-            // "adjust your filters" — they should be invited to create.
-            //
-            // The VIEW's own `filter` counts as an active query too
-            // (objectui#4155). It used to be excluded, so a view that returns
-            // nothing *because it is filtered* — the declared `status not_in
-            // [archived]`, or a stale stored condition — rendered the first-run
-            // copy ("no data yet / create your first record") over an object
-            // full of records. That reads as data loss or a permission problem
-            // and sends triage away from the view layer, which is exactly what
-            // this issue reported.
-            const hasBaseFilter =
-              Array.isArray(schema.filter)
-                ? schema.filter.length > 0
-                : !!schema.filter && typeof schema.filter === 'object'
-                  ? Object.keys(schema.filter).length > 0
-                  : false;
-            const hasActiveQuery =
-              !!(searchTerm && searchTerm.trim()) ||
-              hasBaseFilter ||
-              (Array.isArray(userFilterConditions) && userFilterConditions.length > 0) ||
-              (Array.isArray(currentFilters?.conditions) && currentFilters.conditions.length > 0);
-            const title = (typeof schema.emptyState?.title === 'string' ? schema.emptyState.title : undefined)
-              ?? (hasActiveQuery ? t('list.noMatches') : t('list.firstRunTitle'));
-            const description = (typeof schema.emptyState?.message === 'string' ? schema.emptyState.message : undefined)
-              ?? (hasActiveQuery ? t('list.noMatchesMessage') : t('list.firstRunMessage'));
-            return (
-              <DataEmptyState
-                data-testid="empty-state"
-                className="h-full min-h-[200px] p-8 gap-1 [&>h3]:text-lg [&>h3]:font-medium [&>h3]:text-foreground [&>p]:max-w-md"
-                icon={<ResolvedIcon className="h-12 w-12 text-muted-foreground/50" />}
-                iconWrapperClassName="mb-3"
-                title={title}
-                description={description}
-                action={toolbarFlags.showAddRecord ? (
-                  <Button
-                    variant="default"
-                    size="sm"
-                    data-testid="empty-state-add-record"
-                    onClick={() => props.onAddRecord?.()}
-                  >
-                    <Plus className="h-4 w-4 mr-1.5" />
-                    {t('list.addRecord')}
-                  </Button>
-                ) : undefined}
-              />
-            );
-          })()
+        ) : !loading && data.length === 0 && currentView === 'grid' && !canRenderEmptyGridHeaders ? (
+          gridEmptyStateContent
         ) : (
           <SchemaRenderer
             schema={viewComponentSchema}
             {...props}
+            {...(gridEmptyStateContent ? { emptyStateContent: gridEmptyStateContent } : {})}
             {...(ganttOwnsData
               // Withheld, not dropped. See `ganttOwnsData` above for why this
               // branch cannot be observed at the chart today (objectui#7222)
