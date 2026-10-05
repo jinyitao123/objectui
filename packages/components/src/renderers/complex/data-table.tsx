@@ -13,7 +13,7 @@ import { resolveIcon } from '../action/resolve-icon';
 import { useGridFieldAuthoring } from '../../context/gridFieldAuthoring';
 import { describeIgnoredBind, describeNonArrayData } from './dataTableBindDiagnostic';
 import { ComponentRegistry, compareSortValues, evalRowPredicate, formatDate, formatDateTime, getSortValue } from '@object-ui/core';
-import type { DataTableSchema, TableSortItem, TableColumnType } from '@object-ui/types';
+import type { DataTableSchema, TableColumn, TableSortItem, TableColumnType } from '@object-ui/types';
 import type { SortDirection } from '@objectstack/spec/shared';
 import { SchemaRenderer, toRenderableSchema, useCapabilityGate, useRowPredicate, usePredicateScope } from '@object-ui/react';
 import { createSafeTranslation } from '@object-ui/i18n';
@@ -657,6 +657,44 @@ const tableHeaderGeometryClass =
 const tableCellGeometryClass =
   'px-[var(--ui-table-cell-padding-x,1rem)] py-[var(--ui-table-cell-padding-y,1rem)] text-[length:var(--ui-table-font-size,inherit)] leading-[var(--ui-table-cell-line-height,inherit)]';
 
+type ColumnPinSide = 'left' | 'right' | null;
+type MeasuredStickyOffsets = {
+  left: Array<number | undefined>;
+  right: Array<number | undefined>;
+};
+
+/** Keep the historical className pin channel while making `fixed` canonical. */
+function hasLegacyRightPin(column: Pick<TableColumn, 'className' | 'cellClassName'>): boolean {
+  return [column.className, column.cellClassName].some((className) =>
+    typeof className === 'string'
+      && /\bsticky\b/.test(className)
+      && /\bright-0\b/.test(className)
+  );
+}
+
+function resolveColumnPinSide(
+  column: Pick<TableColumn, 'fixed' | 'className' | 'cellClassName'>,
+  index: number,
+  frozenColumns: number,
+): ColumnPinSide {
+  if (column.fixed) return column.fixed;
+  if (hasLegacyRightPin(column)) return 'right';
+  return frozenColumns > 0 && index < frozenColumns ? 'left' : null;
+}
+
+function stickyOffsetsEqual(
+  previous: MeasuredStickyOffsets | null,
+  next: MeasuredStickyOffsets,
+): boolean {
+  if (!previous || previous.left.length !== next.left.length || previous.right.length !== next.right.length) {
+    return false;
+  }
+  const sameSide = (a: Array<number | undefined>, b: Array<number | undefined>) =>
+    a.every((value, index) => value === b[index]
+      || (value !== undefined && b[index] !== undefined && Math.abs(value - b[index]) < 0.5));
+  return sameSide(previous.left, next.left) && sameSide(previous.right, next.right);
+}
+
 /**
  * Value-equality over two normalized column lists (objectui#4618).
  *
@@ -986,51 +1024,99 @@ const DataTableRenderer = ({ schema }: { schema: DataTableSchema }) => {
   const [columns, setColumns] = useState(initialColumns);
   const [columnWidths, setColumnWidths] = useState<Record<string, number>>({});
 
-  // Sticky-left offsets for the leading pinned cells (checkbox, row number,
-  // frozen data columns), measured from the REAL rendered header-cell widths.
-  // The table's auto layout does not guarantee the utility columns their
-  // declared `w-10`: the checkbox column can collapse to its ~28px min-content
-  // while the row-number column stretches past 40px. Hardcoded 40px offsets
-  // then leave an uncovered strip between pinned cells where horizontally
-  // scrolled content shows through (titanwind-ehr#418), so pin each cell at
-  // the cumulative measured width of the cells before it instead.
+  const columnPinSides = columns.map((column: TableColumn, index: number) =>
+    resolveColumnPinSide(column, index, frozenColumns)
+  );
+  const columnPinSignature = columnPinSides.map((side) => side || '-').join('|');
+  const estimatedColumnWidth = (index: number) => {
+    const column = columns[index];
+    const width = columnWidths[column.accessorKey] || column.width || autoSizedWidths[column.accessorKey];
+    return typeof width === 'number' ? width : width ? parseInt(String(width), 10) || 150 : 150;
+  };
+  const estimatedLeftOffset = (index: number) => {
+    const utilityWidth = frozenColumns > 0
+      ? (selectable ? 40 : 0) + (showRowNumbers ? 40 : 0)
+      : 0;
+    return columnPinSides.slice(0, index).reduce(
+      (total, side, pinnedIndex) => total + (side === 'left' ? estimatedColumnWidth(pinnedIndex) : 0),
+      utilityWidth,
+    );
+  };
+  const estimatedRightOffset = (index: number) =>
+    columnPinSides.slice(index + 1).reduce(
+      (total, side, offsetIndex) => total + (side === 'right' ? estimatedColumnWidth(index + 1 + offsetIndex) : 0),
+      0,
+    );
+  const lastLeftPinnedColumnIndex = columnPinSides.lastIndexOf('left');
+
+  // Pin offsets come from the actual header cells, not declared widths: table
+  // auto-layout can shrink or grow a column after the schema is parsed. The
+  // checkbox/row-number prefix still follows `frozenColumns`; explicit fixed
+  // columns and legacy right-pinned classes join the same measured offset pass.
   const headerRowRef = useRef<HTMLTableRowElement | null>(null);
-  const [measuredStickyLefts, setMeasuredStickyLefts] = useState<number[] | null>(null);
-  const stickyLeadingCount = frozenColumns > 0
-    ? (selectable ? 1 : 0) + (showRowNumbers ? 1 : 0) + Math.min(frozenColumns, columns.length)
-    : 0;
+  const [measuredStickyOffsets, setMeasuredStickyOffsets] = useState<MeasuredStickyOffsets | null>(null);
+  const utilityColumnCount = (selectable ? 1 : 0) + (showRowNumbers ? 1 : 0);
 
   useLayoutEffect(() => {
     const headerRow = headerRowRef.current;
-    if (stickyLeadingCount === 0 || !headerRow) {
-      setMeasuredStickyLefts(null);
+    if (!headerRow) {
+      setMeasuredStickyOffsets(null);
       return;
     }
+
+    const headerCells = Array.from(headerRow.children) as HTMLElement[];
+    const isPinnedLeftHeader = headerCells.map((_, index) => {
+      if (index < utilityColumnCount) return frozenColumns > 0;
+      const columnIndex = index - utilityColumnCount;
+      return columnIndex < columnPinSides.length && columnPinSides[columnIndex] === 'left';
+    });
+    const isPinnedRightHeader = headerCells.map((_, index) => {
+      const columnIndex = index - utilityColumnCount;
+      return columnIndex >= 0
+        && columnIndex < columnPinSides.length
+        && columnPinSides[columnIndex] === 'right';
+    });
+
+    if (!isPinnedLeftHeader.some(Boolean) && !isPinnedRightHeader.some(Boolean)) {
+      setMeasuredStickyOffsets(null);
+      return;
+    }
+
     const measure = () => {
-      const cells = Array.from(headerRow.children).slice(0, stickyLeadingCount) as HTMLElement[];
-      let acc = 0;
-      const lefts = cells.map((cell) => {
-        const left = acc;
-        acc += cell.getBoundingClientRect().width;
-        return left;
+      const left = Array<number | undefined>(headerCells.length).fill(undefined);
+      const right = Array<number | undefined>(headerCells.length).fill(undefined);
+
+      let leftOffset = 0;
+      headerCells.forEach((cell, index) => {
+        if (!isPinnedLeftHeader[index]) return;
+        left[index] = leftOffset;
+        leftOffset += cell.getBoundingClientRect().width;
       });
-      setMeasuredStickyLefts((prev) =>
-        prev && prev.length === lefts.length && prev.every((v, i) => Math.abs(v - lefts[i]) < 0.5)
-          ? prev
-          : lefts
+
+      let rightOffset = 0;
+      for (let index = headerCells.length - 1; index >= 0; index -= 1) {
+        if (!isPinnedRightHeader[index]) continue;
+        right[index] = rightOffset;
+        rightOffset += headerCells[index].getBoundingClientRect().width;
+      }
+
+      const next = { left, right };
+      setMeasuredStickyOffsets((previous) =>
+        stickyOffsetsEqual(previous, next) ? previous : next
       );
     };
+
     measure();
     if (typeof ResizeObserver === 'undefined') return;
     // Header-cell widths ARE the column widths, and they change outside React
     // (column resize drag, density toggle, content growth), so re-measure on
-    // any of the observed cells resizing.
+    // any pinned cell resizing; only pinned widths contribute to an offset.
     const observer = new ResizeObserver(measure);
-    Array.from(headerRow.children)
-      .slice(0, stickyLeadingCount)
-      .forEach((cell) => observer.observe(cell));
+    headerCells.forEach((cell, index) => {
+      if (isPinnedLeftHeader[index] || isPinnedRightHeader[index]) observer.observe(cell);
+    });
     return () => observer.disconnect();
-  }, [stickyLeadingCount, columns]);
+  }, [columnPinSignature, columns, frozenColumns, selectable, showRowNumbers, utilityColumnCount]);
   const [draggedColumn, setDraggedColumn] = useState<number | null>(null);
   const [dragOverColumn, setDragOverColumn] = useState<number | null>(null);
   const [editingCell, setEditingCell] = useState<{ rowIndex: number; columnKey: string } | null>(null);
@@ -2064,7 +2150,7 @@ const DataTableRenderer = ({ schema }: { schema: DataTableSchema }) => {
                 </TableHead>
               )}
               {showRowNumbers && (
-                <TableHead className={cn(tableHeaderGeometryClass, "w-10 bg-background text-center px-3", frozenColumns > 0 && "sticky z-20")} style={frozenColumns > 0 ? { left: measuredStickyLefts?.[selectable ? 1 : 0] ?? (selectable ? 40 : 0) } : undefined}>
+                <TableHead className={cn(tableHeaderGeometryClass, "w-10 bg-background text-center px-3", frozenColumns > 0 && "sticky z-20")} style={frozenColumns > 0 ? { left: measuredStickyOffsets?.left[selectable ? 1 : 0] ?? (selectable ? 40 : 0) } : undefined}>
                   <span className="text-[length:var(--ui-table-header-font-size,0.75rem)] leading-[var(--ui-table-header-line-height,1rem)] font-[weight:var(--ui-table-header-font-weight,500)] text-muted-foreground">#</span>
                 </TableHead>
               )}
@@ -2078,25 +2164,15 @@ const DataTableRenderer = ({ schema }: { schema: DataTableSchema }) => {
                   : (columnWidths[col.accessorKey] || col.width || autoSizedWidths[col.accessorKey]);
                 const isDragging = draggedColumn === index;
                 const isDragOver = dragOverColumn === index;
-                const isFrozen = frozenColumns > 0 && index < frozenColumns;
-                // Right-pinned columns (e.g. the auto-pinned row-actions column)
-                // carry their sticky class via `col.className`. The header cell
-                // otherwise appends a `relative` position utility below, which —
-                // because `cn` is tailwind-merge — would win over that `sticky`
-                // and let the header scroll away while its body cells stay pinned.
-                // Detect it here so we skip `relative` and re-assert the pin.
-                const isPinnedRight = typeof col.className === 'string'
-                  && /\bsticky\b/.test(col.className)
-                  && /\bright-0\b/.test(col.className);
-                const frozenOffset = isFrozen
-                  ? measuredStickyLefts?.[(selectable ? 1 : 0) + (showRowNumbers ? 1 : 0) + index]
-                    ?? columns.slice(0, index).reduce((sum, c, i) => {
-                      if (i < frozenColumns) {
-                        const w = columnWidths[c.accessorKey] || c.width || autoSizedWidths[c.accessorKey];
-                        return sum + (typeof w === 'number' ? w : w ? parseInt(String(w), 10) || 150 : 150);
-                      }
-                      return sum;
-                    }, (selectable ? 40 : 0) + (showRowNumbers ? 40 : 0))
+                const pinSide = columnPinSides[index];
+                const isPinnedLeft = pinSide === 'left';
+                const isPinnedRight = pinSide === 'right';
+                const headerCellIndex = utilityColumnCount + index;
+                const frozenOffset = isPinnedLeft
+                  ? measuredStickyOffsets?.left[headerCellIndex] ?? estimatedLeftOffset(index)
+                  : undefined;
+                const pinnedRightOffset = isPinnedRight
+                  ? measuredStickyOffsets?.right[headerCellIndex] ?? estimatedRightOffset(index)
                   : undefined;
                 
                 return (
@@ -2112,20 +2188,21 @@ const DataTableRenderer = ({ schema }: { schema: DataTableSchema }) => {
                       col.align === 'center' && 'text-center',
                       isFit && 'whitespace-nowrap',
                       'group bg-background',
-                      // `relative` anchors the resize handle; a sticky cell is
-                      // already its own positioning context, so only add it when
-                      // the column isn't right-pinned (else it clobbers sticky).
-                      !isPinnedRight && 'relative',
-                      // Re-assert the pin AFTER col.className so tailwind-merge
-                      // keeps it, and bump above body pinned cells (z-10).
+                      // `relative` anchors the resize handle; a pinned cell is
+                      // already its own positioning context, so do not let it
+                      // clobber either fixed side.
+                      !isPinnedLeft && !isPinnedRight && 'relative',
+                      // Keep pin utilities in this renderer so schema-authored
+                      // fixed columns do not depend on a host Tailwind scan.
                       isPinnedRight && 'sticky right-0 z-20',
-                      isFrozen && 'sticky z-20',
-                      isFrozen && index === frozenColumns - 1 && 'border-r-2 border-border shadow-[2px_0_4px_-2px_rgba(0,0,0,0.1)]',
+                      isPinnedLeft && 'sticky z-20',
+                      isPinnedLeft && index === lastLeftPinnedColumnIndex && 'border-r-2 border-border shadow-[2px_0_4px_-2px_rgba(0,0,0,0.1)]',
                     )}
                     style={{ 
                       width: columnWidth,
                       minWidth: columnWidth,
-                      ...(isFrozen && { left: frozenOffset }),
+                      ...(isPinnedLeft && { left: frozenOffset }),
+                      ...(isPinnedRight && { right: pinnedRightOffset }),
                     }}
                     draggable={reorderEnabled}
                     onDragStart={(e) => handleColumnDragStart(e, index)}
@@ -2295,7 +2372,7 @@ const DataTableRenderer = ({ schema }: { schema: DataTableSchema }) => {
                         </TableCell>
                       )}
                       {showRowNumbers && (
-                        <TableCell className={cn("text-center w-10 relative", cellClassName, frozenColumns > 0 && "sticky z-10 bg-background")} style={frozenColumns > 0 ? { left: measuredStickyLefts?.[selectable ? 1 : 0] ?? (selectable ? 40 : 0) } : undefined}>
+                        <TableCell className={cn("text-center w-10 relative", cellClassName, frozenColumns > 0 && "sticky z-10 bg-background")} style={frozenColumns > 0 ? { left: measuredStickyOffsets?.left[selectable ? 1 : 0] ?? (selectable ? 40 : 0) } : undefined}>
                           <span className={cn("text-xs text-muted-foreground tabular-nums select-none", !selectable && schema.onRowClick && "group-hover/row:invisible")}>
                             {globalIndex + 1}
                           </span>
@@ -2372,16 +2449,15 @@ const DataTableRenderer = ({ schema }: { schema: DataTableSchema }) => {
                         const cellValue = hasPendingChange ? rowChanges[col.accessorKey] : originalValue;
                         const isEditing = editingCell?.rowIndex === rowIndex && editingCell?.columnKey === col.accessorKey;
                         const isEditable = editable && col.editable !== false;
-                        const isFrozen = frozenColumns > 0 && colIndex < frozenColumns;
-                        const frozenOffset = isFrozen
-                          ? measuredStickyLefts?.[(selectable ? 1 : 0) + (showRowNumbers ? 1 : 0) + colIndex]
-                            ?? columns.slice(0, colIndex).reduce((sum, c, i) => {
-                              if (i < frozenColumns) {
-                                const w = columnWidths[c.accessorKey] || c.width || autoSizedWidths[c.accessorKey];
-                                return sum + (typeof w === 'number' ? w : w ? parseInt(String(w), 10) || 150 : 150);
-                              }
-                              return sum;
-                            }, (selectable ? 40 : 0) + (showRowNumbers ? 40 : 0))
+                        const pinSide = columnPinSides[colIndex];
+                        const isPinnedLeft = pinSide === 'left';
+                        const isPinnedRight = pinSide === 'right';
+                        const headerCellIndex = utilityColumnCount + colIndex;
+                        const frozenOffset = isPinnedLeft
+                          ? measuredStickyOffsets?.left[headerCellIndex] ?? estimatedLeftOffset(colIndex)
+                          : undefined;
+                        const pinnedRightOffset = isPinnedRight
+                          ? measuredStickyOffsets?.right[headerCellIndex] ?? estimatedRightOffset(colIndex)
                           : undefined;
                         
                         return (
@@ -2398,8 +2474,9 @@ const DataTableRenderer = ({ schema }: { schema: DataTableSchema }) => {
                               isFit ? 'whitespace-nowrap' : 'overflow-hidden',
                               isEditable && !isEditing && "cursor-text hover:bg-muted/50",
                               hasPendingChange && "font-semibold text-amber-700 dark:text-amber-400",
-                              isFrozen && 'sticky z-10 bg-background',
-                              isFrozen && colIndex === frozenColumns - 1 && 'border-r-2 border-border shadow-[2px_0_4px_-2px_rgba(0,0,0,0.1)]',
+                              isPinnedLeft && 'sticky z-10 bg-background',
+                              isPinnedRight && 'sticky right-0 z-10 bg-background',
+                              isPinnedLeft && colIndex === lastLeftPinnedColumnIndex && 'border-r-2 border-border shadow-[2px_0_4px_-2px_rgba(0,0,0,0.1)]',
                             )}
                             style={{
                               width: columnWidth,
@@ -2408,7 +2485,8 @@ const DataTableRenderer = ({ schema }: { schema: DataTableSchema }) => {
                               // other auto columns absorb the remaining space.
                               minWidth: isFit ? undefined : columnWidth,
                               maxWidth: isFit ? undefined : columnWidth,
-                              ...(isFrozen && { left: frozenOffset }),
+                              ...(isPinnedLeft && { left: frozenOffset }),
+                              ...(isPinnedRight && { right: pinnedRightOffset }),
                             }}
                             onDoubleClick={(e) => {
                               // Entering edit mode must NOT also fire the row's

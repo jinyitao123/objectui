@@ -314,6 +314,12 @@ cell callbacks own their visible content and tooltips; the table does not add
 the raw backing value as a hover title to those cells. This introduces no second
 table schema or data-fetching service. Ordinary object lists continue to use
 `ListView`; callbacks belong to React source, not persisted JSON metadata.
+For a direct `data-table` schema, a column may declare `fixed: 'left'` or
+`fixed: 'right'`; the renderer pins its header and body cells using offsets
+measured from the rendered column widths, so multiple fixed columns do not
+overlap. `frozenColumns` retains its separate leading-column behavior, including
+the selection and row-number columns. Existing right-pin classes on
+`className`/`cellClassName` remain a compatibility path.
 The existing table accepts host-scoped geometry variables for its model-column
 headers and data cells: `--ui-table-header-height`,
 `--ui-table-header-padding-x`, `--ui-table-header-padding-y`,

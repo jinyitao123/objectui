@@ -35,6 +35,14 @@ keeps empty content in its table row instead of guessing the parent's viewport.
 Hosts that can produce empty data in this shared-scroll mode must place any
 viewport-centered empty content at their own scroll owner.
 
+Interactive `data-table` columns may set `fixed: 'left'` or `fixed: 'right'`.
+The renderer pins both header and body cells and measures rendered header widths
+so multiple fixed columns on the same side receive cumulative offsets. The
+existing `frozenColumns` option continues to pin the leading data columns and
+their selection/row-number utility columns. Existing right-pin declarations in
+column `className`/`cellClassName` remain supported; the static `table` renderer
+does not accept `fixed`.
+
 `CompositeDialog` accepts an optional React `sidebar` and `sidebarLabel` for a
 profile or document summary. On desktop the summary precedes the form in a
 236px column (`--ui-dialog-sidebar-width`); narrow dialogs stack it above the
