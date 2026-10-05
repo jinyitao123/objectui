@@ -92,13 +92,13 @@ The built-in `TagsField` translates its chip-removal button with
 `fields.tags.remove`, interpolating the tag value. Read-only fields continue to
 display the tags without edit controls.
 
-## Label-stored text selects
+## Label-stored text pickers
 
-Use the registered `declared-label-select` widget when a field must remain
-`text` while offering a fixed dropdown whose selected value is the exact,
-authored option label. The machine `value` identifies the translation key; the
-widget translates the display label by the form's object and field name, but
-stores the original label string regardless of the active locale.
+Use one of the registered label-stored widgets when a field must remain `text`
+while offering declared choices whose selected value is the authored option
+label. The machine `value` identifies the translation key; the widget translates
+the display label by the form's object and field name, but stores the original
+label string regardless of the active locale.
 
 ```ts
 Field.text({
@@ -111,14 +111,22 @@ Field.text({
 });
 ```
 
-The widget requires `type: 'text'`, non-empty options, unique machine values,
-and unique plain-string labels. It refuses repeated labels (including labels
-that collide after translation), `I18nLabel` objects, option `visibleWhen`, and
-option-level defaults. `visibleWhen` and option defaults are validated and
-applied against machine values by ObjectStack, while this widget stores labels;
-accepting them would make the display and write paths disagree. Use a normal
-`select` field when machine option values should be stored and enforced by the
-server.
+For a longer or searchable choice list, use `declared-label-combobox` with the
+same `Field.text` metadata. It filters the translated labels and stores the
+original option label. An empty or omitted `options` list is allowed and shows
+the Combobox empty state. It does not create new choices; text values outside
+the list remain valid under ObjectStack's normal text validation.
+
+Use `declared-label-select` for the existing non-searchable dropdown. It still
+requires at least one option and retains its existing behavior.
+
+Both widgets require `type: 'text'`, unique machine values, and unique
+plain-string labels. They refuse repeated labels (including labels that collide
+after translation), `I18nLabel` objects, option `visibleWhen`, and option-level
+defaults. `visibleWhen` and option defaults are validated and applied against
+machine values by ObjectStack, while these widgets store labels; accepting
+them would make the display and write paths disagree. Use a normal `select`
+field when machine option values should be stored and enforced by the server.
 
 If a record already contains text absent from the declared labels, the widget
 shows it as an “Existing value” choice rather than clearing it on mount. This

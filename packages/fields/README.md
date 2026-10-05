@@ -102,6 +102,16 @@ Supported types out of the box:
 the tag value supplied as `{{tag}}`. The locale packs carry this key so a
 Chinese form does not announce an English “Remove” button.
 
+## Label-stored text pickers
+
+Text fields can use `declared-label-select` for a compact fixed dropdown or
+`declared-label-combobox` when users need to search the declared choices. Both
+resolve translated labels from the option's machine value and store the
+authored label. The searchable alias also renders an empty state when its
+declared option list is empty. Neither widget changes ObjectStack's normal text
+validation. See the [fields guide](../../content/docs/guide/fields.md#label-stored-text-pickers)
+for the metadata shape and behavior.
+
 ### `type="number"` widgets: what is announced and what is not
 
 `NumberField`, `CurrencyField`, `PercentField` and `GeolocationField` all render
@@ -280,7 +290,7 @@ labels with unique machine values and unique labels, including after
 translation. `I18nLabel` objects, repeated labels, option `visibleWhen`, and
 option-level defaults are refused: the ObjectStack write path still treats the
 field as text and cannot enforce those select semantics. This is a UI control,
-not server-side membership validation. See the [fields guide](../../content/docs/guide/fields.md#label-stored-text-selects).
+not server-side membership validation. See the [fields guide](../../content/docs/guide/fields.md#label-stored-text-pickers).
 
 The named React export `DeclaredLabelSelectField` uses the same lazy loader as
 the widget registry. Direct React consumers render it inside `Suspense`; it

@@ -3628,6 +3628,7 @@ const fieldWidgetMap = {
   'select': () => import('./widgets/SelectField.js').then(m => ({ default: m.SelectField })),
   'choice-cards': () => import('./widgets/ChoiceCardsField.js').then(m => ({ default: m.ChoiceCardsField })),
   'declared-label-select': () => import('./widgets/DeclaredLabelSelectField.js').then(m => ({ default: m.DeclaredLabelSelectField })),
+  'declared-label-combobox': () => import('./widgets/DeclaredLabelComboboxField.js').then(m => ({ default: m.DeclaredLabelComboboxField })),
   'date': () => import('./widgets/DateField.js').then(m => ({ default: m.DateField })),
   'datetime': () => import('./widgets/DateTimeField.js').then(m => ({ default: m.DateTimeField })),
   'time': () => import('./widgets/TimeField.js').then(m => ({ default: m.TimeField })),
@@ -3822,6 +3823,8 @@ const FIELD_TYPES_SKIP_FALLBACK = new Set([
   // Choice-card presentation override — resolved solely via `field:<widget>`;
   // there is no bare-key renderer for this hint.
   'choice-cards',
+  'declared-label-select',
+  'declared-label-combobox',
   // Widget-hint-only pickers — resolved solely via `field:<widget>`, so the
   // bare-key fallback is never wanted.
   'object-ref',
@@ -3893,6 +3896,7 @@ export const FIELD_WIDGET_LABELLING: Record<
   select: 'control',
   'choice-cards': 'group',
   'declared-label-select': 'control',
+  'declared-label-combobox': 'control',
   date: 'control',
   datetime: 'control',
   time: 'control',
@@ -4099,6 +4103,9 @@ export type {
 // Keep the public React entry point without defeating the registry's lazy chunk.
 export const DeclaredLabelSelectField: React.ComponentType<FieldWidgetComponentProps<string>> =
   getLazyFieldWidget('declared-label-select');
+// Keep the searchable label-stored choice control lazy like its non-searchable sibling.
+export const DeclaredLabelComboboxField: React.ComponentType<FieldWidgetComponentProps<string>> =
+  getLazyFieldWidget('declared-label-combobox');
 // Keep the public React entry on the registry's lazy loader so the widget does
 // not join the fields package's eager module graph.
 export const ChoiceCardsField: React.ComponentType<import('./widgets/ChoiceCardsField.js').ChoiceCardsFieldProps> =
