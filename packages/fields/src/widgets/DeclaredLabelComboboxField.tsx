@@ -120,7 +120,10 @@ export function DeclaredLabelComboboxField(props: FieldWidgetComponentProps<stri
       searchPlaceholder={String(t('table.search'))}
       emptyText={String(t('lookup.noOptions'))}
       disabled={props.disabled}
-      className={cn('w-full', className)}
+      className={cn(
+        'w-full h-[var(--ui-control-height,2.5rem)] rounded-[var(--ui-control-radius,0.375rem)] px-[var(--ui-input-padding-x,0.75rem)] py-[var(--ui-input-padding-y,0.5rem)] font-normal',
+        className,
+      )}
       aria-invalid={!!error}
     />
   );
