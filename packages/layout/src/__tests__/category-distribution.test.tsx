@@ -29,6 +29,9 @@ describe('CategoryDistribution', () => {
     expect(screen.getByText('100')).toBeInTheDocument();
     expect(screen.getByText('50')).toBeInTheDocument();
     expect(screen.getByText('1')).toBeInTheDocument();
+    expect(container.querySelector('[data-slot="category-distribution-rank"]')).toBeNull();
+    expect(container.querySelector('dt')).toHaveClass('break-words');
+    expect(container.querySelector('dt')).not.toHaveAttribute('title');
 
     const bars = [...container.querySelectorAll('[data-slot="category-distribution-bar"]')];
     expect(bars.map(bar => bar.getAttribute('width'))).toEqual(['100', '50', '0', '6']);
@@ -45,6 +48,51 @@ describe('CategoryDistribution', () => {
     expect(container.querySelectorAll('svg[aria-hidden="true"]')).toHaveLength(4);
     expect(container.querySelector('svg')).not.toHaveAttribute('style');
     expect(bars[0]).not.toHaveAttribute('style');
+  });
+
+  it('adds optional ordinal ranks, truncates labels with a title, and formats only displayed values', () => {
+    const longLabel = 'Customer '.repeat(12).trim();
+    const { container } = render(
+      <CategoryDistribution
+        aria-label="Customer service counts"
+        className="[--ui-category-distribution-rank-width:14px] [--ui-category-distribution-rank-font-size:10.5px] [--ui-category-distribution-label-width:157.5px] [--ui-category-distribution-count-width:42px] [--ui-category-distribution-bar-height:5.25px] [--ui-category-distribution-row-padding:5.25px] [--ui-category-distribution-row-gap:5.25px]"
+        items={[
+          { id: 'first', label: longLabel, value: 3 },
+          { id: 'second', label: 'Other customer', value: 1 },
+        ]}
+        showRank
+        truncateLabels
+        valueFormatter={value => <strong>{value} orders</strong>}
+      />,
+    );
+
+    expect(screen.getByRole('group', { name: 'Customer service counts' })).toBeInTheDocument();
+    expect([...container.querySelectorAll('[data-slot="category-distribution-rank"]')].map(node => node.textContent)).toEqual(['1', '2']);
+    const ranks = container.querySelectorAll('[data-slot="category-distribution-rank"]');
+    expect(ranks[0]).not.toHaveAttribute('aria-hidden');
+    expect(ranks[0]).toHaveClass(
+      'text-[length:var(--ui-category-distribution-rank-font-size,10.5px)]',
+    );
+    const firstLabel = container.querySelector('dt');
+    expect(firstLabel).toHaveTextContent(longLabel);
+    expect(firstLabel).toHaveAttribute('title', longLabel);
+    expect(firstLabel).toHaveClass('overflow-hidden', 'text-ellipsis', 'whitespace-nowrap');
+    expect(screen.getByText('3 orders')).toBeInTheDocument();
+    expect(screen.getByText('1 orders')).toBeInTheDocument();
+
+    const row = container.querySelector('dl > div');
+    expect(row).toHaveClass(
+      'grid-cols-[var(--ui-category-distribution-rank-width,14px)_minmax(0,var(--ui-category-distribution-label-width,76px))_minmax(0,1fr)]',
+      'py-[var(--ui-category-distribution-row-padding,0px)]',
+    );
+    expect(container.querySelector('dd')).toHaveClass(
+      'grid-cols-[minmax(0,1fr)_var(--ui-category-distribution-count-width,34px)]',
+    );
+    const bars = [...container.querySelectorAll('[data-slot="category-distribution-bar"]')];
+    expect(bars.map(bar => bar.getAttribute('width'))).toEqual(['100', '33.33']);
+    expect(container.querySelector('svg')).toHaveClass('h-[var(--ui-category-distribution-bar-height,8.75px)]');
+    expect(screen.getByRole('group')).toHaveClass('[--ui-category-distribution-label-width:157.5px]');
+    expect(screen.getByRole('group')).not.toHaveAttribute('style');
   });
 
   it('renders the host empty message without rows or a chart for empty input', () => {

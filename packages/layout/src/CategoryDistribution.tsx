@@ -21,6 +21,12 @@ export interface CategoryDistributionProps extends Omit<React.HTMLAttributes<HTM
   invalidText?: string;
   /** Minimum visible width for positive bars; zero counts remain zero. */
   minPercent?: number;
+  /** Prefix rows with a display-only ordinal. Defaults to false. */
+  showRank?: boolean;
+  /** Truncate labels to one line and expose the full label as a title. */
+  truncateLabels?: boolean;
+  /** Format a displayed count; defaults to the unmodified numeric value. */
+  valueFormatter?: (value: number) => React.ReactNode;
 }
 
 /** A host-driven category count list. It never queries or interprets business data. */
@@ -30,6 +36,9 @@ export function CategoryDistribution({
   emptyText = 'No distribution data available.',
   invalidText = 'Distribution unavailable.',
   minPercent = 0,
+  showRank = false,
+  truncateLabels = false,
+  valueFormatter,
   className,
   role,
   'aria-label': ariaLabel,
@@ -62,7 +71,7 @@ export function CategoryDistribution({
         </p>
       ) : (
         <dl className="m-0 grid min-w-0 gap-y-[var(--ui-category-distribution-row-gap,5.25px)] text-[length:var(--ui-category-distribution-font-size,11.5px)] leading-[var(--ui-category-distribution-line-height,16px)]">
-          {items.map(item => {
+          {items.map((item, index) => {
             const ratio = maximum > 0 ? (item.value / maximum) * 100 : 0;
             const width = item.value === 0
               ? 0
@@ -70,9 +79,30 @@ export function CategoryDistribution({
             return (
               <div
                 key={item.id}
-                className="grid min-w-0 grid-cols-[minmax(0,var(--ui-category-distribution-label-width,76px))_minmax(0,1fr)] items-center gap-x-[var(--ui-category-distribution-column-gap,8px)]"
+                className={cn(
+                  'grid min-w-0 items-center gap-x-[var(--ui-category-distribution-column-gap,8px)] py-[var(--ui-category-distribution-row-padding,0px)]',
+                  showRank
+                    ? 'grid-cols-[var(--ui-category-distribution-rank-width,14px)_minmax(0,var(--ui-category-distribution-label-width,76px))_minmax(0,1fr)]'
+                    : 'grid-cols-[minmax(0,var(--ui-category-distribution-label-width,76px))_minmax(0,1fr)]',
+                )}
               >
-                <dt className="m-0 min-w-0 break-words text-muted-foreground">{item.label}</dt>
+                {showRank && (
+                  <span
+                    data-slot="category-distribution-rank"
+                    className="min-w-0 text-[length:var(--ui-category-distribution-rank-font-size,10.5px)] leading-none text-muted-foreground tabular-nums"
+                  >
+                    {index + 1}
+                  </span>
+                )}
+                <dt
+                  title={truncateLabels ? item.label : undefined}
+                  className={cn(
+                    'm-0 min-w-0 text-muted-foreground',
+                    truncateLabels ? 'overflow-hidden text-ellipsis whitespace-nowrap' : 'break-words',
+                  )}
+                >
+                  {item.label}
+                </dt>
                 <dd className="m-0 grid min-w-0 grid-cols-[minmax(0,1fr)_var(--ui-category-distribution-count-width,34px)] items-center gap-x-[var(--ui-category-distribution-count-gap,8px)]">
                   <svg
                     aria-hidden="true"
@@ -92,7 +122,7 @@ export function CategoryDistribution({
                       className="fill-current"
                     />
                   </svg>
-                  <span className="min-w-0 break-words text-right tabular-nums text-foreground">{item.value}</span>
+                  <span className="min-w-0 break-words text-right tabular-nums text-foreground">{valueFormatter ? valueFormatter(item.value) : item.value}</span>
                 </dd>
               </div>
             );

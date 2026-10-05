@@ -218,11 +218,20 @@ non-finite value suppresses the entire chart and renders `invalidText` as an
 alert instead of presenting a partial distribution. The host owns the
 categories, query, permission checks and both messages; the component exposes
 no data-source or business schema keys.
+`showRank` optionally adds an ordinal per row, and
+`truncateLabels` optionally keeps long labels on one line while exposing the
+full label in the native `title` attribute. `valueFormatter` formats only the
+visible count; the original number still determines the relative bar width.
+All three options are off or absent by default, preserving the raw count and
+label presentation.
 Its geometry tokens are `--ui-category-distribution-label-width` (76px),
 `--ui-category-distribution-count-width` (34px),
 `--ui-category-distribution-bar-height` (8.75px),
 `--ui-category-distribution-row-gap` (5.25px),
 `--ui-category-distribution-font-size` (11.5px),
+`--ui-category-distribution-rank-width` (14px),
+`--ui-category-distribution-rank-font-size` (10.5px), and
+`--ui-category-distribution-row-padding` (0px),
 `--ui-category-distribution-empty-padding-block` (14px),
 `--ui-category-distribution-empty-font-size` (12px), and
 `--ui-category-distribution-empty-line-height` (18px).

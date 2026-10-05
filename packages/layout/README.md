@@ -207,8 +207,17 @@ const sources: CategoryDistributionItem[] = [
   minPercent={6}
   emptyText="No source data"
   invalidText="Source counts are unavailable"
+  showRank
+  truncateLabels
+  valueFormatter={value => `${value} cards`}
 />
 ```
+
+`showRank` adds a row ordinal and is off by default. `truncateLabels`
+keeps long terms on one line and puts the full label in the native `title`
+attribute; it is also off by default. `valueFormatter` changes only the visible
+count and receives the original number, so it does not change relative bar
+widths. Without it, the component renders the number unchanged.
 
 `id` is a stable host key; each `label` is the term in the semantic definition
 list. The decorative SVG is hidden from assistive technology, and its `rect`
@@ -218,7 +227,10 @@ may set `--ui-category-distribution-label-width` (76px),
 `--ui-category-distribution-bar-height` (8.75px),
 `--ui-category-distribution-row-gap` (5.25px), and
 `--ui-category-distribution-font-size` (11.5px) on the component to tune its
-rows. Empty text uses `--ui-category-distribution-empty-padding-block` (14px),
+rows. Ranked rows also use `--ui-category-distribution-rank-width` (14px) and
+`--ui-category-distribution-rank-font-size` (10.5px); hosts may set
+`--ui-category-distribution-row-padding` (0px) to add vertical padding per
+row. Empty text uses `--ui-category-distribution-empty-padding-block` (14px),
 `--ui-category-distribution-empty-font-size` (12px) and
 `--ui-category-distribution-empty-line-height` (18px). The host supplies the
 title and the empty/invalid messages; the component owns no business status,
