@@ -800,8 +800,9 @@ confusion explicitly, so putting a live adapter there does not wire anything up.
 
 ### React Page runtime
 
-Importing `@object-ui/plugin-gantt` registers the existing `GanttView` as a
-presentation-only React Page runtime component. It does not receive a data
+Console bootstrap pre-registers a lazy `GanttView` before React pages compile
+their stable scope. The public plugin component loads only when used and the
+host owns this presentation-only registration. It does not receive a data
 source: the host maps its already-authorized rows to `GanttTask[]` and supplies
 them through `tasks`. Set `readOnly` to disable timeline writes while retaining
 `onTaskClick` for host-owned navigation. Set `showToolbar={false}` when the host
@@ -815,7 +816,8 @@ owns the surrounding controls; the default is `true`.
 />
 ```
 
-This is a React runtime alias for `GanttView`, not a schema type or new
+Other hosts can explicitly register the public `GanttView` before mounting
+React pages. This is a React runtime alias, not a schema type or new
 `ObjectGanttSchema` property. The registered `object-gantt` block remains the
 record-driven schema renderer.
 

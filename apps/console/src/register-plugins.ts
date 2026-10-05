@@ -22,6 +22,7 @@
  */
 
 import { ComponentRegistry } from '@object-ui/core';
+import './register-gantt-runtime';
 
 // Eager imports — core views needed on most pages.  These are cheap (no heavy
 // 3rd-party deps) so paying their cost upfront is the right tradeoff.

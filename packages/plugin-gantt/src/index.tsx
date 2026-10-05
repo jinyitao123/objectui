@@ -125,23 +125,6 @@ ComponentRegistry.register('object-gantt', ObjectGanttRenderer, {
   ],
 });
 
-// React Pages can reuse the standalone timeline with rows they have already
-// authorized and mapped. It reads no adapter and does not add a schema type.
-ComponentRegistry.registerReactRuntimeComponent('GanttView', GanttView, {
-  injectDataSource: false,
-});
-
-const ganttViewRuntimeHot = (import.meta as ImportMeta & {
-  hot?: { dispose(callback: () => void): void };
-}).hot;
-ganttViewRuntimeHot?.dispose(() => {
-  const registration = ComponentRegistry.getReactRuntimeComponents()
-    .find((entry) => entry.name === 'GanttView');
-  if (registration?.component === GanttView) {
-    ComponentRegistry.unregisterReactRuntimeComponent('GanttView');
-  }
-});
-
 /**
  * ⛔ The bare `gantt` node type key is RETIRED (objectui#8008, maintainer
  * ruling 2026-09-09, route 3). `object-gantt` is the one spelling this plugin

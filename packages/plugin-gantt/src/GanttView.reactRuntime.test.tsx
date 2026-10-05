@@ -1,17 +1,11 @@
 import React from 'react';
 import { render, fireEvent } from '@testing-library/react';
 import { describe, expect, it, vi } from 'vitest';
-import { ComponentRegistry } from '@object-ui/core';
 import { GanttView, type GanttTask, type GanttViewProps } from './index';
 
 describe('GanttView React Page runtime registration', () => {
   it('registers the existing timeline without data-source injection and keeps its read-only contract', () => {
-    const registration = ComponentRegistry.getReactRuntimeComponents()
-      .find(entry => entry.name === 'GanttView');
-    expect(registration?.component).toBe(GanttView);
-    expect(registration?.injectDataSource).toBe(false);
-
-    const RuntimeGanttView = registration!.component as React.ComponentType<GanttViewProps>;
+    const RuntimeGanttView: React.ComponentType<GanttViewProps> = GanttView;
     const tasks: GanttTask[] = [{
       id: 'task-1',
       title: 'Read-only task',
@@ -45,9 +39,7 @@ describe('GanttView React Page runtime registration', () => {
   });
 
   it('can omit the timeline toolbar without removing tasks or host click navigation', () => {
-    const registration = ComponentRegistry.getReactRuntimeComponents()
-      .find(entry => entry.name === 'GanttView');
-    const RuntimeGanttView = registration!.component as React.ComponentType<GanttViewProps>;
+    const RuntimeGanttView: React.ComponentType<GanttViewProps> = GanttView;
     const task: GanttTask = {
       id: 'task-2',
       title: 'Host-owned controls',
