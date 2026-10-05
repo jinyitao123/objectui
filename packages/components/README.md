@@ -80,8 +80,8 @@ their presentational content, and `renderResource` provides the host's resource
 label slot without making the component guess avatars or other identity UI. One
 internal horizontal scroller keeps the resource column pinned at the left and
 does not widen its parent. The resource track stays at its configured width;
-date columns share the available width while respecting their minimum, then use
-that same scroller when the date range no longer fits.
+date columns keep fixed-width tracks, then use that same scroller when the date
+range no longer fits. Short ranges may leave unused space at the right.
 
 | Token | Default | Purpose |
 |---|---:|---|

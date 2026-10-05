@@ -154,7 +154,7 @@ describe('ResourceScheduleGrid', () => {
     const firstResourceRow = rowHeader.closest('tr');
 
     expect(root).toHaveClass('min-w-0', 'max-w-full');
-    expect(table).toHaveClass('w-full', 'min-w-max', 'table-fixed');
+    expect(table).toHaveClass('w-max');
     expect(table.querySelectorAll('colgroup col')).toHaveLength(dateColumns.length + 1);
     expect(container.querySelectorAll('[data-slot="resource-schedule-scroll"]')).toHaveLength(1);
     expect(scroll).toHaveClass('overflow-x-auto');
@@ -165,7 +165,7 @@ describe('ResourceScheduleGrid', () => {
     expect(firstResourceRow).toHaveClass('h-[var(--ui-resource-schedule-row-min-height,86px)]');
     expect(dateHeader).not.toHaveClass('sticky', 'left-0');
     expect(dateHeader).toHaveClass('min-w-[var(--ui-resource-schedule-date-min-width,110px)]');
-    expect(dateHeader).not.toHaveClass('w-[var(--ui-resource-schedule-date-min-width,110px)]');
+    expect(dateHeader).toHaveClass('w-[var(--ui-resource-schedule-date-min-width,110px)]');
   });
 
   it('renders the host empty label and leaves resource presentation to its slot', () => {

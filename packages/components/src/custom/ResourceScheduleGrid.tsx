@@ -95,12 +95,12 @@ export function ResourceScheduleGrid({
       >
         <table
           aria-label={ariaLabel}
-          className="w-full min-w-max table-fixed border-separate border-spacing-0 text-left"
+          className="w-max border-separate border-spacing-0 text-left"
         >
-          {/* Keep the resource track fixed; date tracks flex until their cell minimums require scrolling. */}
+          {/* Fixed tracks keep longer ranges readable inside the one scroll owner. */}
           <colgroup>
             <col className="w-[var(--ui-resource-schedule-resource-width,132px)]" />
-            {dateColumns.map((date) => <col key={date.key} />)}
+            {dateColumns.map((date) => <col key={date.key} className="w-[var(--ui-resource-schedule-date-min-width,110px)]" />)}
           </colgroup>
           <thead>
             <tr>
@@ -121,7 +121,7 @@ export function ResourceScheduleGrid({
                   scope="col"
                   aria-current={date.isToday ? 'date' : undefined}
                   className={cn(
-                    'min-w-[var(--ui-resource-schedule-date-min-width,110px)] border-b border-r border-border px-[var(--ui-resource-schedule-cell-padding,5.25px)] py-0 align-middle text-left text-[11px] leading-[16.5px] font-medium text-muted-foreground',
+                    'w-[var(--ui-resource-schedule-date-min-width,110px)] min-w-[var(--ui-resource-schedule-date-min-width,110px)] border-b border-r border-border px-[var(--ui-resource-schedule-cell-padding,5.25px)] py-0 align-middle text-left text-[11px] leading-[16.5px] font-medium text-muted-foreground',
                     'h-[var(--ui-resource-schedule-header-height,47.25px)]',
                     date.isToday && 'bg-muted/40',
                   )}
@@ -172,7 +172,7 @@ export function ResourceScheduleGrid({
                       key={date.key}
                       data-slot="resource-schedule-cell"
                       className={cn(
-                        'min-w-[var(--ui-resource-schedule-date-min-width,110px)] border-b border-r border-border p-[var(--ui-resource-schedule-cell-padding,5.25px)] align-top',
+                        'w-[var(--ui-resource-schedule-date-min-width,110px)] min-w-[var(--ui-resource-schedule-date-min-width,110px)] border-b border-r border-border p-[var(--ui-resource-schedule-cell-padding,5.25px)] align-top',
                         date.isToday && 'bg-muted/20',
                       )}
                     >
