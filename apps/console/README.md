@@ -25,6 +25,8 @@ The profile sets host CSS tokens in `src/index.css` for control, form, modal,
 toolbar and table geometry. It does not replace field metadata, validation,
 permissions or business actions. Without that build option, the token
 fallbacks keep the existing Console dimensions.
+The compact profile sets the AppShell top bar to `68px` at widths of `768px` and
+above, and `60px` below `768px`, through `--ui-app-topbar-height`.
 
 The opt-in `WorkspaceHeader` workspace variant reads
 `--ui-workspace-header-*` tokens for its frame, breadcrumb and icon geometry.

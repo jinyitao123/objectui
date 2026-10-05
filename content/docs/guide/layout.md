@@ -658,9 +658,11 @@ them reads `lg` (1024px), so 800px and 1400px get the same layout.
 
 ### Header and content
 
-- The header is `h-14` (3.5rem / 56px) at **every** breakpoint — there is no compact
-  variant — and spans the full viewport width at every size. The only thing about it that
-  responds is horizontal padding, and it turns at `sm` (640px), not 768: `px-2 sm:px-4`.
+- The header spans the full viewport width. Its height comes from the host-owned
+  `--ui-app-topbar-height` token (fallback `3.5rem`); the shell does not encode a
+  breakpoint-specific height. The compact Console profile sets it to `68px` at
+  `768px` and above and `60px` below `768px`. Horizontal padding still turns at
+  `sm` (640px), not 768: `px-2 sm:px-4`.
 - Content padding steps three ways — `p-3`, `sm:p-4` (640px), `md:p-6` (768px) — with a
   taller `pb-20` below `sm` only.
 
@@ -836,4 +838,4 @@ const navGroups: NavGroup[] = [
 
 ### AppShell geometry profile
 
-`AppShell` consumes host CSS custom properties `--ui-app-sidebar-width` and `--ui-app-topbar-height`. Their defaults remain `16rem` and `3.5rem`. The compact Console profile supplies `240px` and `68px`; these dimensions belong to application chrome, independently of dialog summary columns and page content. Sidebar collapse and mobile behavior continue to use the native sidebar component.
+`AppShell` consumes host CSS custom properties `--ui-app-sidebar-width` and `--ui-app-topbar-height`. Their defaults remain `16rem` and `3.5rem`. The compact Console profile supplies a `240px` sidebar and a `68px` top bar at widths of `768px` and above; below `768px` it sets the top bar to `60px`. These dimensions belong to application chrome, independently of dialog summary columns and page content. Sidebar collapse and mobile behavior continue to use the native sidebar component.

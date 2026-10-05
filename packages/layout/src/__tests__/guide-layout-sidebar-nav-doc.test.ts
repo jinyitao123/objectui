@@ -57,9 +57,10 @@
  * Auditing the rest of that section found the tier structure itself was
  * fictional: it described three tiers split at 1024px and 768px, while the
  * implementation has exactly ONE breakpoint, 768px, and never reads `lg`. Its
- * "Compact header" claim was wrong too — the header is `h-14` at every
- * breakpoint. The last describe block pins the numbers the rewritten section
- * now quotes.
+ * "Compact header" claim was wrong too — AppShell consumes the host-owned
+ * `--ui-app-topbar-height` token rather than choosing a responsive height.
+ * The Console compact profile owns its 68px desktop / 60px mobile values. The
+ * last describe block pins the shell's token read and breakpoint.
  *
  * ## Scan surface — deliberately narrow
  *
@@ -605,19 +606,19 @@ describe("the source facts the guide's Responsive Behavior section rests on (obj
     expect(header[0]).toContain('{navbar}');
   });
 
-  it('the header is `h-14` at every breakpoint, with only its horizontal padding responsive', () => {
+  it('the header consumes the host top-bar token, with only its horizontal padding responsive', () => {
     const header = /<header[\s\S]*?>/.exec(APP_SHELL_SRC);
     if (!header) throw new Error('`AppShell` no longer renders a `header` element');
 
-    // The page says "h-14 at EVERY breakpoint — there is no compact variant",
-    // replacing a "Compact header" bullet that was never true (objectui#4842).
-    expect(header[0], 'the header is no longer `h-14`').toContain('h-14');
+    expect(header[0], 'AppShell stopped consuming its host top-bar height').toContain(
+      'h-[var(--ui-app-topbar-height,3.5rem)]',
+    );
     expect(
       /(sm|md|lg):h-/.test(header[0]),
       [
-        'The header now has a responsive height variant. content/docs/guide/layout.md states it',
-        'is `h-14` at every breakpoint and that there is no compact variant (objectui#4842) —',
-        'the page, not this assertion, is what has to change.',
+        'A height breakpoint was added inside the shared shell. The responsive top-bar height',
+        'belongs to the host profile token; content/docs/guide/layout.md documents the Console',
+        'compact profile values without changing the default shell.',
       ].join('\n'),
     ).toBe(false);
     expect(header[0], 'the header padding steps are no longer `px-2 sm:px-4`').toContain(

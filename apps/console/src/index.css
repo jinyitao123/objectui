@@ -211,6 +211,12 @@
   --ui-surface-contact-channel-row-height-with-divider: 46.5px;
 }
 
+@media (max-width: 767px) {
+  :root[data-ui-profile='compact-enterprise'] {
+    --ui-app-topbar-height: 60px;
+  }
+}
+
 /* Solid dashboard panels in this profile; default-host translucency stays intact. */
 :root[data-ui-profile='compact-enterprise'] [data-dashboard-card] {
   background-color: hsl(var(--card));
