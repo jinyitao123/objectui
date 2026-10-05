@@ -39,7 +39,9 @@ An embedding React host may supply runtime `emptyStateContent` to replace the
 default copy in that viewport. The `DataTableSchema.emptyAction` node remains a
 separate `SchemaRenderer` child, so its normal `visibleWhen` evaluation still
 applies. `emptyStateContent` is a React composition prop, not a
-`DataTableSchema` metadata member.
+`DataTableSchema` metadata member. The host-content viewport grows to fit its
+node's natural minimum height; the standalone default retains its existing
+fixed `h-48` viewport geometry.
 
 Interactive `data-table` columns may set `fixed: 'left'` or `fixed: 'right'`.
 The renderer pins both header and body cells and measures rendered header widths

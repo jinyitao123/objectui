@@ -39,11 +39,13 @@ describe('data-table empty state placement', () => {
     const table = screen.getByRole('table');
     const emptyState = screen.getByRole('status');
     const spacerRow = table.querySelector('tbody tr');
+    const viewport = table.parentElement?.nextElementSibling;
 
     expect(screen.getByRole('columnheader', { name: 'Name' })).toBeInTheDocument();
     expect(spacerRow).toHaveAttribute('aria-hidden', 'true');
     expect(spacerRow?.querySelector('td')?.textContent).toBe('');
     expect(emptyState).toHaveAttribute('data-slot', 'data-empty-state');
+    expect(viewport).toHaveClass('h-48');
     expect(table).not.toContainElement(emptyState);
     expect(table.parentElement?.nextElementSibling).toContainElement(emptyState);
     expect(screen.getAllByText(/No results found/)).toHaveLength(1);
@@ -60,9 +62,16 @@ describe('data-table empty state placement', () => {
     expect(screen.getAllByRole('button', { name: 'Create a record' })).toHaveLength(1);
   });
 
-  it('uses one host-supplied empty state in the existing viewport and keeps the table header', () => {
+  it('lets host empty content set the viewport height without changing the table track', () => {
     const { container } = renderEmptyTable(
-      { emptyAction: { type: EMPTY_ACTION_TYPE } },
+      {
+        emptyAction: { type: EMPTY_ACTION_TYPE },
+        pagination: true,
+        manualPagination: true,
+        page: 1,
+        pageSize: 10,
+        rowCount: 0,
+      },
       {
         emptyStateContent: (
           <DataEmptyState
@@ -79,6 +88,7 @@ describe('data-table empty state placement', () => {
 
     expect(screen.getByRole('columnheader', { name: 'Name' })).toBeInTheDocument();
     expect(screen.getByTestId('host-empty-state')).toHaveAttribute('role', 'status');
+    expect(viewport).toHaveClass('h-auto', 'min-h-48');
     expect(viewport).toContainElement(screen.getByTestId('host-empty-state'));
     expect(table).not.toContainElement(screen.getByTestId('host-empty-state'));
     expect(container.querySelectorAll('[data-slot="record-table-empty-viewport"]')).toHaveLength(1);
@@ -86,6 +96,8 @@ describe('data-table empty state placement', () => {
     expect(screen.queryByText(/No results found/)).not.toBeInTheDocument();
     expect(screen.getByRole('button', { name: 'Add record' })).toBeInTheDocument();
     expect(screen.getByRole('button', { name: 'Create a record' })).toBeInTheDocument();
+    expect(screen.getByText(/Page 1 of 1/)).toBeInTheDocument();
+    expect(viewport).not.toContainElement(screen.getByText(/Page 1 of 1/));
   });
 
   it('leaves empty content in the table cell when the parent owns scrolling', () => {

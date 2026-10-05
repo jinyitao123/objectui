@@ -338,6 +338,8 @@ existing `className`; no new table schema is needed. The table root exposes
 or longer values can expand a row instead of being clipped to a fixed height.
 When the table owns its scroll container, its empty message is a viewport-width
 sibling to the table track, so wide columns do not shift the message off center.
+The ListView host-provided empty state lets that viewport grow to its content;
+the standalone table keeps its existing fixed empty-viewport height.
 `disableInnerScroll` means the parent owns horizontal scrolling; in that mode the
 renderer keeps empty content inside the table row rather than guessing the
 parent viewport. A host that can return an empty shared-scroll table should

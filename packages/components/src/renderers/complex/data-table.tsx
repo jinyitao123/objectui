@@ -2792,7 +2792,10 @@ const DataTableRenderer = ({
         </Table>
         {paginatedData.length === 0 && !disableInnerScroll && (
           <div
-            className="sticky left-0 z-10 -mt-48 flex h-48 w-full items-center justify-center"
+            className={cn(
+              'sticky left-0 z-10 -mt-48 flex w-full items-center justify-center',
+              hostEmptyStateContent != null ? 'h-auto min-h-48' : 'h-48',
+            )}
             data-slot="record-table-empty-viewport"
           >
             {emptyStateContent}
