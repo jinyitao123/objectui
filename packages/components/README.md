@@ -160,6 +160,21 @@ header and body spacing, and action gaps. Tokens inherit from the section's
 host, and the rem-based defaults remain proportional when the compact profile
 uses a 14px root font.
 
+`variant="plain"` keeps the same section/heading association without a Card,
+border, background or divider. Optional `icon`, `count` (including zero) and
+`description` share a wrapping header row; actions remain at its end. Hosts
+supply every label and count. Plain-header defaults are 20px height, 7px gaps,
+a 14px icon, 13px/19.5px/600 title and 11px/16.5px/700 count with 3.5px radius.
+The `--ui-document-section-plain-*` tokens override these dimensions; the
+existing card variant remains the default.
+
+`DataEmptyState` provides a status landmark for an empty result. Its optional
+`titleClassName` and `descriptionClassName` override the existing typography
+without becoming DOM attributes. Hosts can use `className` to choose compact
+height/padding and pass a custom icon with `iconWrapperClassName=""`; omitting
+`action` adds no control. It never infers whether an inaccessible or incomplete
+result is empty.
+
 | Token | Default | At a 14px root font |
 |---|---:|---:|
 | `--ui-document-section-divider-inset` | `0px` | full-width divider |

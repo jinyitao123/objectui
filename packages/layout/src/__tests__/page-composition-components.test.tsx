@@ -8,7 +8,8 @@ import { ListSummary } from '../ListSummary';
 import { PageHeader } from '../PageHeader';
 import { StatusTabs } from '../StatusTabs';
 import { WorkspaceToolbar } from '../WorkspaceToolbar';
-import { DateRangeControl, ResourceScheduleGrid } from '@object-ui/components';
+import { DataEmptyState, DateRangeControl, ResourceScheduleGrid } from '@object-ui/components';
+import { AdapterCtx, SchemaRenderer } from '@object-ui/react';
 import '../index';
 
 describe('ListSummary', () => {
@@ -200,7 +201,7 @@ describe('PageHeader action slot', () => {
 describe('React Page runtime registration', () => {
   it('registers the composition components as data-source-free runtime capabilities', () => {
     const registrations = ComponentRegistry.getReactRuntimeComponents();
-    const registered = ['WorkspaceHeader', 'WorkspaceToolbar', 'ListSummary', 'StatusTabs', 'DateRangeControl', 'ResourceScheduleGrid', 'DocumentSection', 'DocumentWorkspace'].map((name) =>
+    const registered = ['WorkspaceHeader', 'WorkspaceToolbar', 'ListSummary', 'StatusTabs', 'DataEmptyState', 'DateRangeControl', 'ResourceScheduleGrid', 'DocumentSection', 'DocumentWorkspace'].map((name) =>
       registrations.find((entry) => entry.name === name),
     );
 
@@ -210,16 +211,40 @@ describe('React Page runtime registration', () => {
     expect(registrations.find(entry => entry.name === 'PageHeader')).toBeUndefined();
     expect(registered[0]?.component).toBe(PageHeader);
     expect(registered[1]?.component).toBe(WorkspaceToolbar);
-    expect(registered[4]?.component).toBe(DateRangeControl);
-    expect(registered[5]?.component).toBe(ResourceScheduleGrid);
+    expect(registered[4]?.component).toBe(DataEmptyState);
+    expect(registered[5]?.component).toBe(DateRangeControl);
+    expect(registered[6]?.component).toBe(ResourceScheduleGrid);
     expect(registered.every(Boolean)).toBe(true);
     expect(registered.every((entry) => entry?.injectDataSource === false)).toBe(true);
     expect(ComponentRegistry.getConfig('ListSummary')).toBeUndefined();
     expect(ComponentRegistry.getConfig('WorkspaceToolbar')).toBeUndefined();
     expect(ComponentRegistry.getConfig('StatusTabs')).toBeUndefined();
     expect(ComponentRegistry.getConfig('DateRangeControl')).toBeUndefined();
+    expect(ComponentRegistry.getConfig('DataEmptyState')).toBeUndefined();
     expect(ComponentRegistry.getConfig('ResourceScheduleGrid')).toBeUndefined();
     expect(ComponentRegistry.getConfig('DocumentSection')).toBeUndefined();
     expect(ComponentRegistry.getConfig('DocumentWorkspace')).toBeUndefined();
+    expect(ComponentRegistry.getConfig('empty')).toBeDefined();
   });
+
+  it('injects DataEmptyState into a cold React Page scope without a ReferenceError', async () => {
+    const adapter = {
+      find: async () => [],
+      getObjectSchema: async () => ({ name: 'service_order', fields: {} }),
+    } as unknown as React.ContextType<typeof AdapterCtx>;
+    const { findByTestId } = render(
+      <AdapterCtx.Provider value={adapter}>
+        <SchemaRenderer schema={{
+          type: 'home',
+          kind: 'react',
+          name: 'cold_empty_state_page',
+          source: `function Page() { return <DataEmptyState data-testid="cold-empty-state" title="No calls today" description="There are no scheduled calls." showIcon={false} />; }`,
+        }} />
+      </AdapterCtx.Provider>,
+    );
+    const empty = await findByTestId('cold-empty-state');
+    expect(empty).toHaveAttribute('role', 'status');
+    expect(empty).toHaveTextContent('No calls today');
+    expect(empty).toHaveTextContent('There are no scheduled calls.');
+  }, 30_000);
 });
