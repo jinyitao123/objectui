@@ -14,6 +14,7 @@ import {
   type ElementDataSourceMapping,
 } from '@object-ui/react';
 import { ObjectGantt, type ObjectGanttProps } from './ObjectGantt';
+import { GanttView } from './GanttView';
 
 export { ObjectGantt };
 export type { ObjectGanttProps, QuickFilterDef } from './ObjectGantt';
@@ -26,7 +27,7 @@ export type {
   QuickFilterLabels,
 } from './QuickFilterBar';
 
-export { GanttView } from './GanttView';
+export { GanttView };
 export type {
   GanttViewProps,
   GanttTask,
@@ -122,6 +123,23 @@ ComponentRegistry.register('object-gantt', ObjectGanttRenderer, {
     { name: 'objectName', type: 'string', required: true },
     { name: 'gantt', type: 'object', description: 'startDateField, endDateField, titleField, progressField, percentageField, colorField, dependenciesField' },
   ],
+});
+
+// React Pages can reuse the standalone timeline with rows they have already
+// authorized and mapped. It reads no adapter and does not add a schema type.
+ComponentRegistry.registerReactRuntimeComponent('GanttView', GanttView, {
+  injectDataSource: false,
+});
+
+const ganttViewRuntimeHot = (import.meta as ImportMeta & {
+  hot?: { dispose(callback: () => void): void };
+}).hot;
+ganttViewRuntimeHot?.dispose(() => {
+  const registration = ComponentRegistry.getReactRuntimeComponents()
+    .find((entry) => entry.name === 'GanttView');
+  if (registration?.component === GanttView) {
+    ComponentRegistry.unregisterReactRuntimeComponent('GanttView');
+  }
 });
 
 /**

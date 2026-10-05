@@ -798,6 +798,27 @@ confusion explicitly, so putting a live adapter there does not wire anything up.
 
 ## TypeScript Support
 
+### React Page runtime
+
+Importing `@object-ui/plugin-gantt` registers the existing `GanttView` as a
+presentation-only React Page runtime component. It does not receive a data
+source: the host maps its already-authorized rows to `GanttTask[]` and supplies
+them through `tasks`. Set `readOnly` to disable timeline writes while retaining
+`onTaskClick` for host-owned navigation. Set `showToolbar={false}` when the host
+owns the surrounding controls; the default is `true`.
+
+```tsx
+<GanttView
+  tasks={authorizedTasks}
+  readOnly
+  onTaskClick={task => openWorkItem(task.data)}
+/>
+```
+
+This is a React runtime alias for `GanttView`, not a schema type or new
+`ObjectGanttSchema` property. The registered `object-gantt` block remains the
+record-driven schema renderer.
+
 Two different vocabularies, two different packages — don't mix them up.
 
 **The component's runtime types** come from this package. Use them when you

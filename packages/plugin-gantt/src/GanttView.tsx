@@ -476,6 +476,8 @@ export interface GanttInteractions {
 
 export interface GanttViewProps {
   tasks: GanttTask[]
+  /** Hide the timeline toolbar while preserving the chart and host row clicks. Defaults to true. */
+  showToolbar?: boolean
   /** Initial timeline granularity (also switchable from the toolbar). */
   viewMode?: GanttViewMode
   startDate?: Date
@@ -810,6 +812,7 @@ function writeSavedLayout(key: string, layout: GanttLayout): void {
 
 export function GanttView({
   tasks: tasksProp,
+  showToolbar = true,
   viewMode: viewModeProp,
   startDate: startDateProp,
   endDate: endDateProp,
@@ -3370,7 +3373,8 @@ export function GanttView({
         .gantt-task-list { scrollbar-width: none; }
       `}</style>
       {/* Toolbar */}
-      <div className="flex flex-col sm:flex-row flex-wrap items-start sm:items-center justify-between gap-2 p-2 border-b bg-card">
+      {showToolbar && (
+        <div className="flex flex-col sm:flex-row flex-wrap items-start sm:items-center justify-between gap-2 p-2 border-b bg-card">
         <div className="flex shrink-0 items-center gap-2 max-w-full">
           {/* "New Task" intentionally removed — the page-level header
               already exposes a fully-fielded create form for this
@@ -3627,7 +3631,8 @@ export function GanttView({
             {isFullscreen ? <Minimize2 className="h-4 w-4" /> : <Maximize2 className="h-4 w-4" />}
           </Button>
         </div>
-      </div>
+        </div>
+      )}
 
       {/* Gantt Body — focusable for keyboard row navigation */}
       <div

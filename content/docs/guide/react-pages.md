@@ -185,6 +185,14 @@ It returns the temporary selection through `onExport(scope, fields, format,
 fileName)`. It does not read data, determine permissions, or use the separate
 async `ExportJob` lifecycle; the host performs the synchronous export.
 
+Importing `@object-ui/plugin-gantt` also registers its existing `GanttView` as
+a presentation-only React Page runtime component. The host maps rows it already
+authorized into `GanttTask[]`; `GanttView` does not query an adapter. Pass
+`readOnly` to disable timeline edits while keeping `onTaskClick` available for
+host navigation. `showToolbar={false}` hides the timeline's controls when the
+host owns them; its default is `true`. This runtime alias adds no schema type
+or Spec authoring key.
+
 Importing `@object-ui/layout` registers `<WorkspaceHeader>`,
 `<WorkspaceToolbar>`, `<ListSummary>`, `<CategoryDistribution>`, `<StatusTabs>`, `<DateRangeControl>`,
 `<ResourceScheduleGrid>`, `<DocumentSection>` and `<DocumentWorkspace>` as presentation-only
