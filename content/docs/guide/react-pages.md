@@ -192,14 +192,22 @@ runtime components. They receive no `dataSource`, add no schema type or Spec
 authoring props, and must be registered before the first React Page mounts.
 `WorkspaceHeader` uses the existing `PageHeader` React implementation and
 accepts its action controls as React children. `ListSummary` renders only the
-label/value items supplied by the host. `StatusTabs` is controlled: the host
-supplies its current value, tab labels and counts, and the `onValueChange`
-handler that updates the page's filter state. `WorkspaceToolbar` places the
-host's search controls, filters, secondary actions and primary action into a
-responsive group; it does not own their state, queries or permission checks.
+label/value items supplied by the host. Without `onItemSelect` it retains its
+semantic `<dl>` / `<dt>` / `<dd>` structure; with `onItemSelect` it renders a
+labeled group of native buttons. In interactive mode, the host controls
+selection through `selectedItemId`, receives the activated stable item id in
+`onItemSelect`, and may disable individual items with `item.disabled`. It does
+not own selection, queries or permission checks. `StatusTabs` is controlled:
+the host supplies its current value, tab labels and counts, and the
+`onValueChange` handler that updates the page's filter state. `WorkspaceToolbar`
+places the host's search controls, filters, secondary actions and primary
+action into a responsive group; it does not own their state, queries or
+permission checks.
 
 `ListSummary` items may include a decorative `icon` name or React node.
-Labels and already resolved values remain host-owned.
+Labels and already resolved values remain host-owned. `--ui-list-summary-columns`
+sets the desktop column count (default four); container breakpoints keep one
+column at narrow widths and two at medium widths.
 
 `ResourceScheduleGrid` renders a host-provided resource-by-date matrix. The host
 owns period selection, data, permissions and the unplanned-items list; the

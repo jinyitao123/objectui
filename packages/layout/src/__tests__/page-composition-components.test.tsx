@@ -27,7 +27,7 @@ describe('ListSummary', () => {
 
     const summary = screen.getByLabelText('Contact summary');
     expect(summary).toHaveAttribute('data-slot', 'list-summary');
-    expect(summary).toHaveClass('grid-cols-1', '@sm:grid-cols-2', '@2xl:grid-cols-4', 'min-w-0');
+    expect(summary).toHaveClass('grid-cols-1', '@sm:grid-cols-2', '@2xl:grid-cols-[repeat(var(--ui-list-summary-columns,4),minmax(0,1fr))]', 'min-w-0');
     expect(summary.parentElement).toHaveAttribute('data-slot', 'list-summary-container');
     expect(summary.parentElement).toHaveClass('@container', 'min-w-0', 'max-w-full');
     expect(screen.getByText('All contacts')).toBeInTheDocument();

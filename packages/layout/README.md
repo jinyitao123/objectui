@@ -145,8 +145,12 @@ profile.
 ### ListSummary
 
 `ListSummary` renders a host-provided collection of labels and values as a
-responsive one-, two- or four-column summary. It does not read a data source or
-derive business counts.
+responsive summary. It does not read a data source or derive business counts.
+Without `onItemSelect`, it retains a semantic `<dl>` with `<dt>` labels and
+`<dd>` values. When the host supplies `onItemSelect`, each item becomes a
+native button in a labeled group; `selectedItemId` controls its `aria-pressed`
+state and `item.disabled` disables that button. The callback receives only the
+activated item's stable `id`; selection state remains host-owned.
 
 ```tsx
 import { ListSummary, type ListSummaryItem } from '@object-ui/layout';
@@ -165,9 +169,11 @@ also tune the geometry with `--ui-list-summary-gap`,
 `--ui-list-summary-item-gap`, `--ui-list-summary-card-height`,
 `--ui-list-summary-card-radius`,
 `--ui-list-summary-padding-inline`, `--ui-list-summary-padding-block`,
-`--ui-list-summary-label-*` and `--ui-list-summary-value-*` custom properties.
-The responsive grid uses its own container width, so four cards do not depend
-on a fixed card width.
+`--ui-list-summary-label-*`, `--ui-list-summary-value-*` and
+`--ui-list-summary-columns` custom properties. The last token sets the desktop
+column count and defaults to four; narrow container breakpoints remain one and
+two columns. The responsive grid uses its own container width, so the desktop
+cards do not depend on a fixed card width.
 
 An item may supply `icon` as an icon name or React node. Icons are decorative
 and hidden from accessibility; the label remains the accessible text.
