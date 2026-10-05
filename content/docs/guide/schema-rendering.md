@@ -207,6 +207,11 @@ is required alongside it: `series[].name` picks the column to plot within each r
 `xAxisKey` names the category column. `chart` reads no `bind` either, so resolve the array in
 your own code and hand `SchemaRenderer` a schema whose rows are already on the node.
 
+An `object-chart` backed by an object or dataset shows a short localized empty
+state when its query succeeds with no rows. It does not expose internal source
+names in that message. A failed query remains an alert, distinct from the empty
+result status; inline `data` continues to follow the authored rows on the node.
+
 ## Array Rendering
 
 Use arrays for multiple items:

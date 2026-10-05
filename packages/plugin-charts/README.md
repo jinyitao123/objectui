@@ -18,6 +18,13 @@ from the card heading and content inset without changing data or queries.
 - **Automatic Registration**: Components auto-register with the ComponentRegistry
 - **Skeleton Loading**: Shows a skeleton while Recharts loads
 
+## Query results
+
+Object-bound and dataset-bound charts show a concise, localized empty state when
+their query succeeds with no rows. The empty state is exposed as `role="status"`
+and does not display internal object or dataset names. Query failures remain a
+separate `role="alert"` state.
+
 ## Installation
 
 ```bash

@@ -1311,8 +1311,8 @@ export const ObjectChart = (props: ObjectChartProps) => {
       return <div className={"flex items-center justify-center text-muted-foreground text-sm p-4 " + (schema.className || '')} data-testid="chart-no-datasource">No data source available for &ldquo;{schema.objectName}&rdquo;</div>;
   }
 
-  // Query succeeded and returned nothing → a self-describing empty state, NOT
-  // the bare frame this used to fall through to (objectui#7130).
+  // Query succeeded and returned nothing → a concise empty state, NOT the bare
+  // frame this used to fall through to (objectui#7130).
   //
   // ## What the bare frame actually rendered — measured, not assumed
   //
@@ -1327,7 +1327,7 @@ export const ObjectChart = (props: ObjectChartProps) => {
   // in the same render, which emitted eight `<text>` nodes. So the frame is
   // not self-describing — it is a blank tile beside a `chart-error` box that
   // at least says something, which is precisely the hotcrm#1212 failure:
-  // nothing on screen says whether the chart failed or is simply young.
+  // nothing on screen says whether the chart failed or has no matching data.
   //
   // ## Why this is not the KPI carve-out
   //
@@ -1353,11 +1353,10 @@ export const ObjectChart = (props: ObjectChartProps) => {
   // added, and when #7132 converges the defaults this call site collapses the
   // same way the other four do.
   //
-  // The copy is the keys #7124 landed in all ten packs — no new key, and no
-  // promise of recovery: it states that the load SUCCEEDED, which is the one
-  // fact the reader of a blank tile cannot otherwise get. `role="status"`
-  // against the `role="alert"` on the `chart-error` box above is the machine
-  // check that the two states are distinct.
+  // Keep the localized title, but omit the shared widget-level explanation and
+  // source-name line: those describe the query implementation rather than the
+  // user's chart. `role="status"` against the `role="alert"` on the
+  // `chart-error` box above keeps the two states distinct for assistive tech.
   //
   // Gated on a QUERY-backed chart: a chart handed inline `data: []` by its
   // author never ran a query, so "its query returned no records" would be
@@ -1372,16 +1371,7 @@ export const ObjectChart = (props: ObjectChartProps) => {
           icon={<Inbox className="h-5 w-5 text-muted-foreground/70" />}
           iconWrapperClassName="flex size-9 items-center justify-center rounded-lg bg-muted"
           title={tt('dashboard.empty.title', 'No data yet')}
-          description={tt(
-            'dashboard.empty.message',
-            'This widget loaded successfully and its query returned no records yet.',
-          )}
-        >
-          <p className="text-xs text-muted-foreground/80" data-testid="chart-empty-source">
-            <span>{tt('dashboard.empty.sourceLabel', 'Source:')}</span>{' '}
-            <span className="font-mono">{schema.dataset || schema.objectName}</span>
-          </p>
-        </DataEmptyState>
+        />
       );
   }
 
