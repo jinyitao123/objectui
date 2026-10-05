@@ -186,7 +186,7 @@ fileName)`. It does not read data, determine permissions, or use the separate
 async `ExportJob` lifecycle; the host performs the synchronous export.
 
 Importing `@object-ui/layout` registers `<WorkspaceHeader>`,
-`<WorkspaceToolbar>`, `<ListSummary>`, `<StatusTabs>`, `<DateRangeControl>`,
+`<WorkspaceToolbar>`, `<ListSummary>`, `<CategoryDistribution>`, `<StatusTabs>`, `<DateRangeControl>`,
 `<ResourceScheduleGrid>`, `<DocumentSection>` and `<DocumentWorkspace>` as presentation-only
 runtime components. They receive no `dataSource`, add no schema type or Spec
 authoring props, and must be registered before the first React Page mounts.
@@ -208,6 +208,24 @@ permission checks.
 Labels and already resolved values remain host-owned. `--ui-list-summary-columns`
 sets the desktop column count (default four); container breakpoints keep one
 column at narrow widths and two at medium widths.
+
+`CategoryDistribution` presents host-computed `{ id, label, value }` counts as
+a semantic `<dl>` and a decorative relative bar. Widths compare each value to
+the maximum in the current collection; they are not percentages of a total.
+`minPercent` applies to positive values only, while zero stays zero. An empty
+collection renders `emptyText` with status semantics. Any negative or
+non-finite value suppresses the entire chart and renders `invalidText` as an
+alert instead of presenting a partial distribution. The host owns the
+categories, query, permission checks and both messages; the component exposes
+no data-source or business schema keys.
+Its geometry tokens are `--ui-category-distribution-label-width` (76px),
+`--ui-category-distribution-count-width` (34px),
+`--ui-category-distribution-bar-height` (8.75px),
+`--ui-category-distribution-row-gap` (5.25px),
+`--ui-category-distribution-font-size` (11.5px),
+`--ui-category-distribution-empty-padding-block` (14px),
+`--ui-category-distribution-empty-font-size` (12px), and
+`--ui-category-distribution-empty-line-height` (18px).
 
 `ResourceScheduleGrid` renders a host-provided resource-by-date matrix. The host
 owns period selection, data, permissions and the unplanned-items list; the

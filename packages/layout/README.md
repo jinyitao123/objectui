@@ -181,6 +181,49 @@ Items without icons retain their existing label DOM. Optional icon geometry
 uses `--ui-list-summary-icon-size` (16px) and
 `--ui-list-summary-icon-gap` (0.5rem).
 
+### CategoryDistribution
+
+`CategoryDistribution` renders host-computed category counts as a compact,
+read-only definition list with a relative bar for each row. It never fetches,
+groups, or authorizes data. Each `value` is displayed unchanged; bar widths are
+relative to the largest value in the current `items` collection, not to the
+sum. `minPercent` applies only to positive values, so zero remains an empty
+bar. Empty `items` render `emptyText` as a status message. A negative or
+non-finite value suppresses the whole chart and renders `invalidText` as an
+alert instead of a misleading distribution.
+
+```tsx
+import { CategoryDistribution, type CategoryDistributionItem } from '@object-ui/layout';
+
+const sources: CategoryDistributionItem[] = [
+  { id: 'service-orders', label: 'Service orders', value: 20 },
+  { id: 'sales-orders', label: 'Sales orders', value: 8 },
+  { id: 'other', label: 'Other', value: 0 },
+];
+
+<CategoryDistribution
+  aria-label="Warranty cards by source"
+  items={sources}
+  minPercent={6}
+  emptyText="No source data"
+  invalidText="Source counts are unavailable"
+/>
+```
+
+`id` is a stable host key; each `label` is the term in the semantic definition
+list. The decorative SVG is hidden from assistive technology, and its `rect`
+width attribute expresses the relative bar width without inline styles. Hosts
+may set `--ui-category-distribution-label-width` (76px),
+`--ui-category-distribution-count-width` (34px),
+`--ui-category-distribution-bar-height` (8.75px),
+`--ui-category-distribution-row-gap` (5.25px), and
+`--ui-category-distribution-font-size` (11.5px) on the component to tune its
+rows. Empty text uses `--ui-category-distribution-empty-padding-block` (14px),
+`--ui-category-distribution-empty-font-size` (12px) and
+`--ui-category-distribution-empty-line-height` (18px). The host supplies the
+title and the empty/invalid messages; the component owns no business status,
+query, or permission logic.
+
 ### StatusTabs
 
 `StatusTabs` is a controlled status filter strip. The host supplies the selected
@@ -264,7 +307,7 @@ geometry. The default group gap uses the existing `--ui-button-gap` token.
 Control state, queries, and permission checks stay in the host.
 
 Importing `@object-ui/layout` also registers `WorkspaceHeader`, `WorkspaceToolbar`,
-`ListSummary`, `StatusTabs`, `DateRangeControl`, `ResourceScheduleGrid`,
+`ListSummary`, `CategoryDistribution`, `StatusTabs`, `DateRangeControl`, `ResourceScheduleGrid`,
 `DocumentSection` and `DocumentWorkspace` as presentation-only React Page runtime
 components. This is a code-only runtime capability: the names are not schema component keys or
 `@objectstack/spec` authoring props. The registration happens when the package

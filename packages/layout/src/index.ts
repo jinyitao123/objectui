@@ -7,6 +7,7 @@ import { ComponentRegistry } from '@object-ui/core';
 import { PageHeader } from './PageHeader';
 import { WorkspaceToolbar } from './WorkspaceToolbar';
 import { ListSummary } from './ListSummary';
+import { CategoryDistribution } from './CategoryDistribution';
 import { StatusTabs } from './StatusTabs';
 import { PageCard } from './PageCard';
 import { ResponsiveGrid } from './ResponsiveGrid';
@@ -17,6 +18,7 @@ import { DateRangeControl, DocumentSection, DocumentWorkspace, ResourceScheduleG
 export * from './PageHeader';
 export * from './WorkspaceToolbar';
 export * from './ListSummary';
+export * from './CategoryDistribution';
 export * from './StatusTabs';
 export * from './AppShell';
 export * from './PageCard';
@@ -32,6 +34,7 @@ const reactPageRuntimeComponents = [
   ['WorkspaceHeader', PageHeader],
   ['WorkspaceToolbar', WorkspaceToolbar],
   ['ListSummary', ListSummary],
+  ['CategoryDistribution', CategoryDistribution],
   ['StatusTabs', StatusTabs],
   ['DateRangeControl', DateRangeControl],
   ['ResourceScheduleGrid', ResourceScheduleGrid],
