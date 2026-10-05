@@ -258,7 +258,8 @@ geometry. The default group gap uses the existing `--ui-button-gap` token.
 Control state, queries, and permission checks stay in the host.
 
 Importing `@object-ui/layout` also registers `WorkspaceHeader`, `WorkspaceToolbar`,
-`ListSummary`, `StatusTabs`, `DateRangeControl`, `DocumentSection` and `DocumentWorkspace` as presentation-only React Page runtime
+`ListSummary`, `StatusTabs`, `DateRangeControl`, `ResourceScheduleGrid`,
+`DocumentSection` and `DocumentWorkspace` as presentation-only React Page runtime
 components. This is a code-only runtime capability: the names are not schema component keys or
 `@objectstack/spec` authoring props. The registration happens when the package
 loads, before a React Page builds its stable component scope.
@@ -268,6 +269,12 @@ without a data source. It accepts a complete date-only `value` and a controlled
 `onValueChange` callback; pages map the result to their own date filters.
 Its optional shortcuts use explicit `daysBack` offsets and host-owned labels.
 It is not registered in the schema component registry.
+
+`ResourceScheduleGrid` receives resource rows, date columns, matching events
+and optional presentational callbacks from the host. It has one bounded
+horizontal scroll owner, keeps the resource column pinned, and does not fetch,
+edit or reassign events. The host chooses periods and keeps unmatched or
+unplanned events in its own list.
 
 > **Rendering a whole `page` node?** That belongs to `PageRenderer` in
 > `@object-ui/components`, which is what the `page` component key resolves to —

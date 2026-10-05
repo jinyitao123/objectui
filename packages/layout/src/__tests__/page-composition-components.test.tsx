@@ -8,7 +8,7 @@ import { ListSummary } from '../ListSummary';
 import { PageHeader } from '../PageHeader';
 import { StatusTabs } from '../StatusTabs';
 import { WorkspaceToolbar } from '../WorkspaceToolbar';
-import { DateRangeControl } from '@object-ui/components';
+import { DateRangeControl, ResourceScheduleGrid } from '@object-ui/components';
 import '../index';
 
 describe('ListSummary', () => {
@@ -200,7 +200,7 @@ describe('PageHeader action slot', () => {
 describe('React Page runtime registration', () => {
   it('registers the composition components as data-source-free runtime capabilities', () => {
     const registrations = ComponentRegistry.getReactRuntimeComponents();
-    const registered = ['WorkspaceHeader', 'WorkspaceToolbar', 'ListSummary', 'StatusTabs', 'DateRangeControl', 'DocumentSection', 'DocumentWorkspace'].map((name) =>
+    const registered = ['WorkspaceHeader', 'WorkspaceToolbar', 'ListSummary', 'StatusTabs', 'DateRangeControl', 'ResourceScheduleGrid', 'DocumentSection', 'DocumentWorkspace'].map((name) =>
       registrations.find((entry) => entry.name === name),
     );
 
@@ -211,12 +211,14 @@ describe('React Page runtime registration', () => {
     expect(registered[0]?.component).toBe(PageHeader);
     expect(registered[1]?.component).toBe(WorkspaceToolbar);
     expect(registered[4]?.component).toBe(DateRangeControl);
+    expect(registered[5]?.component).toBe(ResourceScheduleGrid);
     expect(registered.every(Boolean)).toBe(true);
     expect(registered.every((entry) => entry?.injectDataSource === false)).toBe(true);
     expect(ComponentRegistry.getConfig('ListSummary')).toBeUndefined();
     expect(ComponentRegistry.getConfig('WorkspaceToolbar')).toBeUndefined();
     expect(ComponentRegistry.getConfig('StatusTabs')).toBeUndefined();
     expect(ComponentRegistry.getConfig('DateRangeControl')).toBeUndefined();
+    expect(ComponentRegistry.getConfig('ResourceScheduleGrid')).toBeUndefined();
     expect(ComponentRegistry.getConfig('DocumentSection')).toBeUndefined();
     expect(ComponentRegistry.getConfig('DocumentWorkspace')).toBeUndefined();
   });

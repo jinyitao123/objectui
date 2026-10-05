@@ -12,7 +12,7 @@ import { PageCard } from './PageCard';
 import { ResponsiveGrid } from './ResponsiveGrid';
 import { NavigationRenderer } from './NavigationRenderer';
 import { AppSchemaRenderer } from './AppSchemaRenderer';
-import { DateRangeControl, DocumentSection, DocumentWorkspace } from '@object-ui/components';
+import { DateRangeControl, DocumentSection, DocumentWorkspace, ResourceScheduleGrid } from '@object-ui/components';
 
 export * from './PageHeader';
 export * from './WorkspaceToolbar';
@@ -34,6 +34,7 @@ const reactPageRuntimeComponents = [
   ['ListSummary', ListSummary],
   ['StatusTabs', StatusTabs],
   ['DateRangeControl', DateRangeControl],
+  ['ResourceScheduleGrid', ResourceScheduleGrid],
   ['DocumentSection', DocumentSection],
   ['DocumentWorkspace', DocumentWorkspace],
 ] as const;

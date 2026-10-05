@@ -51,6 +51,44 @@ their selection/row-number utility columns. Existing right-pin declarations in
 column `className`/`cellClassName` remain supported; the static `table` renderer
 does not accept `fixed`.
 
+## ResourceScheduleGrid
+
+`ResourceScheduleGrid` is a host-driven React layout for resource-by-date
+appointments. It reads no data source and owns no period navigation or business
+state. The host supplies date columns (including seven, fourteen, or
+twenty-eight day ranges), resource rows, and events; only events whose
+`resourceId` and `dateKey` exactly match a supplied row and column are placed in
+the matrix. The host keeps unmatched or unplanned events in its own list.
+
+```tsx
+import { ResourceScheduleGrid } from '@object-ui/components';
+
+<ResourceScheduleGrid
+  aria-label="Engineer schedule"
+  resourceHeaderLabel="Engineer"
+  resources={[{ id: 'r-1', label: 'Engineer One' }]}
+  dateColumns={[{ key: '2030-04-01', label: 'Apr 1' }]}
+  events={[{ id: 'e-1', resourceId: 'r-1', dateKey: '2030-04-01', title: 'Calibration' }]}
+  emptyLabel="No resources in this period"
+  onEventClick={openScheduleItem}
+/>
+```
+
+Without `onEventClick`, event cards are display-only and are not exposed as
+buttons. When supplied, events use native buttons; `renderEvent` customizes
+their presentational content, and `renderResource` provides the host's resource
+label slot without making the component guess avatars or other identity UI. One
+internal horizontal scroller keeps the resource column pinned at the left and
+does not widen its parent.
+
+| Token | Default | Purpose |
+|---|---:|---|
+| `--ui-resource-schedule-resource-width` | `132px` | Pinned resource column width |
+| `--ui-resource-schedule-date-min-width` | `110px` | Minimum date-column width |
+| `--ui-resource-schedule-header-height` | `47.25px` | Date and resource header height |
+| `--ui-resource-schedule-row-min-height` | `86px` | Resource row and empty-state minimum height |
+| `--ui-resource-schedule-cell-padding` | `5.25px` | Cell inset |
+
 `CompositeDialog` accepts an optional React `sidebar` and `sidebarLabel` for a
 profile or document summary. On desktop the summary precedes the form in a
 236px column (`--ui-dialog-sidebar-width`); narrow dialogs stack it above the

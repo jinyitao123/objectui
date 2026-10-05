@@ -187,7 +187,7 @@ async `ExportJob` lifecycle; the host performs the synchronous export.
 
 Importing `@object-ui/layout` registers `<WorkspaceHeader>`,
 `<WorkspaceToolbar>`, `<ListSummary>`, `<StatusTabs>`, `<DateRangeControl>`,
-`<DocumentSection>` and `<DocumentWorkspace>` as presentation-only
+`<ResourceScheduleGrid>`, `<DocumentSection>` and `<DocumentWorkspace>` as presentation-only
 runtime components. They receive no `dataSource`, add no schema type or Spec
 authoring props, and must be registered before the first React Page mounts.
 `WorkspaceHeader` uses the existing `PageHeader` React implementation and
@@ -200,6 +200,25 @@ responsive group; it does not own their state, queries or permission checks.
 
 `ListSummary` items may include a decorative `icon` name or React node.
 Labels and already resolved values remain host-owned.
+
+`ResourceScheduleGrid` renders a host-provided resource-by-date matrix. The host
+owns period selection, data, permissions and the unplanned-items list; the
+component places only events with an exact `resourceId` and `dateKey` match.
+Without `onEventClick`, event cards remain display-only. With it, each card is a
+keyboard-operable native button; `renderEvent` and `renderResource` customize
+presentation only.
+
+```jsx
+<ResourceScheduleGrid
+  aria-label="Engineer schedule"
+  resourceHeaderLabel="Engineer"
+  resources={resources}
+  dateColumns={visibleDays}
+  events={scheduledItems}
+  emptyLabel="No resources in this period"
+  onEventClick={openScheduleItem}
+/>
+```
 
 `DateRangeControl` emits a complete local `{ from, to }` date range or
 `undefined` on explicit clear. Its two-month calendar keeps the first selection

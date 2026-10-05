@@ -16,6 +16,7 @@ export * from './item';
 export * from './kbd';
 export * from './native-select';
 export * from './profile-controls';
+export * from './ResourceScheduleGrid';
 export {
   Button,
   buttonVariants,
