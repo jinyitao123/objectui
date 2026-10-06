@@ -15,7 +15,6 @@ const useDialogTranslation = createSafeTranslation({
   'form.discardMessage': 'You have unsaved changes. If you close this form now, your edits will be lost.',
   'form.keepEditing': 'Keep editing',
   'form.discard': 'Discard',
-  'form.dialogDescriptionFallback': 'Complete the form fields, then submit or cancel.',
 }, 'form.discardTitle');
 
 export interface CompositeDialogControls {
@@ -42,12 +41,37 @@ export interface CompositeDialogProps {
   className?: string;
 }
 
+/** Preserve each modal level's opener without taking focus from a new host view. */
+function useDialogReturnFocus() {
+  const opener = React.useRef<HTMLElement | null>(null);
+  const onOpenAutoFocus: NonNullable<React.ComponentPropsWithoutRef<typeof MobileDialogContent>['onOpenAutoFocus']> = (event) => {
+    const content = event.currentTarget as HTMLElement;
+    const active = content.ownerDocument.activeElement;
+    opener.current = active instanceof HTMLElement && active !== content.ownerDocument.body && !content.contains(active)
+      ? active
+      : null;
+  };
+  const onCloseAutoFocus: NonNullable<React.ComponentPropsWithoutRef<typeof MobileDialogContent>['onCloseAutoFocus']> = (event) => {
+    const target = opener.current;
+    opener.current = null;
+    if (!target?.isConnected || target.matches(':disabled, [aria-disabled="true"]') || target.closest('[hidden], [inert]')) return;
+    const content = event.currentTarget as HTMLElement;
+    const active = target.ownerDocument.activeElement;
+    if (active && active !== target.ownerDocument.body && active !== target && !content.contains(active)) return;
+    event.preventDefault();
+    target.focus({ preventScroll: true });
+  };
+  return { onOpenAutoFocus, onCloseAutoFocus };
+}
+
 /** Shared dialog frame for multiple sibling, metadata-driven form sections. */
 export function CompositeDialog({
   open, title, description, onOpenChange, busy = false,
   confirmOnDiscard = false, children, sidebar, sidebarLabel, footer, className,
 }: CompositeDialogProps): React.ReactElement {
   const { t } = useDialogTranslation();
+  const dialogFocus = useDialogReturnFocus();
+  const discardFocus = useDialogReturnFocus();
   const [closeState, setCloseState] = React.useState({ open, confirming: false });
   // A host-forced close starts a fresh confirmation session on reopening.
   if (closeState.open !== open) setCloseState({ open, confirming: false });
@@ -63,6 +87,8 @@ export function CompositeDialog({
       else requestClose();
     }}>
       <MobileDialogContent
+        {...dialogFocus}
+        {...(!description ? { 'aria-describedby': undefined } : {})}
         className={cn(
           'flex h-[100dvh] flex-col overflow-hidden p-0 sm:h-auto sm:max-h-[var(--ui-modal-max-height,90vh)] sm:max-w-[var(--ui-modal-composite-width,1120px)] sm:p-0',
           className,
@@ -77,9 +103,7 @@ export function CompositeDialog({
           <DialogTitle className="text-[length:var(--ui-dialog-title-font-size,1.125rem)] leading-[var(--ui-dialog-title-line-height,1)]">
             {title}
           </DialogTitle>
-          <DialogDescription className={description ? undefined : 'sr-only'}>
-            {description || t('form.dialogDescriptionFallback')}
-          </DialogDescription>
+          {description && <DialogDescription>{description}</DialogDescription>}
         </DialogHeader>
         <div className="min-h-0 flex-1 overflow-y-auto sm:max-h-[var(--ui-modal-body-max-height,none)]" aria-busy={busy} data-slot="composite-dialog-body">
           <div className={cn('min-w-0', sidebar != null && 'grid grid-cols-1 md:grid-cols-[var(--ui-dialog-sidebar-width,236px)_minmax(0,1fr)]')}>
@@ -97,7 +121,7 @@ export function CompositeDialog({
           </div>
         )}
         <AlertDialog open={open && closeState.confirming} onOpenChange={(confirming) => setCloseState({ open, confirming })}>
-          <AlertDialogContent>
+          <AlertDialogContent {...discardFocus}>
             <AlertDialogHeader>
               <AlertDialogTitle>{t('form.discardTitle')}</AlertDialogTitle>
               <AlertDialogDescription>{t('form.discardMessage')}</AlertDialogDescription>

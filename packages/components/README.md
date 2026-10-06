@@ -477,7 +477,13 @@ editing preserves the mounted draft. The host sets this flag from its compound
 draft policy. `busy` disables Close, rejects cancellation, and disables the body
 form controls through a fieldset while saving. This keeps validate-only form
 values intact; do not turn model fields read-only merely to block busy input. The
-exported types are `CompositeDialogProps` and `CompositeDialogControls`.
+exported types are `CompositeDialogProps` and `CompositeDialogControls`. Each modal level records the focused control when it
+opens and returns focus there when it closes, provided that control still exists
+and remains enabled. An intentionally focused replacement view retains focus.
+Dismissed discard prompts return to the draft control without remounting fields.
+A supplied `description` remains linked to the dialog; without one, only the title
+labels the dialog and no generic form instruction is added. The behavioral
+regressions live in `src/__tests__/composite-dialog.test.tsx`.
 
 Trusted React Pages retain their runtime scope when normalization or metadata
 refresh clones the same Page payload. This preserves an open form and its draft.
