@@ -372,6 +372,16 @@ classes for these layouts. Hosts can tune section geometry with the
 `--ui-document-section-*` CSS variables; the `@object-ui/components` README
 lists their defaults and root-font scaling.
 
+For a native grouped `ObjectForm`, a containing surface can opt into visual
+section numbers with `--ui-section-step-display: inline-flex` (default `none`).
+Each form resets its own counter; hidden and untitled headers contribute no
+number. The optional number is decorative, while the existing group label and
+collapse control remain accessible. The size, font size and weight tokens are
+`--ui-section-step-size`, `--ui-section-step-font-size` and
+`--ui-section-step-font-weight`; they share the DocumentSection step fallbacks.
+This is presentation only and adds no section metadata key or separate form
+state. Keep the original fields and one native validation controller.
+
 `RecordTable` is the standard `data-table` renderer exposed to trusted React
 pages through its existing `schema` prop. A host may compose React cell callbacks
 for related business data and pass controlled server paging/sorting. Custom

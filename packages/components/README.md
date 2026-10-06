@@ -4,6 +4,18 @@ Standard UI component library for Object UI, built with Shadcn UI + Tailwind CSS
 
 ## Host geometry tokens
 
+Native grouped forms also support optional visual section numbers. A host can
+set `--ui-section-step-display: inline-flex` on the form's containing surface;
+the default is `none`. Each native form owns a separate counter, and only
+rendered, titled section headers contribute a number. Numbers are decorative
+and hidden from assistive technology; existing labels, collapse controls,
+field membership, validation and filled counts keep their semantics.
+`--ui-section-step-size`, `--ui-section-step-font-size` and
+`--ui-section-step-font-weight` fall back to the corresponding
+`--ui-document-section-step-*` geometry, then `1.25rem`, `0.75rem` and `700`.
+These are CSS presentation tokens, not new FormSection or ObjectForm metadata
+keys. Keep the section fields in one native form.
+
 Trusted React Pages can use `RecordTable` with a `schema` prop matching the
 existing `DataTableSchema`. It is the existing `data-table` renderer, registered
 as a runtime-only component so React cell callbacks remain callable. It accepts

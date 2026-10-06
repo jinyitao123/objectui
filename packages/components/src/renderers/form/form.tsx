@@ -84,6 +84,11 @@ function SectionDivider({ label, description, collapsible, collapsed, onToggle, 
               ? <ChevronRight className="order-[var(--ui-section-chevron-order,0)] h-3.5 w-3.5 text-muted-foreground" />
               : <ChevronDown className="order-[var(--ui-section-chevron-order,0)] h-3.5 w-3.5 text-muted-foreground" />
           )}
+          <span
+            aria-hidden="true"
+            data-form-section-step=""
+            className="order-0 shrink-0 items-center justify-center rounded-full bg-primary text-primary-foreground [display:var(--ui-section-step-display,none)] [counter-increment:object-ui-form-section] before:[content:counter(object-ui-form-section)] size-[var(--ui-section-step-size,var(--ui-document-section-step-size,1.25rem))] text-[length:var(--ui-section-step-font-size,var(--ui-document-section-step-font-size,0.75rem))] font-[number:var(--ui-section-step-font-weight,var(--ui-document-section-step-font-weight,700))] leading-none"
+          />
           <span data-form-section-label="" className="order-1 text-[length:var(--ui-section-font-size,0.875rem)] font-semibold text-foreground">{label}</span>
           {total != null && total > 0 && (
             <span aria-hidden="true" className="order-3 ml-auto [display:var(--ui-section-count-display,none)] text-xs font-normal text-muted-foreground">{filled ?? 0}/{total}</span>
@@ -3398,7 +3403,7 @@ ComponentRegistry.register('form',
         <form
             ref={formRef}
             onSubmit={handleSubmit}
-            className={className}
+            className={cn('[counter-reset:object-ui-form-section]', className)}
             {...formProps}
             onInvalidCapture={(event) => {
               const control = event.target;
