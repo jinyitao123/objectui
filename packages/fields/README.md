@@ -33,6 +33,19 @@ the optional-columns label use the English fallback instead of exposing a raw
 translation key. The running total accepts a host-only unreadable-state signal;
 it displays an em dash without changing the serializable grid-field contract.
 
+## File field editability
+
+`FileField` honors the existing runtime `disabled` prop supplied by forms.
+Disabled fields keep their existing attachment links, while file and camera
+inputs, click and keyboard activation, drops, and removal remain inert. The
+upload adapter and value callback are not invoked by disabled editing events.
+Changing the same field back to editable restores normal uploads. `readonly`
+continues to render the attachment display without editing controls.
+
+The rendered controls and upload boundary are covered by
+[FileField.disabled.test.tsx](src/widgets/FileField.disabled.test.tsx); existing
+attachment links are also covered by the readonly-download tests.
+
 ## Features
 
 - 📚 **Standard Fields** - Implementation of all ObjectStack protocol fields (Text, Number, Date, Lookup, etc.)

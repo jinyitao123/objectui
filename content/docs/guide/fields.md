@@ -92,6 +92,21 @@ The built-in `TagsField` translates its chip-removal button with
 `fields.tags.remove`, interpolating the tag value. Read-only fields continue to
 display the tags without edit controls.
 
+## Disabled attachment fields
+
+An `ObjectForm` in view mode supplies the standard runtime `disabled` flag to
+its field widgets. `FileField` forwards it to both native file inputs and the
+camera and removal buttons. Its dropzone exposes `aria-disabled`, leaves the
+tab order, and ignores click, Enter, Space, and drop editing. Existing attachment
+links remain available for viewing. The separate `readonly` state continues to
+show attachments without the upload surface.
+
+This uses the existing field-widget contract and does not add metadata keys or
+change storage permissions. The regression in
+`packages/fields/src/widgets/FileField.disabled.test.tsx` covers
+disabled inputs, zero upload attempts, preserved downloads, and restoring
+editable uploads on the same field.
+
 ## Label-stored text pickers
 
 Use one of the registered label-stored widgets when a field must remain `text`
