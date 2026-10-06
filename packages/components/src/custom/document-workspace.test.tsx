@@ -8,6 +8,25 @@ vi.mock('../lib/lazy-icon', () => ({
 import { DocumentSection, DocumentWorkspace } from './document-workspace';
 
 describe('DocumentWorkspace', () => {
+  it('keeps one document and keyboard-operable footer actions without an empty sidebar', async () => {
+    const user = userEvent.setup(), onCreate = vi.fn(), onCancel = vi.fn();
+    const { container } = render(
+      <DocumentWorkspace
+        main={<input aria-label="Document title" defaultValue="Current draft" />}
+        footerLabel="Document actions"
+        footer={<><button type="button" onClick={onCancel}>Cancel</button><button type="button" onClick={onCreate}>Create</button></>}
+      />,
+    );
+    expect(screen.queryByRole('complementary')).not.toBeInTheDocument();
+    const footer = screen.getByRole('group', { name: 'Document actions' });
+    const create = within(footer).getByRole('button', { name: 'Create' });
+    create.focus(); await user.keyboard('{Enter}');
+    expect(onCreate).toHaveBeenCalledTimes(1);
+    expect(onCancel).not.toHaveBeenCalled();
+    expect(screen.getByRole('textbox', { name: 'Document title' })).toHaveValue('Current draft');
+    expect(container.querySelectorAll('form')).toHaveLength(0);
+  });
+
   it('keeps the main content and named sidebar in a responsive, non-resizable layout', () => {
     const { container } = render(
       <DocumentWorkspace

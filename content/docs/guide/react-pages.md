@@ -372,6 +372,14 @@ classes for these layouts. Hosts can tune section geometry with the
 `--ui-document-section-*` CSS variables; the `@object-ui/components` README
 lists their defaults and root-font scaling.
 
+`DocumentWorkspace` can omit `sidebar` and compose existing actions below the
+document through `footer`, with an accessible `footerLabel`. The main column
+then occupies the full available width. The named footer group stays in normal
+flow and uses sticky positioning within its scroll container; hosts can tune
+its inset and offset with `--ui-document-footer-*` tokens. Keep business amounts,
+action handlers, busy flags and cancel guards in the host. These are React slots,
+not metadata or an alternative form controller.
+
 For a native grouped `ObjectForm`, a containing surface can opt into visual
 section numbers with `--ui-section-step-display: inline-flex` (default `none`).
 Each form resets its own counter; hidden and untitled headers contribute no

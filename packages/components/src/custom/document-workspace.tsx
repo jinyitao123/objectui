@@ -12,7 +12,7 @@ export interface DocumentWorkspaceProps {
   /** The primary document content. */
   main: React.ReactNode;
   /** Supporting information or actions shown beside the document. */
-  sidebar: React.ReactNode;
+  sidebar?: React.ReactNode;
   /** Accessible name for the complementary sidebar landmark. */
   sidebarLabel?: string;
   /** Classes for the two-column layout. */
@@ -21,6 +21,11 @@ export interface DocumentWorkspaceProps {
   mainClassName?: string;
   /** Classes for the supporting sidebar column. */
   sidebarClassName?: string;
+  /** Existing host-owned actions or summary below the document. */
+  footer?: React.ReactNode;
+  /** Accessible name for the footer action group. */
+  footerLabel?: string;
+  footerClassName?: string;
 }
 
 /**
@@ -35,12 +40,16 @@ export function DocumentWorkspace({
   className,
   mainClassName,
   sidebarClassName,
+  footer,
+  footerLabel,
+  footerClassName,
 }: DocumentWorkspaceProps): React.ReactElement {
   return (
     <div className="@container min-w-0" data-slot="document-workspace-container">
       <div
         className={cn(
-          'grid min-w-0 grid-cols-1 items-start gap-[var(--ui-document-workspace-gap,18px)] @4xl:grid-cols-[minmax(0,2.3fr)_minmax(15rem,1fr)]',
+          'grid min-w-0 grid-cols-1 items-start gap-[var(--ui-document-workspace-gap,18px)]',
+          sidebar != null && '@4xl:grid-cols-[minmax(0,2.3fr)_minmax(15rem,1fr)]',
           className,
         )}
         data-slot="document-workspace"
@@ -48,14 +57,27 @@ export function DocumentWorkspace({
         <div className={cn('min-w-0', mainClassName)} data-slot="document-workspace-main">
           {main}
         </div>
-        <aside
+        {sidebar != null && <aside
           aria-label={sidebarLabel}
           className={cn('min-w-0', sidebarClassName)}
           data-slot="document-workspace-sidebar"
         >
           {sidebar}
-        </aside>
+        </aside>}
       </div>
+      {footer != null && (
+        <div
+          role="group"
+          aria-label={footerLabel}
+          data-slot="document-workspace-footer"
+          className={cn(
+            'sticky bottom-[var(--ui-document-footer-offset,0px)] z-10 mt-[var(--ui-document-workspace-gap,18px)] flex min-w-0 flex-wrap items-center justify-end gap-[var(--ui-document-footer-gap,10px)] border border-border bg-background px-[var(--ui-document-footer-padding-x,18px)] py-[var(--ui-document-footer-padding-y,14px)]',
+            footerClassName,
+          )}
+        >
+          {footer}
+        </div>
+      )}
     </div>
   );
 }

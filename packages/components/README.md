@@ -163,6 +163,17 @@ the 680px/300px proportions used by the purchase-entry reference. The default
 gap is 18px and can be supplied by `--ui-document-workspace-gap`; there is no
 resize handle to operate or announce.
 
+`DocumentWorkspace` also accepts optional `footer`, `footerLabel` and
+`footerClassName` React slots. Without a sidebar, the main content uses the full
+container width; existing sidebar consumers keep their responsive tracks. The
+footer is a named action group in normal document flow with sticky positioning
+inside the nearest scroll container. Its offset, spacing and inset use
+`--ui-document-footer-offset` (0px), `--ui-document-footer-gap` (10px),
+`--ui-document-footer-padding-x` (18px) and
+`--ui-document-footer-padding-y` (14px). The host owns each action, summary,
+disabled state and draft guard. This adds no business action, serialized schema
+key, form instance or financial calculation.
+
 `DocumentSection` wraps a title, optional visible step number, optional header
 actions and body in the public host-aware Card family. It renders a real `h2`
 and labels its section from that heading. Its divider defaults to the full card
