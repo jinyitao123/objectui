@@ -1,6 +1,6 @@
 ---
 "@object-ui/components": minor
-"@object-ui/plugin-form": minor
+"@object-ui/fields": patch
 ---
 
 Add opt-in native form section numbers and a host-owned DocumentWorkspace footer with an optional sidebar. Honor disabled file controls while retaining readonly file access.
