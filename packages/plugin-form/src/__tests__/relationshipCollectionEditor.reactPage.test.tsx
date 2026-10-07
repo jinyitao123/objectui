@@ -195,6 +195,46 @@ afterEach(() => {
 });
 
 describe('trusted React runtime components through the React Page SDK', () => {
+  it('composes collapsible sections and controlled segmented radio choices without persistence', async () => {
+    const adapter = makeAdapter();
+    for (const name of ['FormSectionContainer', 'SegmentedRadioGroup']) {
+      expect(ComponentRegistry.getReactRuntimeComponents().find(entry => entry.name === name)?.injectDataSource).toBe(false);
+    }
+    renderReactPage(adapter, `
+function Page() {
+  const [priority, setPriority] = React.useState('medium');
+  const [name, setName] = React.useState('');
+  const [disabled, setDisabled] = React.useState(false);
+  return <>
+    <FormSectionContainer label="Basics" columns={2} collapsible showBorder={false}>
+      <input aria-label="Name" value={name} onChange={event => setName(event.target.value)} />
+      <SegmentedRadioGroup aria-label="Priority" value={priority} onValueChange={setPriority}
+        disabled={disabled} options={[{ value: 'high', label: 'High' }, { value: 'medium', label: 'Medium' }, { value: 'low', label: 'Low' }]} />
+    </FormSectionContainer>
+    <button onClick={() => setDisabled(true)}>Disable choices</button>
+    <output aria-label="Draft">{name + ':' + priority}</output>
+  </>;
+}`);
+    const name = await screen.findByRole('textbox', { name: 'Name' });
+    fireEvent.change(name, { target: { value: 'Host draft' } });
+    fireEvent.click(screen.getByRole('radio', { name: 'High' }));
+    expect(screen.getByRole('status', { name: 'Draft' })).toHaveTextContent('Host draft:high');
+    const header = screen.getByRole('button', { name: 'Basics' });
+    fireEvent.keyDown(header, { key: 'Enter' });
+    expect(header).toHaveAttribute('aria-expanded', 'false');
+    expect(screen.queryByRole('textbox', { name: 'Name' })).not.toBeInTheDocument();
+    fireEvent.keyDown(header, { key: ' ' });
+    expect(screen.getByRole('textbox', { name: 'Name' })).toHaveValue('Host draft');
+    expect(screen.getByRole('radio', { name: 'High' })).toBeChecked();
+    fireEvent.click(screen.getByRole('button', { name: 'Disable choices' }));
+    fireEvent.click(screen.getByRole('radio', { name: 'Low' }));
+    expect(screen.getByRole('radio', { name: 'Low' })).toBeDisabled();
+    expect(screen.getByRole('radio', { name: 'High' })).toBeChecked();
+    expect(adapter.getObjectSchema).not.toHaveBeenCalled();
+    expect(adapter.create).not.toHaveBeenCalled();
+    expect(adapter.update).not.toHaveBeenCalled();
+  });
+
   it('keeps function children, controlled relationship drafts, field permissions, and host adapter authority', async () => {
     const adapter = makeAdapter();
     const probe = window.__relationshipRuntimeProbe!;

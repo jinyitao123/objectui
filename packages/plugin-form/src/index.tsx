@@ -16,11 +16,12 @@ import {
   type ElementDataSourceMapping,
 } from '@object-ui/react';
 import type { DataSource, ObjectFormSchema } from '@object-ui/types';
-import { CompositeDialog, DocumentWorkspace, DocumentSection, Switch, type ObjectFormController } from '@object-ui/components';
+import { CompositeDialog, DocumentWorkspace, DocumentSection, SegmentedRadioGroup, Switch, type ObjectFormController } from '@object-ui/components';
 import { GridField } from '@object-ui/fields';
 import { ObjectForm } from './ObjectForm';
 import { ExportConfigurationDialog } from './ExportConfigurationDialog';
 import { RelationshipCollectionEditor } from './RelationshipCollectionEditor';
+import { FormSectionContainer } from './FormSection';
 
 export { ObjectForm };
 export { ExportConfigurationDialog };
@@ -60,7 +61,7 @@ export type {
  * keep compiling.
  */
 export type { ObjectFormComponentProps as ObjectFormProps } from './ObjectForm';
-export { FormSectionContainer } from './FormSection';
+export { FormSectionContainer };
 export type { FormSectionContainerProps } from './FormSection';
 export {
   applyAutoLayout,
@@ -587,6 +588,8 @@ ComponentRegistry.registerReactRuntimeComponent('ExportConfigurationDialog', Exp
 ComponentRegistry.registerReactRuntimeComponent('DocumentWorkspace', DocumentWorkspace, { injectDataSource: false });
 ComponentRegistry.registerReactRuntimeComponent('DocumentSection', DocumentSection, { injectDataSource: false });
 ComponentRegistry.registerReactRuntimeComponent('Switch', Switch, { injectDataSource: false });
+ComponentRegistry.registerReactRuntimeComponent('FormSectionContainer', FormSectionContainer, { injectDataSource: false });
+ComponentRegistry.registerReactRuntimeComponent('SegmentedRadioGroup', SegmentedRadioGroup, { injectDataSource: false });
 ComponentRegistry.registerReactRuntimeComponent('GridField', GridField);
 
 // A development module replacement creates new component constructors. Release
@@ -603,6 +606,8 @@ formHot?.dispose(() => {
     ['DocumentWorkspace', DocumentWorkspace],
     ['DocumentSection', DocumentSection],
     ['Switch', Switch],
+    ['FormSectionContainer', FormSectionContainer],
+    ['SegmentedRadioGroup', SegmentedRadioGroup],
     ['GridField', GridField],
   ] as const) {
     const registration = ComponentRegistry.getReactRuntimeComponents()

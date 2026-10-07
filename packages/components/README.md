@@ -111,6 +111,39 @@ scroll region. The sidebar is presentation-only; controlled fields and discard
 handling remain in the existing main form. See
 `src/__tests__/composite-dialog.test.tsx` for draft preservation during cancellation.
 
+`SegmentedRadioGroup` is a controlled, horizontal group of equal-width radio
+choices. It reuses Radix radio selection, focus movement and disabled behavior;
+it does not change the existing `RadioGroup` or declare a serialized field type.
+The host supplies `value`, `onValueChange`, and `options` containing string
+`value`/`label` pairs with optional per-option `disabled`. Group `disabled`,
+`aria-label`/`aria-labelledby`, `name`, `required`, `dir`, refs and `className`
+reach the native radio group. Arrow keys select enabled choices; Home and End
+move focus, and Space selects the focused choice. Clicking the selected choice
+never clears it.
+
+```tsx
+import { SegmentedRadioGroup } from '@object-ui/components';
+
+<SegmentedRadioGroup
+  aria-label="Priority"
+  value={priority}
+  onValueChange={setPriority}
+  options={[
+    { value: 'high', label: 'High' },
+    { value: 'medium', label: 'Medium' },
+    { value: 'low', label: 'Low' },
+  ]}
+/>
+```
+
+Its geometry consumes `--ui-control-height`, `--ui-control-font-size`,
+`--ui-control-line-height`, `--ui-control-radius` and `--ui-button-padding-x`.
+Colors come from theme tokens. No profile or other consumer changes when this
+component is not used. The exported types are `SegmentedRadioGroupProps` and
+`SegmentedRadioOption`. The component tests in
+`src/custom/__tests__/segmented-radio-group.test.tsx` exercise controlled values,
+keyboard selection, disabled choices and native form participation.
+
 The public `Button`/`buttonVariants`, `Input`, `SelectTrigger`/`SelectItem`, `Textarea`,
 `Label`, and `NativeSelect` exports are wrappers in `src/custom/profile-controls.tsx`.
 They preserve the Shadcn props and refs while consuming optional host CSS

@@ -181,6 +181,41 @@ are not part of the generated `@objectstack/spec` React Page authoring contract.
 Runtime availability does not mean `os validate` or publish validation accepts
 them.
 
+The plugin also registers `<FormSectionContainer>` and
+`<SegmentedRadioGroup>` as presentation-only runtime components. The section
+retains its existing `columns`, `collapsible`, initial `collapsed`, `showBorder`,
+`className`, `gridClassName`, `label` and `description` props. Its collapse state
+is local; children unmount while collapsed, so the page owns values that must
+survive. It neither infers filled-field counters nor submits fields.
+
+`SegmentedRadioGroup` takes controlled `value`/`onValueChange`, an `options`
+array of string `value`/`label` pairs with optional per-option `disabled`, group
+`disabled`, an accessible name and `className`. It preserves radio semantics
+and keyboard selection in a horizontal equal-width presentation. Host CSS can
+set `--ui-control-height`, `--ui-control-font-size`, `--ui-control-line-height`,
+`--ui-control-radius` and `--ui-button-padding-x`; palette comes from the theme.
+These direct React props are not new Spec fields or schema block types.
+
+```tsx
+function Page() {
+  const [priority, setPriority] = React.useState('medium');
+  return (
+    <FormSectionContainer label="Basics" columns={2} collapsible showBorder={false}>
+      <SegmentedRadioGroup
+        aria-label="Priority"
+        value={priority}
+        onValueChange={setPriority}
+        options={[
+          { value: 'high', label: 'High' },
+          { value: 'medium', label: 'Medium' },
+          { value: 'low', label: 'Low' },
+        ]}
+      />
+    </FormSectionContainer>
+  );
+}
+```
+
 `ExportConfigurationDialog` receives permitted field keys and display labels,
 row counts, already formatted preview values, and host-selected initial values.
 It returns the temporary selection through `onExport(scope, fields, format,

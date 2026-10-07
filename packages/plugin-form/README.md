@@ -10,7 +10,8 @@ own exclusivity rule. See `RelationshipCollectionEditor.test.tsx` for the
 controlled row-action regression.
 
 Loading this plugin registers `DocumentWorkspace`, `DocumentSection`,
-`CompositeDialog`, `RelationshipCollectionEditor`, `Switch`, and `GridField` in the trusted
+`CompositeDialog`, `RelationshipCollectionEditor`, `Switch`, `FormSectionContainer`,
+`SegmentedRadioGroup`, and `GridField` in the trusted
 React page runtime. Workspace and section slots are presentation-only. A direct
 `GridField` accepts the fields package's React-only `getRowKey` and
 `renderSelectionToolbar` callbacks, retaining controlled draft edits and readonly
@@ -1177,6 +1178,16 @@ components for the host's `kind:'react'` runtime scope:
   `@object-ui/components`. Its `checked`, `onCheckedChange`, `disabled`, and
   accessible name are controlled by the host page. It receives no adapter and
   performs no persistence.
+- `<FormSectionContainer>` reuses the exported section container, including
+  `label`, `description`, `columns`, `collapsible`, initial `collapsed`,
+  `showBorder`, `className`, `gridClassName` and React children. It does not
+  receive an adapter or infer field counts. Collapsing unmounts its children;
+  keep field values in the parent page when they must survive a collapse.
+- `<SegmentedRadioGroup>` is the controlled equal-width radio group from
+  `@object-ui/components`. Pass `value`, `onValueChange`, `options` with string
+  `value`/`label` and optional `disabled`, and a group accessible name. It also
+  accepts group `disabled` and `className`. It receives no adapter and performs
+  no persistence. Geometry uses the existing control and button CSS tokens.
 
 These registrations are code-only runtime entries, not schema registrations or
 `PUBLIC_BLOCKS`/`REACT_BLOCKS` authoring declarations. The host imports this

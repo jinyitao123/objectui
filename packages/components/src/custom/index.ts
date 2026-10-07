@@ -30,6 +30,7 @@ export {
 export * from './navigation-overlay';
 export * from './resizable';
 export * from './section-header';
+export * from './segmented-radio-group';
 export * from './spinner';
 export * from './sort-builder';
 export * from './grouping-editor';
