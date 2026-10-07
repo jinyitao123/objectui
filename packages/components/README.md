@@ -10,6 +10,10 @@ without moving focus out of the input, and `editFormat="iso"` shows a valid
 date as `YYYY-MM-DD` while editing and restores locale text on blur. Restoring
 focus after popup dismissal does not reopen it. Disabled and read-only inputs
 cannot open the popup or change their date through calendar or clear controls.
+With focus-open or year/month navigation, a pointer press on a calendar button
+keeps input focus until that button's click runs, avoiding blur-driven draft
+renders interrupting the first selection. Keyboard focus remains available;
+clicking the focus-open input again keeps its existing popup open.
 
 `calendarNavigation="year-month"` replaces the caption's month overlay with a
 twelve-year grid (the decade plus one adjacent year at each end), followed by

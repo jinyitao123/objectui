@@ -221,6 +221,9 @@ The input keeps focus while the popup opens, so typing can continue. A valid
 value uses ISO text during editing and display-locale text on blur; invalid
 drafts retain the existing parser and custom-validity behavior. Inline clear
 emits an empty value. Read-only and disabled controls cannot open, pick or clear.
+In this optional mode, pointer presses on calendar buttons defer input blur
+until the click can finish, so a controlled parent's blur render cannot consume
+the first navigation or date-selection click. Keyboard focus is unchanged.
 Restoring focus after dismissal does not reopen the popup. With `openOnFocus`
 or `year-month` navigation, Escape closes only the date popup, preserving the
 containing dialog's own cancellation path.

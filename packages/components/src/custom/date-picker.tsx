@@ -732,6 +732,18 @@ export function DatePicker({
           onEscapeKeyDown={(event) => {
             if (yearMonthNavigation || openOnFocus) event.stopPropagation()
           }}
+          onPointerDown={(event) => {
+            // Finish the pointer action before blur reformats a controlled draft.
+            // Keyboard focus movement remains owned by the calendar and browser.
+            // Bubble after Radix's capture phase has classified the press as inside.
+            if (!(yearMonthNavigation || openOnFocus) || event.button !== 0) return
+            const target = event.target
+            if (inputRef.current?.ownerDocument.activeElement === inputRef.current
+              && target instanceof Element && target.closest('button')) event.preventDefault()
+          }}
+          onInteractOutside={(event) => {
+            if (openOnFocus && event.detail.originalEvent.target === inputRef.current) event.preventDefault()
+          }}
         >
           {periodPanel ? (
             <CalendarPeriodPanel

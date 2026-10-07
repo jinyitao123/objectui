@@ -4,6 +4,7 @@ import userEvent from '@testing-library/user-event'
 import { describe, expect, it, vi } from 'vitest'
 import { I18nProvider } from '@object-ui/i18n'
 import { DatePicker, type DatePickerProps } from '../date-picker'
+import { CompositeDialog } from '../composite-dialog'
 
 function Harness({ onValueChange, ...props }: DatePickerProps) {
   const [value, setValue] = React.useState(props.value ?? '2026-10-07')
@@ -19,7 +20,41 @@ function renderPicker(props: DatePickerProps = {}, language = 'en') {
   </I18nProvider>)
 }
 
+function ControlledDialogPicker() {
+  const [value, setValue] = React.useState('2026-10-07')
+  const [blurs, setBlurs] = React.useState(0)
+  return <CompositeDialog open title="Edit deadline" onOpenChange={() => {}}>
+    <button type="button">First focus</button>
+    <form data-blurs={blurs}>
+      <DatePicker value={value} onValueChange={setValue} aria-label="Due date"
+        onBlur={() => setBlurs((count) => count + 1)}
+        openOnFocus editFormat="iso" calendarNavigation="year-month" />
+    </form>
+  </CompositeDialog>
+}
+
 describe('DatePicker optional editing and period navigation', () => {
+  it.each(['caption', 'next', 'day'])('keeps the first %s pointer action after controlled typing inside a dialog', async (action) => {
+    const user = userEvent.setup()
+    render(<I18nProvider persistLanguage={false} config={{ defaultLanguage: 'en', detectBrowserLanguage: false }}>
+      <ControlledDialogPicker />
+    </I18nProvider>)
+    const input = screen.getByRole('textbox', { name: 'Due date' })
+    await user.click(input)
+    await user.clear(input)
+    await user.keyboard('2026-11-15')
+    expect(input).toHaveFocus()
+    const name = action === 'caption' ? 'November 2026' : action === 'next' ? 'Next period' : 'Monday, November 16, 2026'
+    const target = screen.getByRole('button', { name, hidden: true })
+    await user.pointer({ keys: '[MouseLeft>]', target })
+    expect(input).toHaveFocus()
+    await user.pointer({ keys: '[/MouseLeft]' })
+    if (action === 'caption') expect(screen.getByRole('group', { name: 'Year', hidden: true })).toBeInTheDocument()
+    else if (action === 'next') expect(screen.getByRole('button', { name: 'December 2026', hidden: true })).toBeInTheDocument()
+    else expect(input).toHaveValue('November 16, 2026')
+    expect(screen.getByRole('dialog', { name: 'Edit deadline' })).toBeInTheDocument()
+  })
+
   it('opens on focus without stealing typing focus, edits ISO and formats on blur', async () => {
     const user = userEvent.setup()
     renderPicker({ openOnFocus: true, editFormat: 'iso' }, 'zh')
