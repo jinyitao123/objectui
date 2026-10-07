@@ -9,12 +9,13 @@
 "use client"
 
 import * as React from "react"
-import { CalendarIcon, ChevronDown, ChevronLeft, ChevronRight } from "lucide-react"
+import { CalendarIcon, ChevronDown, ChevronLeft, ChevronRight, X } from "lucide-react"
+import { Anchor as PopoverAnchor } from "@radix-ui/react-popover"
 import type { Matcher, MonthCaptionProps } from "react-day-picker"
 import { useDisplayLocale, useObjectTranslation } from "@object-ui/i18n"
 
 import { cn } from "../lib/utils"
-import { Button, Input } from "./profile-controls"
+import { Button, Input, buttonVariants } from "./profile-controls"
 import { Calendar } from "../ui/calendar"
 import { Popover, PopoverContent, PopoverTrigger } from "../ui/popover"
 import { dateToValue, toCalendarDate } from "./local-date"
@@ -40,6 +41,16 @@ export interface DatePickerProps extends TextInputProps {
   disabled?: boolean
   minDate?: Date | string
   maxDate?: Date | string
+  /** Show an inline clear button for both valid values and invalid drafts. */
+  clearable?: boolean
+  /** Open the calendar when the input receives user focus. */
+  openOnFocus?: boolean
+  /** Use ISO text during editing, retaining locale formatting on blur. */
+  editFormat?: "locale" | "iso"
+  /** Opt into decade → year → month navigation; the default month picker is unchanged. */
+  calendarNavigation?: "month" | "year-month"
+  /** Apply a host's geometry profile to the portaled calendar surface. */
+  popoverClassName?: string
 }
 
 function stripDirectionMarks(value: string): string {
@@ -182,6 +193,7 @@ type DatePickerMonthPickerContextValue = {
   nextPeriodLabel: string
   minDate?: Date
   maxDate?: Date
+  yearMonthNavigation?: boolean
   onToggleMonthPicker: () => void
   onSelectYear: (year: number) => void
   onSelectMonth: (month: number) => void
@@ -239,10 +251,10 @@ function DatePickerMonthCaption({
         aria-expanded={picker.monthPickerOpen}
         aria-controls={picker.monthPickerOpen ? picker.monthPickerId : undefined}
         onClick={picker.onToggleMonthPicker}
-        className="gap-1 font-medium"
+        className={cn("gap-1 font-medium", picker.yearMonthNavigation && "h-auto py-0")}
       >
         {monthCaption}
-        <ChevronDown className="h-4 w-4" aria-hidden="true" />
+        {!picker.yearMonthNavigation && <ChevronDown className="h-4 w-4" aria-hidden="true" />}
       </Button>
       {picker.monthPickerOpen && (
         <div
@@ -298,6 +310,102 @@ function DatePickerMonthCaption({
   )
 }
 
+type CalendarPeriodPanelProps = {
+  mode: "years" | "months"
+  month: Date
+  decade: number
+  locale: string
+  label: string
+  previousLabel: string
+  nextLabel: string
+  minDate?: Date
+  maxDate?: Date
+  onPrevious: () => void
+  onNext: () => void
+  onHeadingClick: () => void
+  onSelect: (value: number) => void
+}
+
+/** Navigation only: react-day-picker remains the owner of the day grid. */
+function CalendarPeriodPanel({
+  mode, month, decade, locale, label, previousLabel, nextLabel,
+  minDate, maxDate, onPrevious, onNext, onHeadingClick, onSelect,
+}: CalendarPeriodPanelProps) {
+  const gridRef = React.useRef<HTMLDivElement>(null)
+  const year = month.getFullYear()
+  const number = new Intl.NumberFormat(locale, { useGrouping: false })
+  const options = Array.from({ length: 12 }, (_, index) => {
+    const value = mode === "years" ? decade - 1 + index : index
+    return {
+      value,
+      label: mode === "years"
+        ? number.format(value)
+        : new Intl.DateTimeFormat(locale, { calendar: "gregory", month: "long" })
+          .format(makeLocalDate(year, index + 1, 1)!),
+      selected: mode === "years" ? value === year : index === month.getMonth(),
+      outside: mode === "years" && (value < decade || value > decade + 9),
+      disabled: mode === "years"
+        ? Boolean((minDate && value < minDate.getFullYear()) || (maxDate && value > maxDate.getFullYear()))
+        : monthIsOutsideRange(year, index, minDate, maxDate),
+    }
+  })
+  const initialFocus = options.find((option) => option.selected && !option.disabled)?.value
+    ?? options.find((option) => !option.disabled)?.value
+  const [focused, setFocused] = React.useState(initialFocus)
+  React.useEffect(() => {
+    gridRef.current?.querySelector<HTMLButtonElement>(`button[data-value="${initialFocus}"]`)?.focus()
+  }, [initialFocus, mode, decade, year])
+
+  const navigateGrid: React.KeyboardEventHandler<HTMLDivElement> = (event) => {
+    const index = options.findIndex((option) => option.value === focused)
+    const steps: Record<string, number> = { ArrowLeft: -1, ArrowRight: 1, ArrowUp: -3, ArrowDown: 3 }
+    let next = event.key === "Home" ? 0 : event.key === "End" ? options.length - 1 : index + (steps[event.key] ?? 0)
+    if (!(event.key in steps) && event.key !== "Home" && event.key !== "End") return
+    event.preventDefault()
+    const direction = event.key === "End" ? -1 : event.key === "Home" ? 1 : Math.sign(steps[event.key])
+    while (next >= 0 && next < options.length && options[next].disabled) next += direction
+    if (next < 0 || next >= options.length) return
+    setFocused(options[next].value)
+    gridRef.current?.querySelector<HTMLButtonElement>(`button[data-value="${options[next].value}"]`)?.focus()
+  }
+  const previousDisabled = Boolean(minDate && (mode === "years" ? decade - 1 : year - 1) < minDate.getFullYear())
+  const nextDisabled = Boolean(maxDate && (mode === "years" ? decade + 10 : year + 1) > maxDate.getFullYear())
+  const heading = mode === "years"
+    ? `${number.format(decade)} - ${number.format(decade + 9)}`
+    : new Intl.DateTimeFormat(locale, { calendar: "gregory", year: "numeric" }).format(month)
+
+  return (
+    <div className="p-[var(--ui-calendar-padding,10.5px)]">
+      <div className="mb-[var(--ui-calendar-period-gap,10.5px)] flex items-center justify-between">
+        <Button type="button" variant="ghost" size="icon" aria-label={previousLabel} disabled={previousDisabled} onClick={onPrevious} className="size-[var(--ui-calendar-nav-size,26.5px)]">
+          <ChevronLeft className="h-4 w-4" aria-hidden="true" />
+        </Button>
+        {mode === "months" ? (
+          <Button type="button" variant="ghost" size="sm" onClick={onHeadingClick} className="h-auto py-0">{heading}</Button>
+        ) : <span aria-live="polite" className="text-[length:var(--ui-control-font-size,0.875rem)]">{heading}</span>}
+        <Button type="button" variant="ghost" size="icon" aria-label={nextLabel} disabled={nextDisabled} onClick={onNext} className="size-[var(--ui-calendar-nav-size,26.5px)]">
+          <ChevronRight className="h-4 w-4" aria-hidden="true" />
+        </Button>
+      </div>
+      <div ref={gridRef} role="group" aria-label={label} className="grid grid-cols-3 gap-[var(--ui-calendar-option-gap,7px)] py-[var(--ui-calendar-option-padding-y,7px)]" onKeyDown={navigateGrid}>
+        {options.map((option) => (
+          <Button
+            key={option.value} type="button" variant={option.selected ? "default" : "ghost"} size="sm"
+            data-value={option.value} aria-pressed={option.selected} disabled={option.disabled}
+            tabIndex={focused === option.value ? 0 : -1}
+            onFocus={() => setFocused(option.value)} onClick={() => onSelect(option.value)}
+            className={cn("h-[var(--ui-calendar-option-height,38.5px)] w-full justify-center px-1", option.outside && !option.selected && "text-muted-foreground")}
+          >{option.label}</Button>
+        ))}
+      </div>
+    </div>
+  )
+}
+
+function DatePickerAnchor({ enabled, children }: { enabled: boolean; children: React.ReactElement }) {
+  return enabled ? <PopoverAnchor asChild>{children}</PopoverAnchor> : children
+}
+
 export function DatePicker({
   date: dateProp,
   onDateChange,
@@ -310,6 +418,11 @@ export function DatePicker({
   disabled,
   minDate: minDateValue,
   maxDate: maxDateValue,
+  clearable = false,
+  openOnFocus = false,
+  editFormat = "locale",
+  calendarNavigation = "month",
+  popoverClassName,
   ...inputProps
 }: DatePickerProps) {
   const locale = useDisplayLocale()
@@ -323,10 +436,16 @@ export function DatePicker({
     validityCallback.current?.(!error)
   }
   const editingRef = React.useRef(false)
+  const restoringFocus = React.useRef(false)
+  const [openedFromInput, setOpenedFromInput] = React.useState(false)
   const inputErrorId = React.useId()
   const monthPickerId = React.useId()
   const [open, setOpen] = React.useState(false)
   const [monthPickerOpen, setMonthPickerOpen] = React.useState(false)
+  const [periodPanel, setPeriodPanel] = React.useState<"years" | "months" | null>(null)
+  const [decade, setDecade] = React.useState(0)
+  const yearMonthNavigation = calendarNavigation === "year-month"
+  const readOnly = inputProps.readOnly
 
   const minDate = toCalendarDate(minDateValue)
   const maxDate = toCalendarDate(maxDateValue)
@@ -396,6 +515,7 @@ export function DatePicker({
   }
 
   const selectDate = (nextDate: Date | undefined) => {
+    if (disabled || readOnly) return
     editingRef.current = false
     const nextValue = nextDate ? dateToValue(nextDate) : ""
     const nextError = nextDate ? rangeError(nextDate) : undefined
@@ -408,6 +528,8 @@ export function DatePicker({
   }
 
   const handleInputChange = (nextValue: string) => {
+    if (disabled || readOnly) return
+    if (inputRef.current?.ownerDocument.activeElement === inputRef.current) editingRef.current = true
     setDraft(nextValue)
     if (!nextValue.trim()) {
       setInputError("")
@@ -447,6 +569,7 @@ export function DatePicker({
 
   const handleInputKeyDown: React.KeyboardEventHandler<HTMLInputElement> = (event) => {
     if (event.key === "ArrowDown") {
+      setOpenedFromInput(false)
       event.preventDefault()
       handlePopoverOpenChange(true)
     } else if (event.key === "Enter" && inputError) {
@@ -457,8 +580,10 @@ export function DatePicker({
   }
 
   const handlePopoverOpenChange = (nextOpen: boolean) => {
+    if (nextOpen && (disabled || readOnly)) return
     setOpen(nextOpen)
     setMonthPickerOpen(false)
+    setPeriodPanel(null)
     if (nextOpen) {
       setDisplayMonth(selectedDate ?? minDate ?? toCalendarDate(new Date()) ?? new Date())
     }
@@ -473,7 +598,13 @@ export function DatePicker({
     nextPeriodLabel: t("calendar.a11y.nextPeriod"),
     minDate,
     maxDate,
-    onToggleMonthPicker: () => setMonthPickerOpen((current) => !current),
+    yearMonthNavigation,
+    onToggleMonthPicker: () => {
+      if (yearMonthNavigation) {
+        setDecade(Math.floor(displayMonth.getFullYear() / 10) * 10)
+        setPeriodPanel("years")
+      } else setMonthPickerOpen((current) => !current)
+    },
     onSelectYear: (year) => {
       if ((minDate && year < minDate.getFullYear()) || (maxDate && year > maxDate.getFullYear())) {
         return
@@ -516,9 +647,23 @@ export function DatePicker({
     labelPrevious: () => t("calendar.a11y.previousPeriod"),
   }
 
+  const beginInputEditing = () => {
+    if (disabled || readOnly || restoringFocus.current) return
+    editingRef.current = true
+    const parsed = parseDateText(draft, locale)
+    if (editFormat === "iso" && parsed && !rangeError(parsed)) setDraft(dateToValue(parsed))
+    if (openOnFocus && !open) {
+      setOpenedFromInput(true)
+      handlePopoverOpenChange(true)
+    }
+  }
+
+  const showInlineClear = clearable && Boolean(draft)
+
   return (
     <div className="w-full">
       <Popover open={open} onOpenChange={handlePopoverOpenChange}>
+        <DatePickerAnchor enabled={yearMonthNavigation}>
         <div className="relative w-full">
           <Input
             {...inputProps}
@@ -529,6 +674,7 @@ export function DatePicker({
             disabled={disabled}
             className={cn(
               "pr-[var(--ui-icon-button-size,2.5rem)]",
+              showInlineClear && "pr-[calc(var(--ui-icon-button-size,2.5rem)*2)]",
               inputError && "aria-invalid:border-destructive",
               className,
             )}
@@ -537,35 +683,94 @@ export function DatePicker({
             aria-errormessage={inputError ? inputErrorId : inputProps["aria-errormessage"]}
             onChange={(event) => handleInputChange(event.currentTarget.value)}
             onFocus={(event) => {
-              editingRef.current = true
+              beginInputEditing()
               inputProps.onFocus?.(event)
+            }}
+            onClick={(event) => {
+              if (openOnFocus) beginInputEditing()
+              inputProps.onClick?.(event)
             }}
             onBlur={handleInputBlur}
             onKeyDown={handleInputKeyDown}
           />
+          {showInlineClear && (
+            <Button
+              type="button" variant="ghost" size="icon" aria-label={t("lookup.clear")}
+              disabled={disabled || readOnly}
+              className="absolute right-[var(--ui-icon-button-size,2.5rem)] top-0 h-full border-0"
+              onPointerDown={(event) => event.preventDefault()}
+              onClick={() => selectDate(undefined)}
+            ><X className="h-3.5 w-3.5" aria-hidden="true" /></Button>
+          )}
           <PopoverTrigger asChild>
             <Button
               type="button"
               variant="ghost"
               size="icon"
               aria-label={t("calendar.a11y.region")}
-              disabled={disabled}
+              disabled={disabled || readOnly}
+              onClick={() => setOpenedFromInput(false)}
               className="absolute right-0 top-0 h-full rounded-l-none border-0"
             >
               <CalendarIcon className="h-4 w-4" aria-hidden="true" />
             </Button>
           </PopoverTrigger>
         </div>
+        </DatePickerAnchor>
         <PopoverContent
           align="start"
-          className="w-[280px] p-0"
+          className={cn("w-[280px] p-0", yearMonthNavigation && "w-[var(--ui-calendar-width,280px)] rounded-[var(--ui-calendar-radius,7px)]", popoverClassName)}
+          onOpenAutoFocus={(event) => {
+            if (openedFromInput) event.preventDefault()
+          }}
           onCloseAutoFocus={(event) => {
             event.preventDefault()
+            restoringFocus.current = true
             inputRef.current?.focus({ preventScroll: true })
+            restoringFocus.current = false
+          }}
+          onEscapeKeyDown={(event) => {
+            if (yearMonthNavigation || openOnFocus) event.stopPropagation()
           }}
         >
+          {periodPanel ? (
+            <CalendarPeriodPanel
+              mode={periodPanel} month={displayMonth} decade={decade} locale={locale}
+              label={periodPanel === "years" ? t("gantt.viewMode.year") : t("calendar.month")}
+              previousLabel={labels.labelPrevious()} nextLabel={labels.labelNext()} minDate={minDate} maxDate={maxDate}
+              onPrevious={() => {
+                if (periodPanel === "years") setDecade((current) => current - 10)
+                else setDisplayMonth(makeLocalDate(displayMonth.getFullYear() - 1, displayMonth.getMonth() + 1, 1)!)
+              }}
+              onNext={() => {
+                if (periodPanel === "years") setDecade((current) => current + 10)
+                else setDisplayMonth(makeLocalDate(displayMonth.getFullYear() + 1, displayMonth.getMonth() + 1, 1)!)
+              }}
+              onHeadingClick={() => {
+                setDecade(Math.floor(displayMonth.getFullYear() / 10) * 10)
+                setPeriodPanel("years")
+              }}
+              onSelect={(value) => {
+                if (disabled || readOnly) return
+                if (periodPanel === "years") {
+                  setDisplayMonth(makeLocalDate(value, displayMonth.getMonth() + 1, 1)!)
+                  setPeriodPanel("months")
+                } else {
+                  setDisplayMonth(makeLocalDate(displayMonth.getFullYear(), value + 1, 1)!)
+                  setOpenedFromInput(false)
+                  setPeriodPanel(null)
+                }
+              }}
+            />
+          ) : <>
           <DatePickerMonthPickerContext.Provider value={datePickerCaptionContext}>
             <Calendar
+              className={yearMonthNavigation ? "w-full p-[var(--ui-calendar-padding,10.5px)] [--cell-size:var(--ui-calendar-day-size,35.2px)]" : undefined}
+              classNames={yearMonthNavigation ? {
+                button_previous: cn(buttonVariants({ variant: "ghost", size: "icon" }), "h-[var(--ui-calendar-nav-size,26.5px)] w-[var(--ui-calendar-nav-size,26.5px)] p-0 aria-disabled:opacity-50"),
+                button_next: cn(buttonVariants({ variant: "ghost", size: "icon" }), "h-[var(--ui-calendar-nav-size,26.5px)] w-[var(--ui-calendar-nav-size,26.5px)] p-0 aria-disabled:opacity-50"),
+                month_caption: "flex h-[var(--ui-calendar-nav-size,26.5px)] w-full items-center justify-center px-[var(--ui-calendar-nav-size,26.5px)]",
+              } : undefined}
               mode="single"
               selected={selectedDate}
               onSelect={selectDate}
@@ -582,7 +787,7 @@ export function DatePicker({
               formatters={formatters}
               labels={labels}
               components={{ MonthCaption: DatePickerMonthCaption }}
-              autoFocus
+              autoFocus={!openedFromInput}
             />
           </DatePickerMonthPickerContext.Provider>
           <div className="flex items-center justify-between gap-2 border-t px-3 py-2">
@@ -590,7 +795,7 @@ export function DatePicker({
               type="button"
               variant="ghost"
               size="sm"
-              disabled={disabled || todayUnavailable}
+              disabled={disabled || readOnly || todayUnavailable}
               onClick={() => selectDate(today)}
             >
               {t("calendar.today")}
@@ -599,12 +804,13 @@ export function DatePicker({
               type="button"
               variant="ghost"
               size="sm"
-              disabled={disabled}
+              disabled={disabled || readOnly}
               onClick={() => selectDate(undefined)}
             >
               {t("lookup.clear")}
             </Button>
           </div>
+          </>}
         </PopoverContent>
       </Popover>
       {inputError && (

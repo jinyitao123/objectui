@@ -202,6 +202,41 @@ on blur. The control keeps its existing `label`, `aria-label`, `name`,
 Date-valued `date`/`onDateChange` API; registration adds no date parsing rules
 or serialized metadata.
 
+For a text-first calendar, opt into the following direct React props:
+
+```tsx
+<DatePicker
+  value={dueOn}
+  onValueChange={setDueOn}
+  label="Due on"
+  clearable
+  openOnFocus
+  editFormat="iso"
+  calendarNavigation="year-month"
+  popoverClassName="document-calendar"
+/>
+```
+
+The input keeps focus while the popup opens, so typing can continue. A valid
+value uses ISO text during editing and display-locale text on blur; invalid
+drafts retain the existing parser and custom-validity behavior. Inline clear
+emits an empty value. Read-only and disabled controls cannot open, pick or clear.
+Restoring focus after dismissal does not reopen the popup. With `openOnFocus`
+or `year-month` navigation, Escape closes only the date popup, preserving the
+containing dialog's own cancellation path.
+
+The optional caption navigation opens a twelve-year grid, then twelve months,
+then the existing day grid. All levels respect the date bounds. Arrow keys and
+Home/End move among enabled period choices, while Enter/Space select without
+submitting the parent form. Today/Clear appear only with the day grid. Omitting
+these props preserves the existing month picker and geometry. These are React
+component props, not additions to serialized date-field or Page metadata.
+
+The popup is portaled, so put its host CSS variables on `popoverClassName`.
+The calendar geometry tokens and fallback dimensions are documented under
+[Host geometry tokens](../../../packages/components/README.md#host-geometry-tokens).
+The input continues to use the host's control geometry and icon-width tokens.
+
 `SegmentedRadioGroup` takes controlled `value`/`onValueChange`, an `options`
 array of string `value`/`label` pairs with optional per-option `disabled`, group
 `disabled`, an accessible name and `className`. It preserves radio semantics

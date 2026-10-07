@@ -4,6 +4,34 @@ Standard UI component library for Object UI, built with Shadcn UI + Tailwind CSS
 
 ## Host geometry tokens
 
+`DatePicker` exposes optional direct React editing props: `clearable` adds an
+inline clear button (including invalid drafts), `openOnFocus` opens the popup
+without moving focus out of the input, and `editFormat="iso"` shows a valid
+date as `YYYY-MM-DD` while editing and restores locale text on blur. Restoring
+focus after popup dismissal does not reopen it. Disabled and read-only inputs
+cannot open the popup or change their date through calendar or clear controls.
+
+`calendarNavigation="year-month"` replaces the caption's month overlay with a
+twelve-year grid (the decade plus one adjacent year at each end), followed by
+twelve months and the existing react-day-picker day grid. Period choices obey
+`minDate`/`maxDate`, support arrow keys and Home/End, and never submit an outer
+form. Today/Clear remain in the day view only. With `year-month` navigation
+or `openOnFocus`, Escape dismisses the popup and stops propagation to the
+containing dialog. The default `"month"` behavior and
+geometry remain unchanged. These props add no Spec metadata or date parser.
+
+Use `popoverClassName` to scope geometry on the portaled surface; CSS variables
+on the input's ancestor do not automatically reach the portal. The opt-in
+navigation consumes `--ui-calendar-width` (280px), `--ui-calendar-radius`
+(7px), `--ui-calendar-padding` (10.5px), `--ui-calendar-day-size` (35.2px),
+`--ui-calendar-nav-size` (26.5px), `--ui-calendar-period-gap` (header bottom
+margin, 10.5px), `--ui-calendar-option-gap` (7px),
+`--ui-calendar-option-padding-y` (grid vertical padding, 7px) and
+`--ui-calendar-option-height` (38.5px). Control typography and input icon widths
+reuse the existing `--ui-control-*` and `--ui-icon-button-size` variables.
+Behavioral coverage lives in `src/custom/__tests__/date-picker-navigation.test.tsx`;
+that DOM regression is not a screenshot comparison.
+
 `DatePicker` optionally reports its existing parsing/range verdict through
 `onValidityChange(valid)`, alongside each native custom-validity update and
 when a controlled value is applied. Empty input reports `true`; required-field
