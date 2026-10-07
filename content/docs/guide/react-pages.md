@@ -205,16 +205,24 @@ or serialized metadata.
 For a text-first calendar, opt into the following direct React props:
 
 ```tsx
-<DatePicker
-  value={dueOn}
-  onValueChange={setDueOn}
-  label="Due on"
-  clearable
-  openOnFocus
-  editFormat="iso"
-  calendarNavigation="year-month"
-  popoverClassName="document-calendar"
-/>
+import { useState } from 'react';
+import { DatePicker } from '@object-ui/components';
+
+export function DueDate() {
+  const [dueOn, setDueOn] = useState('');
+  return (
+    <DatePicker
+      value={dueOn}
+      onValueChange={setDueOn}
+      label="Due on"
+      clearable
+      openOnFocus
+      editFormat="iso"
+      calendarNavigation="year-month"
+      popoverClassName="document-calendar"
+    />
+  );
+}
 ```
 
 The input keeps focus while the popup opens, so typing can continue. A valid
@@ -253,8 +261,12 @@ set `--ui-control-height`, `--ui-control-font-size`, `--ui-control-line-height`,
 These direct React props are not new Spec fields or schema block types.
 
 ```tsx
+import { useState } from 'react';
+import { SegmentedRadioGroup } from '@object-ui/components';
+import { FormSectionContainer } from '@object-ui/plugin-form';
+
 function Page() {
-  const [priority, setPriority] = React.useState('medium');
+  const [priority, setPriority] = useState('medium');
   return (
     <FormSectionContainer label="Basics" columns={2} collapsible showBorder={false}>
       <SegmentedRadioGroup

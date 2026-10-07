@@ -160,6 +160,17 @@ describe('what draws NOTHING — every accepted key, and every out-of-scope shap
     expect(unconsumed(dash({ ...widget, options: { ...accepted, dead: 1 } }))).toHaveLength(1);
   });
 
+  it('accepts the dataset metric drill-down configuration but still warns on an unused neighbor', () => {
+    const widget = {
+      id: 'metric', type: 'metric', dataset: 'sales', values: ['total'],
+      options: { drillDown: { enabled: false, target: 'dialog', maxRows: 25 } },
+    };
+    expect(unconsumed(dash(widget))).toEqual([]);
+    const found = unconsumed(dash({ ...widget, options: { ...widget.options, dead: true } }));
+    expect(found).toHaveLength(1);
+    expect(found[0]!.message).toContain('options.dead');
+  });
+
   it('a widget without `dataset` is out of census scope — the legacy inline form', () => {
     // The legacy (spec-illegal) form consumes a spread-shaped superset this
     // census deliberately does not model; a warning here would be a guess.

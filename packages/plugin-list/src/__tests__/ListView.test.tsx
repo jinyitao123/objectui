@@ -8,7 +8,7 @@
 
 import { describe, it, expect, vi, beforeEach, beforeAll, afterAll } from 'vitest';
 import { ComponentRegistry } from '@object-ui/core';
-import { render, screen, fireEvent } from '@testing-library/react';
+import { render, screen, fireEvent, within } from '@testing-library/react';
 import { ListView, evaluateConditionalFormatting } from '../ListView';
 import type { DataSource, ListViewSchema } from '@object-ui/types';
 import { SchemaRendererProvider } from '@object-ui/react';
@@ -154,7 +154,7 @@ describe('ListView', () => {
     
     // Click the search icon to open the popover
     fireEvent.click(screen.getByTestId('search-icon-button'));
-    const searchInput = screen.getByPlaceholderText(/search/i);
+    const searchInput = within(screen.getByTestId('search-popover')).getByPlaceholderText(/search/i);
     fireEvent.change(searchInput, { target: { value: 'test' } });
     expect(onSearchChange).toHaveBeenCalledWith('test');
   });
@@ -261,7 +261,7 @@ describe('ListView', () => {
     
     // Open search popover
     fireEvent.click(screen.getByTestId('search-icon-button'));
-    const searchInput = screen.getByPlaceholderText(/search/i) as HTMLInputElement;
+    const searchInput = within(screen.getByTestId('search-popover')).getByPlaceholderText(/search/i) as HTMLInputElement;
     
     // Type in search
     fireEvent.change(searchInput, { target: { value: 'test' } });
@@ -971,7 +971,7 @@ describe('ListView', () => {
       renderWithProvider(<ListView schema={schema} />);
       fireEvent.click(screen.getByTestId('search-icon-button'));
       expect(screen.getByTestId('search-popover')).toBeInTheDocument();
-      expect(screen.getByPlaceholderText(/search/i)).toBeInTheDocument();
+      expect(within(screen.getByTestId('search-popover')).getByPlaceholderText(/search/i)).toBeInTheDocument();
     });
 
     it('takes the search placeholder from a pack value, not a code concatenation', () => {
@@ -997,7 +997,7 @@ describe('ListView', () => {
       fireEvent.click(screen.getByTestId('search-icon-button'));
 
       // U+2026, and it comes from `table.search`.
-      expect(screen.getByPlaceholderText('Search…')).toBeInTheDocument();
+      expect(within(screen.getByTestId('search-popover')).getByPlaceholderText('Search…')).toBeInTheDocument();
       expect(screen.queryByPlaceholderText('Search...')).not.toBeInTheDocument();
 
       // …while the trigger's tooltip keeps the bare NOUN `list.search`. The two
@@ -1016,7 +1016,7 @@ describe('ListView', () => {
 
       renderWithProvider(<ListView schema={schema} />);
       fireEvent.click(screen.getByTestId('search-icon-button'));
-      fireEvent.change(screen.getByPlaceholderText(/search/i), { target: { value: 'test' } });
+      fireEvent.change(within(screen.getByTestId('search-popover')).getByPlaceholderText(/search/i), { target: { value: 'test' } });
       // The search icon button should have active styling (foreground text + medium weight)
       const searchBtn = screen.getByTestId('search-icon-button');
       expect(searchBtn.className).toContain('text-foreground');
@@ -1033,7 +1033,7 @@ describe('ListView', () => {
 
       renderWithProvider(<ListView schema={schema} />);
       fireEvent.click(screen.getByTestId('search-icon-button'));
-      fireEvent.change(screen.getByPlaceholderText(/search/i), { target: { value: 'alice' } });
+      fireEvent.change(within(screen.getByTestId('search-popover')).getByPlaceholderText(/search/i), { target: { value: 'alice' } });
       expect(screen.getByTestId('search-active-keyword')).toHaveTextContent('alice');
     });
 
@@ -1948,7 +1948,7 @@ describe('ListView', () => {
 
       // Click search icon to open popover, then type search query
       fireEvent.click(screen.getByTestId('search-icon-button'));
-      const searchInput = screen.getByPlaceholderText(/search/i);
+      const searchInput = within(screen.getByTestId('search-popover')).getByPlaceholderText(/search/i);
       fireEvent.change(searchInput, { target: { value: 'alice' } });
 
       // Wait for debounced fetch
@@ -2033,7 +2033,7 @@ describe('ListView', () => {
 
       // Open search popover and type search query
       fireEvent.click(screen.getByTestId('search-icon-button'));
-      fireEvent.change(screen.getByPlaceholderText(/search/i), { target: { value: 'alice' } });
+      fireEvent.change(within(screen.getByTestId('search-popover')).getByPlaceholderText(/search/i), { target: { value: 'alice' } });
 
       await vi.waitFor(() => {
         expect(screen.getByText('1 record')).toBeInTheDocument();
@@ -2065,7 +2065,7 @@ describe('ListView', () => {
 
       // Open search popover and type search query
       fireEvent.click(screen.getByTestId('search-icon-button'));
-      fireEvent.change(screen.getByPlaceholderText(/search/i), { target: { value: 'bob' } });
+      fireEvent.change(within(screen.getByTestId('search-popover')).getByPlaceholderText(/search/i), { target: { value: 'bob' } });
 
       await vi.waitFor(() => {
         expect(screen.getByText('1 record')).toBeInTheDocument();

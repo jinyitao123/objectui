@@ -181,8 +181,23 @@ vi.mock('../../../../packages/app-shell/src/providers/AdapterProvider', async (i
  * `@objectstack/platform-objects`), which is why the with-app branch is the one
  * a user normally reaches these URLs in.
  */
-const APPS = [{ name: 'setup', label: 'Setup', isDefault: true, navigation: [] }];
+const SETUP_PACKAGE = 'com.example.setup';
+const SYSTEM_OBJECTS = ['sys_user', 'sys_organization', 'sys_position', 'sys_permission_set']
+  .map(name => ({ name, label: name, _packageId: SETUP_PACKAGE }));
+const APPS = [{
+  name: 'setup', label: 'Setup', _packageId: SETUP_PACKAGE, isDefault: true,
+  navigation: SYSTEM_OBJECTS.map(object => ({ id: object.name, type: 'object', objectName: object.name })),
+}];
 let metadataApps: unknown[] = APPS;
+const metadataItemCalls: Array<[string, string | undefined, string | undefined]> = [];
+function readMetadataItem(type: string, name?: string, packageId?: string) {
+  metadataItemCalls.push([type, name, packageId]);
+  return type === 'object' && packageId === SETUP_PACKAGE
+    ? SYSTEM_OBJECTS.find(object => object.name === name) ?? null
+    : null;
+}
+const getMetadataItem = async (type: string, name: string, packageId?: string) =>
+  readMetadataItem(type, name, packageId);
 vi.mock('../../../../packages/app-shell/src/providers/MetadataProvider', async (importOriginal) => ({
   ...(await importOriginal<Record<string, unknown>>()),
   useMetadata: () => ({
@@ -190,8 +205,13 @@ vi.mock('../../../../packages/app-shell/src/providers/MetadataProvider', async (
     objects: [],
     loading: false,
     ensureType: undefined,
+    getItem: getMetadataItem,
+    getItemScope: 'system-hub-route-test',
     error: null,
     refresh: vi.fn(async () => {}),
+  }),
+  useMetadataItem: (type: string, name?: string, packageId?: string) => ({
+    item: readMetadataItem(type, name, packageId), loading: false, error: null,
   }),
 }));
 
@@ -230,6 +250,7 @@ function renderConsoleAt(initialUrl: string) {
 beforeEach(() => {
   vi.clearAllMocks();
   metadataApps = APPS;
+  metadataItemCalls.length = 0;
   chain.length = 0;
 });
 
@@ -251,6 +272,10 @@ describe('system-hub entries reach the framework system objects (objectui#3655)'
     renderConsoleAt(url);
 
     expect(await screen.findByTestId('object-view')).toHaveTextContent(objectName);
+    expect(metadataItemCalls).toContainEqual(['object', objectName, SETUP_PACKAGE]);
+    expect(metadataItemCalls.some(([type, name, packageId]) =>
+      type === 'object' && name === objectName && packageId !== SETUP_PACKAGE,
+    )).toBe(false);
     // Two entries = a single `<Navigate>`. Before the fix `users` never left
     // its own URL (it rendered `RouteNotFound` in place) and `organizations` /
     // `positions` moved to `…/system/record/<word>` instead.
@@ -259,19 +284,21 @@ describe('system-hub entries reach the framework system objects (objectui#3655)'
     expect(screen.queryByText('Page not found')).not.toBeInTheDocument();
   });
 
-  it('preserves the app prefix rather than stripping to the root', () => {
+  it('preserves the app prefix rather than stripping to the root', async () => {
     // `prefix` is cut with a regex off `location.pathname`; every case above
     // uses the same two-segment prefix, so a mistake there is invisible in them.
+    metadataApps = [{ ...APPS[0], name: 'my-app' }];
     renderConsoleAt('/apps/my-app/system/users');
-
+    expect(await screen.findByTestId('object-view')).toHaveTextContent('sys_user');
     expect(chain).toEqual(['/apps/my-app/system/users', '/apps/my-app/sys_user']);
   });
 
-  it('an app segment spelled `system` survives the rewrite', () => {
+  it('an app segment spelled `system` survives the rewrite', async () => {
     // The regex is end-anchored precisely so the LAST `/system/<seg>` is the
     // one removed. An unanchored cut would leave `/apps` here.
+    metadataApps = [{ ...APPS[0], name: 'system' }];
     renderConsoleAt('/apps/system/system/users');
-
+    expect(await screen.findByTestId('object-view')).toHaveTextContent('sys_user');
     expect(chain).toEqual(['/apps/system/system/users', '/apps/system/sys_user']);
   });
 

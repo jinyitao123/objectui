@@ -64,6 +64,10 @@ Trusted hosts can also register a direct React component for a `kind:'react'`
 page scope:
 
 ```typescript
+import { ComponentRegistry } from '@object-ui/core';
+import { LookupField as CustomerLookup } from '@object-ui/fields';
+import { CompositeDialog as HostDialog } from '@object-ui/components';
+
 ComponentRegistry.registerReactRuntimeComponent('CustomerLookup', CustomerLookup)
 ComponentRegistry.registerReactRuntimeComponent('HostDialog', HostDialog, {
   injectDataSource: false,

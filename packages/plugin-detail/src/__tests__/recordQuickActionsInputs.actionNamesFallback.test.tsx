@@ -112,7 +112,7 @@ describe('record:quick_actions — `actionNames` description vs measured behavio
     mount({ actionNames: ['approve'] });
 
     expect(await screen.findByRole('button', { name: 'Approve' })).toBeInTheDocument();
-    expect(getItem).toHaveBeenCalledWith('object', 'crm_account');
+    expect(getItem).toHaveBeenCalledWith('object', 'crm_account', undefined);
   });
 
   it('the published description does not promise the fallback the renderer lacks', () => {

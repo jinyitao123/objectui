@@ -26,7 +26,10 @@
  *   dateGranularity, sortBy, sortOrder, limit   (query-affecting, framework#3588)
  *   stageOrder                                  (funnel/pyramid stage order)
  *
- * plus ONE undeclared key with a real read site:
+ * plus two renderer extras with real read sites:
+ *
+ *   drillDown — the dataset-bound metric/chart drill-through configuration.
+ *   `DatasetWidget.tsx` reads it and forwards the drawer options.
  *
  *   description — the metric-card sub-caption channel. Read at
  *   `widgetSubCaption.ts` (`(widget.options as …)?.description`, objectui#4032
@@ -128,6 +131,7 @@ export const DASHBOARD_WIDGET_HOST_TYPES: ReadonlySet<string> = new Set([
 export const CONSUMED_WIDGET_OPTION_KEYS: readonly string[] = [
   'dateGranularity',
   'description',
+  'drillDown',
   'limit',
   'sortBy',
   'sortOrder',

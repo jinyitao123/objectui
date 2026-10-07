@@ -233,6 +233,10 @@ const es = {
     },
   },
   fields: {
+    choiceCards: {
+      selectOnly: 'Las tarjetas de opciones requieren un campo de selección.',
+      singleValueOnly: 'Las tarjetas de opciones admiten un solo valor seleccionado. Use un control de varios valores para este campo.',
+    },
     declaredLabelSelect: {
       unlistedValue: 'Valor existente: {{value}}',
     },

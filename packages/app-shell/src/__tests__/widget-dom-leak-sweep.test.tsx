@@ -869,9 +869,9 @@ const TARGETS: Readonly<Record<string, readonly Target[]>> = {
   ],
   'plugin-dashboard': [
     { type: 'plugin-dashboard:dashboard-grid', ready: '[data-testid="grid-layout"]' },
-    { type: 'plugin-dashboard:metric', schemaExtras: { label: 'Revenue', value: 42 }, ready: '.rounded-lg.border' },
-    { type: 'plugin-dashboard:metric-card', schemaExtras: { label: 'Revenue', value: 42 }, ready: '.rounded-lg.border' },
-    { type: 'plugin-dashboard:object-metric', schemaExtras: { objectName: 'accounts' }, ready: '.rounded-lg.border' },
+    { type: 'plugin-dashboard:metric', schemaExtras: { label: 'Revenue', value: 42 }, ready: '[data-dashboard-metric-card]' },
+    { type: 'plugin-dashboard:metric-card', schemaExtras: { label: 'Revenue', value: 42 }, ready: '[data-dashboard-metric-card]' },
+    { type: 'plugin-dashboard:object-metric', schemaExtras: { objectName: 'accounts' }, ready: '[data-dashboard-metric-card]' },
     { type: 'plugin-dashboard:pivot', ready: '[data-testid="pivot-empty-state"]' },
     { type: 'plugin-dashboard:object-pivot', schemaExtras: { objectName: 'accounts' }, ready: '[data-testid="pivot-empty-state"]' },
     { type: 'plugin-dashboard:object-data-table', schemaExtras: { objectName: 'accounts' }, ready: '[data-testid="table-empty-state"]' },

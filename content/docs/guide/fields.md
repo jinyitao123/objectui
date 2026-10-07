@@ -116,6 +116,8 @@ the display label by the form's object and field name, but stores the original
 label string regardless of the active locale.
 
 ```ts
+import { Field } from '@objectstack/spec/data';
+
 Field.text({
   label: 'Gender',
   widget: 'declared-label-select',
@@ -159,6 +161,8 @@ value; the `label` is translated for display using the owning object and field,
 and `description` remains the declared plain text.
 
 ```ts
+import { Field } from '@objectstack/spec/data';
+
 Field.select({
   label: 'Purchase reason',
   widget: 'choice-cards',
@@ -184,21 +188,39 @@ Direct React hosts can opt into row selection by passing a
 `removeSelected` mutators and `clearSelection`.
 
 ```tsx
-<GridField
-  field={gridField}
-  value={rows}
-  onChange={setRows}
-  getRowKey={(row) => String(row.id)}
-  renderSelectionToolbar={(selection) => (
-    <button
-      type="button"
-      disabled={selection.disabled || !selection.canPatchSelected}
-      onClick={() => selection.patchSelected({ status: 'ready' })}
-    >
-      Mark selected
-    </button>
-  )}
-/>
+import { useState } from 'react';
+import { GridField } from '@object-ui/fields';
+import type { GridFieldMetadata } from '@object-ui/types';
+
+const gridField: GridFieldMetadata = {
+  name: 'tasks',
+  type: 'grid',
+  columns: [{ name: 'status', label: 'Status', type: 'text' }],
+  allow_delete: true,
+};
+
+export function TaskGrid() {
+  const [rows, setRows] = useState<Record<string, unknown>[]>([
+    { id: 'task-1', status: 'draft' },
+  ]);
+  return (
+    <GridField
+      field={gridField}
+      value={rows}
+      onChange={setRows}
+      getRowKey={(row) => String(row.id)}
+      renderSelectionToolbar={(selection) => (
+        <button
+          type="button"
+          disabled={selection.disabled || !selection.canPatchSelected}
+          onClick={() => selection.patchSelected({ status: 'ready' })}
+        >
+          Mark selected
+        </button>
+      )}
+    />
+  );
+}
 ```
 
 `getRowKey` should return a stable, unique identity when the controlled host
@@ -219,13 +241,15 @@ Serialized `GridFieldMetadata.columns` can declare read-only computed cells with
 `computed: true`, `expr`, and optional `scale`:
 
 ```ts
-{
+import type { GridColumnDefinition } from '@object-ui/types';
+
+const taxedSubtotal: GridColumnDefinition = {
   name: 'taxed_subtotal',
   type: 'currency',
   computed: true,
   expr: 'record.quantity * record.taxed_unit_price * (1 - record.discount_rate / 100)',
   scale: 4,
-}
+};
 ```
 
 `expr` supports arithmetic operators, parentheses, numeric literals, and

@@ -314,10 +314,10 @@ describe('RelatedList user columns render names, not stored ids (objectui#10112)
     expect(text).not.toContain(OWNER_ID);
   });
 
-  it('CONTROL: the same column prints the stored id when nothing can resolve it', async () => {
+  it('CONTROL: the same column reports an unresolved user without exposing the stored id', async () => {
     // Same fixture, same column, resolution made impossible. This is the
-    // reading the two cases above assert the absence of — and an absence is
-    // not evidence until the presence has been seen on the same instrument.
+    // unresolved state behind the two cases above; the marker must stay
+    // distinct from both an empty value and a successfully resolved name.
     //
     // ⛔ It waits on the LOOKUP target, never on `sys_user`. Measured, not
     // assumed: waiting on `sys_user` made this row fail under the batch-half
@@ -333,7 +333,8 @@ describe('RelatedList user columns render names, not stored ids (objectui#10112)
     await waitFor(() => expect(ownerColumn()).toBeTruthy());
 
     const text = cellText(OWNER_ID);
-    expect(text).toContain(OWNER_ID);
+    expect(text).toContain('User not resolved on this screen');
+    expect(text).not.toContain(OWNER_ID);
     expect(text).not.toContain(OWNER_NAME);
   });
 });

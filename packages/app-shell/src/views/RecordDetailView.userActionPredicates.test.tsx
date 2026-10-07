@@ -100,6 +100,7 @@ import { RecordDetailView } from './RecordDetailView';
 
 const OBJECT_NAME = 'qms_defect';
 const RECORD_ID = 'DEF-1';
+let approvalResponseStatus = 200;
 
 /** The card's own predicate, verbatim from the issue body. */
 const EDIT_VISIBLE_WHEN = 'record.status == "pending" || record.status == "in_progress"';
@@ -217,6 +218,7 @@ async function openHeaderOverflow(): Promise<string[]> {
 
 beforeEach(() => {
   cleanup();
+  approvalResponseStatus = 200;
   // Unrelated chrome (approvals, favourites, the record-explain probe) reaches
   // for the platform API; in jsdom that is a real socket. Answer locally so the
   // only asynchrony here is the record read. `useRecordEditable` fails OPEN on
@@ -224,9 +226,9 @@ beforeEach(() => {
   // the predicate conjunct is then the only variable.
   vi.stubGlobal(
     'fetch',
-    vi.fn(async () =>
+    vi.fn(async (input: RequestInfo | URL) =>
       new Response(JSON.stringify({ data: [] }), {
-        status: 200,
+        status: String(input).includes('/approvals/requests?') ? approvalResponseStatus : 200,
         headers: { 'content-type': 'application/json' },
       }),
     ),
@@ -414,23 +416,25 @@ describe('console record header — the gates that must not move (objectui#4213)
  * independent reasons for "off", and neither may cancel the other.
  *
  * `approval_status: 'pending'` is the record-field fallback source of
- * `approvalLocked` (objectui#2618), which needs no approvals-API stub — it is
- * the same `approvalLocked` boolean either way.
+ * `approvalLocked` (objectui#2618) while the Native request read is unresolved
+ * or fails. A successful empty Native list supersedes that record mirror.
  */
 describe('console record header — approvalLocked composition (objectui#4213)', () => {
   const LOCKED = { ...REPORTED, approval_status: 'pending' };
 
   it('keeps approvalLocked disabling Edit with NO predicate declared', async () => {
     // The pre-#4213 behavior, byte-identical: `disabled: approvalLocked`.
+    approvalResponseStatus = 503;
     await mountRecordPage(LOCKED, undefined);
-
+    expect(await screen.findByTestId('record-approvals-read-state')).toHaveAttribute('role', 'alert');
     expect(headerEditButton()).toBeDisabled();
   });
 
   it('keeps approvalLocked disabling Edit when the predicate does NOT disable', async () => {
     // `approvalLocked || false` — the lock still wins on its own.
+    approvalResponseStatus = 503;
     await mountRecordPage(LOCKED, { edit: { disabledWhen: 'record.status == "closed"' } });
-
+    expect(await screen.findByTestId('record-approvals-read-state')).toHaveAttribute('role', 'alert');
     expect(headerEditButton()).toBeDisabled();
   });
 
@@ -442,8 +446,9 @@ describe('console record header — approvalLocked composition (objectui#4213)',
   });
 
   it('disables Edit when BOTH hold', async () => {
+    approvalResponseStatus = 503;
     await mountRecordPage(LOCKED, { edit: { disabledWhen: 'record.status == "reported"' } });
-
+    expect(await screen.findByTestId('record-approvals-read-state')).toHaveAttribute('role', 'alert');
     expect(headerEditButton()).toBeDisabled();
   });
 
@@ -451,6 +456,19 @@ describe('console record header — approvalLocked composition (objectui#4213)',
     await mountRecordPage(REPORTED, { edit: { disabledWhen: 'record.status == "closed"' } });
 
     expect(headerEditButton()).not.toBeDisabled();
+  });
+
+  it('lets a successful empty Native request list supersede a stale pending mirror', async () => {
+    await mountRecordPage(LOCKED, { edit: { disabledWhen: 'record.status == "closed"' } });
+    await waitFor(() => expect(headerEditButton()).not.toBeDisabled());
+    expect(screen.queryByTestId('record-approvals-read-state')).toBeNull();
+  });
+
+  it.each([401, 403])('keeps the pending mirror locked after a Native %s response', async (status) => {
+    approvalResponseStatus = status;
+    await mountRecordPage(LOCKED, { edit: { disabledWhen: 'record.status == "closed"' } });
+    expect(await screen.findByTestId('record-approvals-read-state')).toHaveAttribute('role', 'alert');
+    expect(headerEditButton()).toBeDisabled();
   });
 
   /**

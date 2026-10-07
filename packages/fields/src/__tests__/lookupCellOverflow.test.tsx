@@ -41,11 +41,12 @@ describe('LookupCellRenderer — multi-value overflow cap', () => {
     expect(screen.getByText('+57')).toBeInTheDocument();
   });
 
-  it('keeps the hidden display names reachable on the overflow chip title', () => {
+  it('uses a neutral overflow explanation without exposing collapsed references', () => {
     render(<LookupCellRenderer value={manyRecords(5)} field={FIELD} />);
 
     const overflow = screen.getByText('+2');
-    expect(overflow).toHaveAttribute('title', 'ZTLW-A.4, ZTLW-A.5');
+    expect(overflow).toHaveAttribute('title', 'More related records');
+    expect(overflow.getAttribute('title')).not.toContain('ZTLW-A.4');
   });
 
   it('renders no overflow chip when the set fits the cap', () => {
@@ -70,7 +71,8 @@ describe('LookupCellRenderer — multi-value overflow cap', () => {
     expect(screen.getByText('Label 3')).toBeInTheDocument();
     expect(screen.queryByText('Label 4')).toBeNull();
     const overflow = screen.getByText('+7');
-    expect(overflow.getAttribute('title')).toContain('Label 4');
-    expect(overflow.getAttribute('title')).toContain('Label 10');
+    expect(overflow).toHaveAttribute('title', 'More related records');
+    expect(overflow.getAttribute('title')).not.toContain('id-4');
+    expect(overflow.getAttribute('title')).not.toContain('id-10');
   });
 });

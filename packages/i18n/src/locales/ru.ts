@@ -196,8 +196,8 @@ const ru = {
       fileNameRequired: 'Введите имя файла.',
       format: 'Формат',
       formatCsv: 'CSV',
-      formatXlsx: 'Excel (.xlsx)',
-      formatJson: 'JSON',
+      formatXlsx: 'Книга Excel (.xlsx)',
+      formatJson: 'Формат JSON',
       preview: 'Предпросмотр (до {{count}} строк)',
       noPreviewRows: 'Нет строк для предпросмотра.',
       exporting: 'Экспорт…',
@@ -235,6 +235,10 @@ const ru = {
     },
   },
   fields: {
+    choiceCards: {
+      selectOnly: 'Для карточек выбора требуется поле выбора.',
+      singleValueOnly: 'Карточки выбора поддерживают только одно выбранное значение. Используйте для этого поля виджет с несколькими значениями.',
+    },
     declaredLabelSelect: {
       unlistedValue: 'Текущее значение: {{value}}',
     },

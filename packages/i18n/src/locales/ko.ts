@@ -190,8 +190,8 @@ const ko = {
       fileNameRequired: '파일 이름을 입력하세요.',
       format: '형식',
       formatCsv: 'CSV',
-      formatXlsx: 'Excel (.xlsx)',
-      formatJson: 'JSON',
+      formatXlsx: 'Excel 통합 문서 (.xlsx)',
+      formatJson: 'JSON 형식',
       preview: '미리보기 (최대 {{count}}개 행)',
       noPreviewRows: '미리 볼 행이 없습니다.',
       exporting: '내보내는 중…',
@@ -229,6 +229,10 @@ const ko = {
     },
   },
   fields: {
+    choiceCards: {
+      selectOnly: '선택 카드에는 선택 필드가 필요합니다.',
+      singleValueOnly: '선택 카드에서는 하나의 값만 선택할 수 있습니다. 이 필드에는 다중 값 위젯을 사용하세요.',
+    },
     declaredLabelSelect: {
       unlistedValue: '기존 값: {{value}}',
     },

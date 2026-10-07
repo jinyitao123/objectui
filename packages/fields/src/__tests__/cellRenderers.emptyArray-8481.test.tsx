@@ -128,14 +128,14 @@ describe('objectui#8481 — an empty array is not a cell value', () => {
     });
 
     it('NON-REGRESSION — a POPULATED lookup still renders one chip per referenced record', () => {
-      const { container } = renderCell('lookup', ['alpha', 'beta'], { reference_to: 'other' });
+      const { container } = renderCell('lookup', [{ id: 'ref-a', name: 'Alpha' }, { id: 'ref-b', name: 'Beta' }], { reference_to: 'other' });
 
       expect(
-        within(container).queryByText('alpha'),
+        within(container).queryByText('Alpha'),
         'a populated lookup must still draw the first record chip',
       ).not.toBeNull();
       expect(
-        within(container).queryByText('beta'),
+        within(container).queryByText('Beta'),
         'a populated lookup must still draw the second record chip',
       ).not.toBeNull();
       expect(

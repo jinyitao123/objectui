@@ -809,11 +809,20 @@ them through `tasks`. Set `readOnly` to disable timeline writes while retaining
 owns the surrounding controls; the default is `true`.
 
 ```tsx
-<GanttView
-  tasks={authorizedTasks}
-  readOnly
-  onTaskClick={task => openWorkItem(task.data)}
-/>
+import { GanttView, type GanttTask } from '@object-ui/plugin-gantt';
+
+export function WorkTimeline({ authorizedTasks, openWorkItem }: {
+  authorizedTasks: GanttTask[];
+  openWorkItem: (data: unknown) => void;
+}) {
+  return (
+    <GanttView
+      tasks={authorizedTasks}
+      readOnly
+      onTaskClick={task => openWorkItem(task.data)}
+    />
+  );
+}
 ```
 
 Other hosts can explicitly register the public `GanttView` before mounting

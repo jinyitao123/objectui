@@ -140,14 +140,16 @@ describe('#5372 behaviour — a provider `dataSource` into a `data-table`', () =
 
     // The raw `${…}` string is not an array, so DataTableRenderer falls back to
     // EMPTY_ROWS. No throw and no console line is the whole defect.
-    expect(bodyCells()).toEqual([EMPTY_STATE]);
+    expect(bodyCells()).toEqual(['']);
+    expect(document.querySelector('[data-slot="record-table-empty-viewport"]')?.textContent).toBe(EMPTY_STATE);
     expect(screen.queryByText('Ada Lovelace')).not.toBeInTheDocument();
   });
 
   it('a `props` envelope renders the empty state — evaluated, then not read', () => {
     renderNode({ type: 'data-table', props: { data: '${data.customers}' }, columns: COLUMNS });
 
-    expect(bodyCells()).toEqual([EMPTY_STATE]);
+    expect(bodyCells()).toEqual(['']);
+    expect(document.querySelector('[data-slot="record-table-empty-viewport"]')?.textContent).toBe(EMPTY_STATE);
     expect(screen.queryByText('Ada Lovelace')).not.toBeInTheDocument();
   });
 

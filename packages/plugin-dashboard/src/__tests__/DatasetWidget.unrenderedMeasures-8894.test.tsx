@@ -185,8 +185,8 @@ describe('objectui#8894 — the dropped measures speak', () => {
       '82',
     );
     expect(container.innerHTML).toBe(
-      '<div class="flex h-full w-full flex-col items-start justify-center gap-1 p-2">'
-      + '<span class="text-2xl font-semibold tabular-nums">82</span>'
+      '<div class="flex h-full w-full flex-col items-start justify-center gap-1 p-[var(--ui-dashboard-metric-inner-padding,0.5rem)]">'
+      + '<span class="mt-[var(--ui-dashboard-metric-value-margin-top,0px)] text-[length:var(--ui-dashboard-metric-value-font-size,1.5rem)] leading-[var(--ui-dashboard-metric-value-line-height,2rem)] [font-weight:var(--ui-dashboard-metric-value-font-weight,600)] tabular-nums">82</span>'
       + '<span class="text-xs text-muted-foreground">approved_rate</span>'
       + '</div>',
     );

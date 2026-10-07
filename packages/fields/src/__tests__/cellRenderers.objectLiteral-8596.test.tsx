@@ -240,9 +240,9 @@ const OBJECT_LITERAL_CENSUS: ReadonlyArray<readonly [type: string, text: string,
   ['rating', '[Object]', false],
   ['formula', '[Object]', false],
   ['summary', '[Object]', false],
-  ['lookup', '[Object]', false],
-  ['master_detail', '[Object]', false],
-  ['tree', '[Object]', false],
+  ['lookup', 'Record not resolved on this screen', false],
+  ['master_detail', 'Record not resolved on this screen', false],
+  ['tree', 'Record not resolved on this screen', false],
   // ── the fourteen this change moved ──────────────────────────────────────
   ['email', '[Object]', false],
   ['url', '[Object]', false],
@@ -523,14 +523,19 @@ describe('objectui#8596 — an object literal is not a cell value, and these ren
       }
     });
 
-    it('THE RULE — `user` reads for {} exactly as `lookup` does (one spec arm, two types)', () => {
-      const control = renderCell('lookup', {});
-      const controlHtml = control.container.innerHTML;
-      expect(textOf(control.container), 'control: `lookup` must print [Object] for {}').toBe('[Object]');
+    it('THE RULE — an empty user object remains plain data while lookup reports an unresolved record', () => {
+      const lookup = renderCell('lookup', {});
+      expect(textOf(lookup.container)).toBe('Record not resolved on this screen');
+      expect(lookup.container.querySelector('[data-slot="unresolved-reference"]')).not.toBeNull();
+      expect(textOf(lookup.container)).not.toContain('[Object]');
       cleanup();
 
+      const control = renderCell('text', {});
+      const controlHtml = control.container.innerHTML;
+      expect(textOf(control.container)).toBe('[Object]');
+      cleanup();
       const { container } = renderCell('user', {});
-      expect(container.innerHTML, 'user must render as `lookup` renders for {}').toBe(controlHtml);
+      expect(container.innerHTML, 'an empty user object must not invent a named user').toBe(controlHtml);
     });
 
     it('THE RULE — `file` / `video` / `audio` read for {} exactly as `image` does (one spec family)', () => {

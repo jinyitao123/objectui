@@ -89,12 +89,19 @@ const ROWS_ON_SCREEN = [
   'grace@example.com',
 ];
 
-/** The single cell the empty state renders — one `tbody tr`, not zero. */
+/** The visible empty message lives in the shared viewport beside the table. */
 const EMPTY_STATE = ['No results foundTry adjusting your filters or search query.'];
 
 /** Every rendered body cell's text, row-major. */
 function bodyCells(): string[] {
   return Array.from(document.querySelectorAll('tbody td')).map((td) => (td.textContent ?? '').trim());
+}
+
+function expectEmptyState() {
+  expect(bodyCells()).toEqual(['']);
+  const viewport = document.querySelector('[data-slot="record-table-empty-viewport"]');
+  expect(viewport?.textContent).toBe(EMPTY_STATE[0]);
+  expect(viewport?.closest('table')).toBeNull();
 }
 
 /**
@@ -157,7 +164,8 @@ describe('data-table node-level `data` — the four-leg table, re-measured (#666
     ],
   ] as const)('%s', (_label, node, expected) => {
     renderNode(node);
-    expect(bodyCells()).toEqual(expected);
+    if (expected === EMPTY_STATE) expectEmptyState();
+    else expect(bodyCells()).toEqual(expected);
   });
 
   it('the header is correct in the failing leg — which is why it reads as success', () => {
@@ -219,7 +227,7 @@ describe('data-table node-level `data` — the diagnostic (#6665)', () => {
     // on the expression shape alone would leave each to arrive as a fresh card.
     renderNode({ type: 'data-table', data: value, columns: COLUMNS });
 
-    expect(bodyCells()).toEqual(EMPTY_STATE);
+    expectEmptyState();
     const warnings = warningsOn(DATA_TABLE_DATA_DIAGNOSTIC_PREFIX);
     expect(warnings).toHaveLength(1);
     expect(warnings[0]).toContain(expected);
@@ -262,13 +270,13 @@ describe('data-table node-level `data` — the diagnostic (#6665)', () => {
     // is ordinary. Warning here would fire on tables that are merely empty,
     // which is how a diagnostic teaches authors to ignore it.
     renderNode({ type: 'data-table', columns: COLUMNS });
-    expect(bodyCells()).toEqual(EMPTY_STATE);
+    expectEmptyState();
     expect(warningsOn(DATA_TABLE_DATA_DIAGNOSTIC_PREFIX)).toEqual([]);
   });
 
   it('is not fooled by an empty array — that is a real, authored answer', () => {
     renderNode({ type: 'data-table', data: [], columns: COLUMNS });
-    expect(bodyCells()).toEqual(EMPTY_STATE);
+    expectEmptyState();
     expect(warningsOn(DATA_TABLE_DATA_DIAGNOSTIC_PREFIX)).toEqual([]);
   });
 
@@ -283,7 +291,7 @@ describe('data-table node-level `data` — the diagnostic (#6665)', () => {
     // predicate to `props.data` would patch one component against a repo-wide
     // problem.
     renderNode({ type: 'data-table', props: { data: '${data.customers}' }, columns: COLUMNS });
-    expect(bodyCells()).toEqual(EMPTY_STATE);
+    expectEmptyState();
     expect(warningsOn(DATA_TABLE_DATA_DIAGNOSTIC_PREFIX)).toEqual([]);
   });
 });

@@ -252,7 +252,7 @@ describe('inline-edit type coverage — every type has exactly one decision (#42
         'multiselect', 'number', 'percent', 'select', 'signature',
         'tree', 'user', 'video',
       ],
-      delegated: ['checkboxes', 'code', 'color', 'json', 'progress', 'qrcode', 'radio', 'rating', 'slider', 'tags', 'time', 'toggle'],
+      delegated: ['checkboxes', 'choice-cards', 'code', 'color', 'declared-label-combobox', 'declared-label-select', 'json', 'progress', 'qrcode', 'radio', 'rating', 'slider', 'tags', 'time', 'toggle'],
       benign: ['email', 'phone', 'text', 'textarea', 'url'],
     });
   });

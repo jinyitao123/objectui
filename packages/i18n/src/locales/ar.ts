@@ -194,8 +194,8 @@ const ar = {
       fileNameRequired: 'أدخل اسم الملف.',
       format: 'التنسيق',
       formatCsv: 'CSV',
-      formatXlsx: 'Excel (.xlsx)',
-      formatJson: 'JSON',
+      formatXlsx: 'مصنف Excel (.xlsx)',
+      formatJson: 'تنسيق JSON',
       preview: 'معاينة (حتى {{count}} صفوف)',
       noPreviewRows: 'لا توجد صفوف للمعاينة.',
       exporting: 'جارٍ التصدير…',
@@ -233,6 +233,10 @@ const ar = {
     },
   },
   fields: {
+    choiceCards: {
+      selectOnly: 'تتطلب بطاقات الاختيار حقل تحديد.',
+      singleValueOnly: 'تدعم بطاقات الاختيار قيمة واحدة فقط. استخدم عنصر تحكم متعدد القيم لهذا الحقل.',
+    },
     declaredLabelSelect: {
       unlistedValue: 'القيمة الحالية: {{value}}',
     },

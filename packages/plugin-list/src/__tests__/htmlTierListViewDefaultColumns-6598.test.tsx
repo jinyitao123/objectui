@@ -101,7 +101,7 @@ describe("kind:'html' page — <list-view> renders data columns (#6598)", () => 
     expect(headers).toContain('Opportunity Name');
     expect(headers).toContain('Amount');
     // The page still fetched all along — rows were never the problem.
-    expect(container.textContent).toContain('23 records');
+    expect(container.textContent).toContain('23 total');
   });
 
   it('renders exactly the authored columns when the author declared them', async () => {

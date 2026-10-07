@@ -13,19 +13,8 @@ import { LegacyReportRenderer as ReportRenderer } from '../LegacyReportRenderer'
 import { ComponentRegistry } from '@object-ui/core';
 
 // Mock ComponentRegistry
-vi.mock('@object-ui/core', async () => {
-    const actual = await vi.importActual('@object-ui/core');
-    // We only want to mock ComponentRegistry, preserve others if needed.
-    // However, since we import ComponentRegistry directly in the component, mocking the module is needed.
-    // Note: SchemaRenderer in the component might also rely on registry, but ReportRenderer uses it directly for chart.
-    return {
-        ...actual,
-        ComponentRegistry: {
-            get: vi.fn(),
-            register: vi.fn(),
-        }
-    };
-});
+// Keep all public registration APIs used by eagerly imported renderers.
+vi.spyOn(ComponentRegistry, 'get');
 
 describe('ReportRenderer', () => {
   beforeEach(() => {

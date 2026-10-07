@@ -96,7 +96,16 @@ vi.mock('@object-ui/plugin-form', async (importOriginal) => ({
 }));
 
 const metadataState = { objects: [] as any[], loading: false };
-vi.mock('../MetadataProvider', () => ({ useMetadata: () => metadataState }));
+vi.mock('../MetadataProvider', () => ({
+  useMetadata: () => metadataState,
+  useMetadataItem: (type: string, name?: string) => ({
+    item: type === 'object' && name
+      ? metadataState.objects.find((object) => object.name === name) ?? null
+      : null,
+    loading: metadataState.loading,
+    error: null,
+  }),
+}));
 vi.mock('../AdapterProvider', () => ({ useAdapter: () => null }));
 
 /** The served shape: `ExpressionInputSchema` normalises authored strings into this. */

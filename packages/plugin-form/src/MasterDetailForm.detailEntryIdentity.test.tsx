@@ -58,7 +58,8 @@ const parentSchema = {
   fields: {
     ref: { type: 'text', label: 'Ref' },
     // Present so the Subtotal / Tax / Total stack renders: `taxRateField`
-    // defaults to `tax_rate` and the stack appears once the header carries it.
+    // defaults to `tax_rate`; formSchema supplies a known zero value so the
+    // stack exercises the identity reducer rather than an unknown tax rate.
     tax_rate: { type: 'number', label: 'Tax Rate' },
   },
 };
@@ -92,7 +93,7 @@ function makeDataSource(overrides: any = {}) {
 }
 
 function formSchema(details: any[]) {
-  return { objectName: PARENT, mode: 'create', fields: ['ref', 'tax_rate'], details } as any;
+  return { objectName: PARENT, mode: 'create', initialValues: { tax_rate: 0 }, fields: ['ref', 'tax_rate'], details } as any;
 }
 
 /** Type an amount into the (single) resolved collection's grid. */

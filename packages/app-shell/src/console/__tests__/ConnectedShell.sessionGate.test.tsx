@@ -12,12 +12,14 @@
  * Both directions are pinned, because the fix is worth nothing if it also
  * stops the signed-in console from loading:
  *   - auth pending  → zero metadata requests;
- *   - auth resolved → the same three requests, once each.
+ *   - auth resolved → eager app/view reads and the route's named Object read,
+ *     once each, without enumerating the Object registry.
  */
 
 import { describe, it, expect, vi, beforeEach } from 'vitest';
 import { render, waitFor } from '@testing-library/react';
 import { MemoryRouter } from 'react-router-dom';
+import { useMetadataItem } from '../../providers/MetadataProvider';
 
 /** Flipped per-test; read by the mocked `useAuth`. */
 const authState = { isLoading: true, isAuthenticated: false };
@@ -66,11 +68,16 @@ vi.mock('../../providers/AdapterProvider', () => ({
 
 import { ConnectedShell } from '../ConsoleShell';
 
+function RouteContent() {
+  useMetadataItem('object', 'crm_account', 'com.example.crm');
+  return <div data-testid="route-content">ROUTE CONTENT</div>;
+}
+
 function renderShell() {
   return render(
     <MemoryRouter>
       <ConnectedShell>
-        <div data-testid="route-content">ROUTE CONTENT</div>
+        <RouteContent />
       </ConnectedShell>
     </MemoryRouter>,
   );
@@ -95,16 +102,18 @@ describe('ConnectedShell session gate (objectui#4042)', () => {
     expect(queryByTestId('route-content')).toBeNull();
   });
 
-  it('issues each /meta/* request exactly once as soon as the session resolves', async () => {
+  it('issues eager metadata and the requested Object read once after the session resolves', async () => {
     authState.isLoading = false;
     authState.isAuthenticated = true;
 
     const { getByTestId } = renderShell();
 
     await waitFor(() => expect(metaCalls).toContain('app'));
+    await waitFor(() => expect(metaCalls).toContain('object/crm_account'));
     await new Promise((resolve) => setTimeout(resolve, 100));
 
-    expect(metaCalls.filter((c) => c === 'object')).toHaveLength(1);
+    expect(metaCalls.filter((c) => c === 'object')).toHaveLength(0);
+    expect(metaCalls.filter((c) => c === 'object/crm_account')).toHaveLength(1);
     expect(metaCalls.filter((c) => c === 'view')).toHaveLength(1);
     expect(metaCalls.filter((c) => c === 'app')).toHaveLength(1);
     expect(getByTestId('route-content')).toBeTruthy();

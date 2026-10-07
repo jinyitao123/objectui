@@ -72,6 +72,7 @@ import { SchemaRenderer, AdapterCtx, MetadataCtx } from '@object-ui/react';
 import '../global-search-renderer';
 import '../global-notifications-renderer';
 import { __resetSharedUserFeeds } from '../../hooks/sharedUserFeeds';
+import { ExpressionProvider } from '../../providers/ExpressionProvider';
 
 /* ── Fixtures ─────────────────────────────────────────────────────────────── */
 
@@ -133,13 +134,22 @@ const fakeAdapter = {
   getClient: () => undefined,
 };
 
-/**
- * Stable module-level value: `MetadataCtx` consumers list the context value in
- * effect deps, and a fresh object per render re-runs them forever.
- */
+const CRM_APP = {
+  name: 'crm',
+  label: 'CRM',
+  _packageId: 'com.example.crm',
+  navigation: [{ id: 'accounts', type: 'object', objectName: 'crm_account', label: 'Accounts' }],
+};
+const ACCOUNT = { name: 'crm_account', label: 'Account', icon: 'Building2' };
+const getMetadataItem = vi.fn(async (type: string, name: string, packageId?: string) =>
+  type === 'object' && name === ACCOUNT.name && packageId === CRM_APP._packageId ? ACCOUNT : null,
+);
+
+// The runtime reads app-referenced schemas by name and package, never the lazy
+// full object directory. Supply the same public reader used by the page host.
 const METADATA = {
-  apps: [],
-  objects: [{ name: 'crm_account', label: 'Account', icon: 'Building2' }],
+  apps: [CRM_APP],
+  get objects() { throw new Error('Global search must not enumerate all Object schemas'); },
   dashboards: [],
   reports: [],
   pages: [],
@@ -148,7 +158,8 @@ const METADATA = {
   refresh: async () => {},
   invalidate: () => {},
   ensureType: async () => [],
-  getItem: async () => null,
+  getItem: getMetadataItem,
+  getItemScope: 'global-page-blocks-test',
   getItemsByType: () => [],
   getTypeStatus: () => 'ready' as const,
 };
@@ -165,9 +176,11 @@ function renderPage(type: string) {
     <MemoryRouter initialEntries={['/apps/crm']}>
       <AdapterCtx.Provider value={fakeAdapter as never}>
         <MetadataCtx.Provider value={METADATA as never}>
-          <Routes>
-            <Route path="/apps/:appName" element={<SchemaRenderer schema={page(type) as never} />} />
-          </Routes>
+          <ExpressionProvider app={CRM_APP}>
+            <Routes>
+              <Route path="/apps/:appName" element={<SchemaRenderer schema={page(type) as never} />} />
+            </Routes>
+          </ExpressionProvider>
         </MetadataCtx.Provider>
       </AdapterCtx.Provider>
     </MemoryRouter>,
@@ -176,6 +189,7 @@ function renderPage(type: string) {
 
 beforeEach(() => {
   searchCalls.length = 0;
+  getMetadataItem.mockClear();
   __resetSharedUserFeeds();
   // The approvals count is a REST read, not an adapter one. 404 is the
   // "plugin not installed" answer the feed degrades to 0 on and retires the
@@ -234,6 +248,8 @@ describe('objectui#6757 — spec `PageComponentType` members that had no rendere
       // The block asked the platform's unified endpoint, not the per-object
       // fanout: `searchAll` is `GET /api/v1/search`.
       expect(searchCalls.map((c) => c.query)).toEqual(['wayne']);
+      expect(searchCalls[0].options).toMatchObject({ objects: ['crm_account'] });
+      expect(getMetadataItem.mock.calls).toEqual([['object', 'crm_account', CRM_APP._packageId]]);
 
       // 3. The literal symptom the card reported.
       expect(screen.queryByText('Component Placeholder')).toBeNull();

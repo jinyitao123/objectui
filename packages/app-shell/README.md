@@ -287,6 +287,11 @@ guarded by `paramValueShape.test.ts` (#2714): `number`→number, `boolean`→boo
 `lookup`/`user`→id string(s), `file`/`image`→fileId string(s) (via
 `serializeParamValues`, #2698/#2710), `object`/`address`→object, `grid`→object[].
 
+The widget-only keys `choice-cards`, `declared-label-select`, and
+`declared-label-combobox` also emit a single string: choice cards use the option
+value, while the label-stored text pickers use the original option label.
+These remain field `widget:` overrides, not additional bare param types.
+
 For `datetime` the string is an **ISO-8601 instant with an explicit zone**
 (`2026-08-10T07:00:00.000Z`) — not the `datetime-local` control's zone-less wall
 clock. That is the platform's own `datetime` value contract, enforced by the

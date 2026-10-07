@@ -158,9 +158,14 @@ type Built = {
   classes: Set<string>;
   rawClasses: Set<string>;
   droppedRules: number;
+  ownSelectors: Set<string>;
 };
 
 const built = new Map<string, Built>();
+
+function selectorsOfRules(identities: Iterable<string>): Set<string> {
+  return new Set([...identities].map(identity => identity.split('||')[1]!));
+}
 
 beforeAll(async () => {
   // One components compilation, shared by both subjects (~0.6 s).
@@ -181,11 +186,19 @@ beforeAll(async () => {
       classes: result.survivingClasses,
       rawClasses: classesOf(raw),
       droppedRules: result.droppedRules,
+      ownSelectors: selectorsOfRules(result.survivors),
     });
   }
 }, 120_000);
 
 describe('published supplement stylesheets (objectui#4929, objectui#6438)', () => {
+  it('distinguishes a standalone utility from a descendant reference', () => {
+    const descendant = '@layer utilities||.wrapper th.bg-background||padding-inline:1rem';
+    expect(selectorsOfRules([descendant]).has('.bg-background')).toBe(false);
+    const utility = '@layer utilities||.bg-background||background-color:var(--color-background)';
+    expect(selectorsOfRules([descendant, utility]).has('.bg-background')).toBe(true);
+  });
+
   it('gives every themed utility the card measured a producer', () => {
     const everything = new Set(
       SUBJECTS.flatMap(({ name }) => [...(built.get(name) as Built).classes]),
@@ -261,10 +274,12 @@ describe('published supplement stylesheets (objectui#4929, objectui#6438)', () =
     });
 
     it('does not re-emit what the components sheet already carries', () => {
-      const { classes, rawClasses } = built.get(name) as Built;
+      const { classes, rawClasses, ownSelectors } = built.get(name) as Built;
       // The control is only meaningful if the plugin really compiles these.
       expect(ALREADY_SHIPPED.filter((cls) => !rawClasses.has(cls))).toEqual([]);
-      expect(ALREADY_SHIPPED.filter((cls) => classes.has(cls))).toEqual([]);
+      // A descendant reference such as `th.bg-background` is not a
+      // re-emitted `.bg-background` utility; compare actual rule selectors.
+      expect(ALREADY_SHIPPED.filter((cls) => ownSelectors.has(`.${cls}`))).toEqual([]);
       expect(classes.size).toBeLessThan(rawClasses.size / 4);
     });
 

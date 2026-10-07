@@ -73,7 +73,7 @@ const objectDef = {
 for (const type of ['object-grid', 'object-kanban', 'object-gantt'] as const) {
   ComponentRegistry.register(
     type,
-    () => <div data-testid={`${type}-spy`} />,
+    (props: any) => <div data-testid={`${type}-spy`} data-manual-pagination={props.manualPagination} data-row-count={props.rowCount} />,
     { namespace: 'test', label: `${type} spy`, category: 'view' },
   );
 }
@@ -145,11 +145,12 @@ describe('objectui#7210 — paging chrome on a surface it does not describe', ()
     expect(screen.queryByTestId('data-limit-warning')).toBeNull();
   });
 
-  it('CONTROL grid: the paging footer is unchanged', async () => {
+  it('CONTROL grid: delegates the total to its single child pager', async () => {
     await renderView('grid');
-    const bar = await screen.findByTestId('record-count-bar');
-    // Server pagination is live here, so the honest figure is the grand total.
-    expect(bar.textContent).toContain(String(TOTAL));
+    const grid = screen.getByTestId('object-grid-spy');
+    expect(grid).toHaveAttribute('data-manual-pagination', 'true');
+    expect(grid).toHaveAttribute('data-row-count', String(TOTAL));
+    expect(screen.queryByTestId('record-count-bar')).toBeNull();
   });
 
   it('CONTROL kanban: a correctly page-scoped non-grid surface keeps its warning', async () => {

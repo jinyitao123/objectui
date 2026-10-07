@@ -43,6 +43,11 @@ describe('the gate exists and is wired the way a requirable check has to be', ()
     expect(fs.existsSync(path.join(repoRoot, SCRIPT))).toBe(true);
   });
 
+  it('fetches upstream patch files before installing the frozen spec dependency graph', () => {
+    expect(body()).toMatch(/git sparse-checkout set packages\/spec scripts patches/);
+    expect(body()).toContain('pnpm install --frozen-lockfile --filter @objectstack/spec...');
+  });
+
   it('the comment stripper is live — the control every assertion below rests on', () => {
     // A phrase that exists ONLY in the header prose. If it survives stripping,
     // every "the workflow contains X" assertion below could be satisfied by

@@ -261,6 +261,10 @@ const en = {
     },
   },
   fields: {
+    choiceCards: {
+      selectOnly: 'Choice cards require a select field.',
+      singleValueOnly: 'Choice cards support one selected value. Use a multi-value widget for this field.',
+    },
     declaredLabelSelect: {
       unlistedValue: 'Existing value: {{value}}',
     },

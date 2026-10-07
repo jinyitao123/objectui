@@ -1218,21 +1218,42 @@ back to the host but never shown; visible labels and preview values are host
 resolved. The preview displays at most five rows.
 
 ```tsx
-<ExportConfigurationDialog
-  open={exportOpen}
-  onOpenChange={setExportOpen}
-  permittedFields={exportFields}
-  initialFields={initialExportFields}
-  initialScope="all"
-  initialFormat="csv"
-  initialFileName="project-tasks"
-  currentPageCount={pageRows.length}
-  filteredTotalCount={filteredTotal}
-  previewRows={previewRows}
-  onExport={(scope, fields, format, fileName) =>
-    downloadExport({ scope, fields, format, fileName })
-  }
-/>
+import { useState } from 'react';
+import {
+  ExportConfigurationDialog,
+  type ExportConfigurationDialogProps,
+  type ExportConfigurationPreviewRow,
+} from '@object-ui/plugin-form';
+
+export function TaskExport({ pageRows, filteredTotal, downloadExport }: {
+  pageRows: readonly ExportConfigurationPreviewRow[];
+  filteredTotal: number;
+  downloadExport: ExportConfigurationDialogProps['onExport'];
+}) {
+  const [exportOpen, setExportOpen] = useState(false);
+  const exportFields = [
+    { key: 'title', label: 'Task' },
+    { key: 'status', label: 'Status' },
+  ];
+  return (
+    <>
+      <button type="button" onClick={() => setExportOpen(true)}>Export tasks</button>
+      <ExportConfigurationDialog
+        open={exportOpen}
+        onOpenChange={setExportOpen}
+        permittedFields={exportFields}
+        initialFields={['title', 'status']}
+        initialScope="all"
+        initialFormat="csv"
+        initialFileName="project-tasks"
+        currentPageCount={pageRows.length}
+        filteredTotalCount={filteredTotal}
+        previewRows={pageRows}
+        onExport={downloadExport}
+      />
+    </>
+  );
+}
 ```
 
 `onExport(scope, fields, format, fileName)` is the only submission callback.

@@ -134,6 +134,7 @@ vi.mock('../PreviewBadge', () => ({ PreviewBadge: () => null }));
  */
 vi.mock('../../providers/MetadataProvider', () => ({
   useMetadata: () => ({ apps: [], dashboards: [], pages: [], reports: [] }),
+  useMetadataItem: () => ({ item: null, loading: false, error: null }),
 }));
 
 const ONE_ORG = { id: 'org_1', name: 'Acme', slug: 'acme' };

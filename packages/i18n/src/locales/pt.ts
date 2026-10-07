@@ -228,6 +228,10 @@ const pt = {
     },
   },
   fields: {
+    choiceCards: {
+      selectOnly: 'Os cartões de escolha requerem um campo de seleção.',
+      singleValueOnly: 'Os cartões de escolha permitem apenas um valor selecionado. Use um controle de vários valores para este campo.',
+    },
     declaredLabelSelect: {
       unlistedValue: 'Valor existente: {{value}}',
     },

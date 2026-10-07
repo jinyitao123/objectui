@@ -206,31 +206,49 @@ with rows across GridField's own edits, insertions, deletes and reorders, and is
 cleared when an external replacement cannot be matched safely.
 
 ```tsx
-<GridField
-  field={gridField}
-  value={rows}
-  onChange={setRows}
-  getRowKey={(row) => String(row.id)}
-  renderSelectionToolbar={(selection) => (
-    <div>
-      <span>{selection.selectedRows.length}/{selection.totalRows}</span>
-      <button
-        type="button"
-        disabled={selection.disabled || !selection.canPatchSelected}
-        onClick={() => selection.patchSelected({ status: 'ready' })}
-      >
-        Mark selected
-      </button>
-      <button
-        type="button"
-        disabled={selection.disabled || !selection.canRemoveSelected}
-        onClick={selection.removeSelected}
-      >
-        Remove selected
-      </button>
-    </div>
-  )}
-/>
+import { useState } from 'react';
+import { GridField } from '@object-ui/fields';
+import type { GridFieldMetadata } from '@object-ui/types';
+
+const gridField: GridFieldMetadata = {
+  name: 'tasks',
+  type: 'grid',
+  columns: [{ name: 'status', label: 'Status', type: 'text' }],
+  allow_delete: true,
+};
+
+export function TaskGrid() {
+  const [rows, setRows] = useState<Record<string, unknown>[]>([
+    { id: 'task-1', status: 'draft' },
+  ]);
+  return (
+    <GridField
+      field={gridField}
+      value={rows}
+      onChange={setRows}
+      getRowKey={(row) => String(row.id)}
+      renderSelectionToolbar={(selection) => (
+        <div>
+          <span>{selection.selectedRows.length}/{selection.totalRows}</span>
+          <button
+            type="button"
+            disabled={selection.disabled || !selection.canPatchSelected}
+            onClick={() => selection.patchSelected({ status: 'ready' })}
+          >
+            Mark selected
+          </button>
+          <button
+            type="button"
+            disabled={selection.disabled || !selection.canRemoveSelected}
+            onClick={selection.removeSelected}
+          >
+            Remove selected
+          </button>
+        </div>
+      )}
+    />
+  );
+}
 ```
 
 Batch patches ignore unconfigured, computed and `readonlyWhen` columns, recompute
@@ -285,6 +303,8 @@ storing the selected option's original `label` string. The required option
 it is never written as the field value. For example:
 
 ```ts
+import { Field } from '@objectstack/spec/data';
+
 Field.text({
   label: 'Gender',
   widget: 'declared-label-select',
@@ -318,6 +338,8 @@ the form's object and field names), while the optional plain-text `description`
 appears below it:
 
 ```ts
+import { Field } from '@objectstack/spec/data';
+
 Field.select({
   label: 'Display mode',
   widget: 'choice-cards',

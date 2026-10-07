@@ -229,6 +229,10 @@ const de = {
     },
   },
   fields: {
+    choiceCards: {
+      selectOnly: 'Auswahlkarten erfordern ein Auswahlfeld.',
+      singleValueOnly: 'Auswahlkarten unterstützen nur einen ausgewählten Wert. Verwenden Sie für dieses Feld ein Mehrfachauswahl-Widget.',
+    },
     declaredLabelSelect: {
       unlistedValue: 'Vorhandener Wert: {{value}}',
     },

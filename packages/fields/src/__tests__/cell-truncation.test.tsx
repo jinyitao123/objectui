@@ -62,11 +62,12 @@ describe('cell renderers truncate for real and expose the full text (issue #3466
   // to a `text` cell, so the screen states a fact it does not have), so the arm
   // now draws the unresolved-reference affordance. #3466's contract is what
   // survives and is what is asserted here: a single-line value must not expand
-  // its column, and its full text must stay reachable. The shape that meets it
+  // its column. The unresolved explanation, rather than a database key, stays
+  // reachable. The shape that meets it
   // moved — `truncate` sits on the text span inside an `inline-flex` wrapper
   // (`overflow: hidden` gives a flex item an automatic minimum size of zero,
-  // so it shrinks rather than pushing the row wider), and the full value is
-  // exposed through the wrapper's stated `title` rather than a bare one.
+  // so it shrinks rather than pushing the row wider), and the explanation is
+  // exposed through the wrapper's `title` without revealing the stored key.
   it('LookupCellRenderer: primitive value nothing resolved — objectui#8695 affordance, still truncating', () => {
     const ds = { find: vi.fn(), findOne: vi.fn() } as any;
     const { container } = render(
@@ -78,10 +79,11 @@ describe('cell renderers truncate for real and expose the full text (issue #3466
     const mark = container.querySelector<HTMLElement>('[data-slot="unresolved-reference"]')!;
     expect(mark, 'the unresolved arm states itself').not.toBeNull();
     expect(mark).toHaveClass('inline-flex', 'min-w-0', 'max-w-full');
-    // The full text stays reachable, inside the sentence that names it.
-    expect(mark.getAttribute('title')).toContain(LONG);
-    // …and the value itself still ellipsises instead of growing the column.
-    expect(screen.getByText(LONG)).toHaveClass('truncate');
+    // Unresolved references expose a neutral explanation, never the key.
+    expect(mark.getAttribute('title')).toBe('Record not resolved on this screen');
+    expect(mark.getAttribute('title')).not.toContain(LONG);
+    expect(screen.queryByText(LONG)).not.toBeInTheDocument();
+    expect(screen.getByText('Record not resolved on this screen')).toHaveClass('truncate');
   });
 
   it('UserCellRenderer: display name beside the avatar', () => {

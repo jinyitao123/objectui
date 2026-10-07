@@ -279,8 +279,8 @@ describe('objectui#6458 — the read boundary of ObjectGrid.generateColumns()', 
 
   it('the split is closed — the schema still refuses `essential`, and nothing reads it', () => {
     // The card's core measurement, executable. `essential` was the clearest of
-    // the four: not a `ListColumn` member, no second road (its fallback is
-    // positional, `colIndex === 0`), and authored nowhere in the repo.
+    // the four: not a `ListColumn` member, no second road (the narrow table
+    // now keeps all columns visible), and authored nowhere in the repo.
     const refused = ListColumnSchema.safeParse({ field: 'name', essential: true });
     expect(refused.success).toBe(false);
     if (!refused.success) {
@@ -298,18 +298,11 @@ describe('objectui#6458 — the read boundary of ObjectGrid.generateColumns()', 
     });
     expect(admitted.success).toBe(true);
 
-    // And the renderer side of the split is gone: mobile visibility is decided
-    // positionally now, with no key behind it. Asserted as a BOOLEAN rather
-    // than `expect(region).toContain(...)`: the region is ~200 lines, and a
-    // string-containment failure prints all of it, burying the one line that
-    // matters under a diff nobody reads.
-    const POSITIONAL_ONLY = 'const isEssential = colIndex === 0;';
-    expect(
-      guardedRegion().includes(POSITIONAL_ONLY),
-      'Mobile visibility must be decided positionally, with no key behind it: ' +
-        'expected the region to contain exactly `' + POSITIONAL_ONLY + '`. ' +
-        'objectui#6458 retired the `essential` read (maintainer, 2026-08-28).'
-    ).toBe(true);
+    // Narrow table layouts now keep every column and scroll horizontally.
+    // The populated-grid card layout is selected separately; neither path may
+    // revive the retired column key or inject the old positional hiding class.
+    // ObjectGrid.mobileLayout.test.tsx also exercises the actual narrow DOM.
+    expect(guardedRegion().includes('hidden sm:table-cell')).toBe(false);
   });
 
   it('the surviving reads are typed — `ListColumn["prefix"]` is not `any`', () => {

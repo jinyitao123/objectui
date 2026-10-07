@@ -115,9 +115,12 @@ Follow-ups and objectui#2698 / #2710):
 | `grid`/`repeater` | `object[]` | Array of row objects. |
 | `formula` `summary` `autonumber`/`auto_number` `vector` | — (nothing) | Computed / read-only widgets never call `onChange`. |
 
-(`object-ref` / `filter-condition` / `recipient-picker` are widget-hint-only —
-reached via a field `widget:` override, never a bare param `type` — so they are
-outside the declarable-param contract, though the drift guard still covers them.)
+(`object-ref` / `filter-condition` / `recipient-picker` and the single-string
+`choice-cards` / `declared-label-select` / `declared-label-combobox` are
+widget-hint-only — reached via a field `widget:` override, never a bare param
+`type` — so they are outside the declarable-param contract, though the drift
+guard still covers them. Choice cards emit the selected option value; the
+label-stored text pickers emit the original option label.)
 
 Endpoint authors declare params with the shape their route expects, same as
 record forms. If a widget swap ever changed a param's emitted shape, the

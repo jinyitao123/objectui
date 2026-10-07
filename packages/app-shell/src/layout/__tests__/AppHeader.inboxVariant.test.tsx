@@ -153,6 +153,7 @@ vi.mock('@object-ui/auth', async (importOriginal) => ({
 
 vi.mock('../../providers/MetadataProvider', () => ({
   useMetadata: () => ({ apps: [], dashboards: [], pages: [], reports: [] }),
+  useMetadataItem: () => ({ item: null, loading: false, error: null }),
 }));
 
 // ── The inbox fixture: exactly what MessagingService materializes ────────────

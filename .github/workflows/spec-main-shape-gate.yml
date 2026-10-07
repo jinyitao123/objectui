@@ -142,13 +142,14 @@ jobs:
           # `--filter=blob:none` fetches file contents lazily, `--depth=1` drops
           # history, and the cone below decides which blobs are ever fetched at
           # all. `scripts` is in the cone because the spec's build calls scripts
-          # from the objectstack repository root.
+          # from the objectstack repository root. The root lockfile also names
+          # patches used during frozen installation, so retain that cone.
           git clone --depth=1 --filter=blob:none --no-checkout --single-branch \
             --branch main https://github.com/objectstack-ai/objectstack \
             "$RUNNER_TEMP/objectstack"
           cd "$RUNNER_TEMP/objectstack"
           git sparse-checkout init --cone
-          git sparse-checkout set packages/spec scripts
+          git sparse-checkout set packages/spec scripts patches
           # Check out the resolved SHA, not `main`: `main` may have moved between
           # the step above and this one, and the report names the sha.
           git fetch --depth=1 origin "$UPSTREAM_SHA"

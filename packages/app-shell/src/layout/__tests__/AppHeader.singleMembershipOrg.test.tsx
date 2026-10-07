@@ -120,6 +120,7 @@ vi.mock('../LocalizedSidebarTrigger', () => ({ LocalizedSidebarTrigger: () => nu
 vi.mock('../PreviewBadge', () => ({ PreviewBadge: () => null }));
 vi.mock('../../providers/MetadataProvider', () => ({
   useMetadata: () => ({ apps: [], dashboards: [], pages: [], reports: [] }),
+  useMetadataItem: () => ({ item: null, loading: false, error: null }),
 }));
 
 // The REAL WorkspaceSwitcher and CurrentOrganizationIndicator, deliberately —

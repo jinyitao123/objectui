@@ -58,10 +58,10 @@ describe('parseDeclaredLazyViews', () => {
     const declared = parseDeclaredLazyViews(read(APP_CONTENT_PATH));
     // The count is a measurement, asserted rather than merely observed because a
     // matcher that silently finds fewer makes every check downstream of it pass
-    // vacuously. Eight single-file route views (objectui#6535), the
+    // vacuously. Seven single-file route views (objectui#6535), the
     // metadata-admin directory barrel that six declarations share, and the three
-    // marketplace pages (objectui#6681) = twelve distinct files.
-    expect(declared).toHaveLength(12);
+    // marketplace pages (objectui#6681) = eleven distinct files.
+    expect(declared).toHaveLength(11);
     for (const view of declared) {
       expect(fs.existsSync(path.join(REPO_ROOT, view)), view).toBe(true);
     }

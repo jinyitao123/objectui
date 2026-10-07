@@ -137,9 +137,15 @@ and `--ui-page-title-font-weight`, with CSS fallbacks for hosts without a
 profile.
 
 ```tsx
-<PageHeader title="Contacts" subtitle="Manage customer contacts">
-  <button type="button" onClick={createContact}>New contact</button>
-</PageHeader>
+import { PageHeader } from '@object-ui/layout';
+
+export function ContactHeader({ createContact }: { createContact: () => void }) {
+  return (
+    <PageHeader title="Contacts" subtitle="Manage customer contacts">
+      <button type="button" onClick={createContact}>New contact</button>
+    </PageHeader>
+  );
+}
 ```
 
 ### ListSummary
@@ -258,6 +264,7 @@ value, status counts and change handler; the tab component does not translate a
 status into a query.
 
 ```tsx
+import { useState } from 'react';
 import { StatusTabs, type StatusTabItem } from '@object-ui/layout';
 
 const statuses: StatusTabItem[] = [
@@ -266,16 +273,23 @@ const statuses: StatusTabItem[] = [
   { value: 'inactive', label: 'Inactive', count: 32 },
 ];
 
-<StatusTabs
-  aria-label="Contact status"
-  panelId="contact-results"
-  items={statuses}
-  value={status}
-  onValueChange={setStatus}
-/>
-<section id="contact-results" role="tabpanel" aria-label="Contact results" tabIndex={0}>
-  {/* Render the host's already-filtered list here. */}
-</section>
+export function ContactStatus() {
+  const [status, setStatus] = useState('all');
+  return (
+    <>
+      <StatusTabs
+        aria-label="Contact status"
+        panelId="contact-results"
+        items={statuses}
+        value={status}
+        onValueChange={setStatus}
+      />
+      <section id="contact-results" role="tabpanel" aria-label="Contact results" tabIndex={0}>
+        {/* Render the host's list filtered by status here. */}
+      </section>
+    </>
+  );
+}
 ```
 
 The existing Radix Tabs primitive supplies tab roles, roving focus and arrow-key
@@ -304,24 +318,36 @@ are permitted. The required `aria-label` names the group; controls keep their
 own labels and normal keyboard tab order.
 
 ```tsx
-import { StatusTabs, WorkspaceToolbar } from '@object-ui/layout';
+import { StatusTabs, WorkspaceToolbar, type StatusTabItem } from '@object-ui/layout';
 
-<WorkspaceToolbar
-  aria-label="Project task controls"
-  primaryActionPlacement="start"
-  search={<input aria-label="Search tasks" value={search} onChange={onSearchChange} />}
-  filters={
-    <StatusTabs
-      aria-label="Task status"
-      panelId="task-results"
-      items={statuses}
-      value={status}
-      onValueChange={setStatus}
+export function TaskToolbar({ search, onSearchChange, statuses, status, setStatus, refresh, createTask }: {
+  search: string;
+  onSearchChange: (value: string) => void;
+  statuses: StatusTabItem[];
+  status: string;
+  setStatus: (value: string) => void;
+  refresh: () => void;
+  createTask: () => void;
+}) {
+  return (
+    <WorkspaceToolbar
+      aria-label="Project task controls"
+      primaryActionPlacement="start"
+      search={<input aria-label="Search tasks" value={search} onChange={(event) => onSearchChange(event.target.value)} />}
+      filters={
+        <StatusTabs
+          aria-label="Task status"
+          panelId="task-results"
+          items={statuses}
+          value={status}
+          onValueChange={setStatus}
+        />
+      }
+      auxiliaryActions={<button type="button" onClick={refresh}>Refresh</button>}
+      primaryAction={<button type="button" onClick={createTask}>New task</button>}
     />
-  }
-  auxiliaryActions={<button type="button" onClick={refresh}>Refresh</button>}
-  primaryAction={<button type="button" onClick={createTask}>New task</button>}
-/>
+  );
+}
 ```
 
 `primaryActionPlacement` controls the primary action's DOM, visual, and keyboard

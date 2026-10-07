@@ -307,10 +307,12 @@ describe('skill guides — the taught `data-table` form renders rows (#5126, #65
 
     expect(screen.getByText('No results found')).toBeInTheDocument();
     expect(screen.queryByText('Ada Lovelace')).not.toBeInTheDocument();
-    // One body row, and it is the empty state spanning the table — measured,
-    // not assumed: the bound array never reaches the renderer at all.
+    // The body reserves one empty row; the shared empty viewport carries the
+    // message outside the table so horizontal scrolling cannot hide it.
     expect(document.querySelectorAll('tbody tr')).toHaveLength(1);
-    expect(bodyCells()).toEqual(['No results foundTry adjusting your filters or search query.']);
+    expect(bodyCells()).toEqual(['']);
+    expect(document.querySelector('[data-slot="record-table-empty-viewport"]')?.textContent)
+      .toBe('No results foundTry adjusting your filters or search query.');
 
     // objectui#6575 — the trap stops being silent (maintainer ruling
     // 2026-08-27, option A). THIS is the load-bearing half of the update:

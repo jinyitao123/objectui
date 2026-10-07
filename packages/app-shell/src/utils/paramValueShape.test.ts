@@ -42,6 +42,16 @@ const p = (over: Partial<ActionParamDef>): ActionParamDef => ({
 });
 
 describe('emitted value-shape contract — FORM_FIELD_TYPES coverage (drift guard)', () => {
+  it.each(['choice-cards', 'declared-label-select', 'declared-label-combobox'])(
+    '%s declares a single string from a widget override', (type) => {
+      expect(PARAM_VALUE_SHAPES[type]).toMatchObject({
+        base: 'string', cardinality: 'scalar', widgetHintOnly: true,
+      });
+      expect(resolveShapeSpec(PARAM_VALUE_SHAPES[type], false)).toBe('string');
+      expect(resolveShapeSpec(PARAM_VALUE_SHAPES[type], true)).toBe('string');
+    },
+  );
+
   it('declares a shape for every form field type — none left undeclared', () => {
     // If this fails: a widget type was added to `fieldWidgetMap` (and so to
     // `FORM_FIELD_TYPES`) without declaring the value shape a param of that type

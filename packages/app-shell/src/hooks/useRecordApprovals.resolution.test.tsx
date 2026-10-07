@@ -258,7 +258,8 @@ describe('useRecordApprovals — resolution is scoped to the current record', ()
 
     const unsupported = renderHook(() => useRecordApprovals('legacy', 'A'));
     // The endpoint status is selected by the URL in the second half below.
-    await waitFor(() => expect(unsupported.result.current.resolved).toBe(false));
+    await waitFor(() => expect(unsupported.result.current.error).toBe(true));
+    expect(unsupported.result.current.resolved).toBe(false);
     expect(unsupported.result.current.available).toBe(true);
     unsupported.unmount();
 
@@ -271,7 +272,10 @@ describe('useRecordApprovals — resolution is scoped to the current record', ()
     unavailable.unmount();
 
     const failed = renderHook(() => useRecordApprovals('orders', 'C'));
-    await waitFor(() => expect(fetch).toHaveBeenCalled());
+    await waitFor(() => expect(failed.result.current.error).toBe(true));
+    expect(fetch).toHaveBeenCalledWith(
+      expect.stringContaining('object=orders&recordId=C'), expect.any(Object),
+    );
     expect(failed.result.current.available).toBe(true);
     expect(failed.result.current.resolved).toBe(false);
     expect(failed.result.current.error).toBe(true);

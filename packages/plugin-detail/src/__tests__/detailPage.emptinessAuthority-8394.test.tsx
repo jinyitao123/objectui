@@ -421,7 +421,7 @@ describe('RecordMetaFooter — an actor is normalized at the READ (#8394)', () =
     // placeholder — objectui#2688 — and this is not that). The TITLE authority
     // calls a bare `{ id }` payload EMPTY, so delegating the object half here
     // would drop the actor entirely: the label would fall back to the
-    // "by"-less `Created` and `u1` would leave the screen. This is the case
+    // "by"-less `Created` and the unresolved marker would disappear. This is the case
     // that makes the footer\'s object half load-bearing.
     const { container } = footer({
       created_at: '2024-06-01T00:00:00Z',
@@ -432,8 +432,9 @@ describe('RecordMetaFooter — an actor is normalized at the READ (#8394)', () =
     expect(shown('Created by'), 'a bare `{ id }` payload is still an actor').toBe(true);
     expect(
       container.textContent,
-      'the reference renderer draws it — a wholesale delegation would blank it',
-    ).toContain('u1');
+      'the unresolved actor stays visible without exposing its internal key',
+    ).toContain('Record not resolved on this screen');
+    expect(container.textContent).not.toContain('u1');
   });
 });
 

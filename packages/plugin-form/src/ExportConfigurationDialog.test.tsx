@@ -67,12 +67,13 @@ describe('ExportConfigurationDialog', () => {
     expect(screen.getByRole('button', { name: '导出' })).toBeInTheDocument();
   });
 
-  it('keeps the shared description fallback screen-reader-only and the body scrollable between fixed chrome', async () => {
+  it('omits an unauthored description and keeps the body scrollable between fixed chrome', async () => {
     renderDialog('en');
     const dialog = await screen.findByRole('dialog', { name: 'Export data' });
 
-    expect(within(dialog).getByText('Complete the form fields, then submit or cancel.'))
-      .toHaveClass('sr-only');
+    expect(within(dialog).queryByText('Complete the form fields, then submit or cancel.'))
+      .not.toBeInTheDocument();
+    expect(dialog).not.toHaveAttribute('aria-describedby');
     expect(dialog.querySelector('[data-slot="composite-dialog-body"]'))
       .toHaveClass('min-h-0', 'overflow-y-auto');
     expect(dialog.querySelector('[data-testid="composite-dialog-footer"]'))

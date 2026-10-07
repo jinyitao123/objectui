@@ -131,7 +131,7 @@ describe('record:quick_actions — declared action ids through the shared rule (
     const idRender = mount(idAuthored);
     // Resolution runs through `useMetadataItem`, which settles in an effect.
     await screen.findByRole('button', { name: /Convert Lead/i });
-    expect(getItem).toHaveBeenCalledWith('object', 'lead');
+    expect(getItem).toHaveBeenCalledWith('object', 'lead', undefined);
 
     expect(buttonNames(idRender.container)).toEqual(controlNames);
   });
@@ -141,7 +141,7 @@ describe('record:quick_actions — declared action ids through the shared rule (
     await screen.findByRole('button', { name: /Qualify/i });
     // Authored order, not registration order.
     expect(buttonNames(document.body)).toEqual(['Qualify', 'Convert Lead']);
-    expect(getItem).toHaveBeenCalledWith('object', 'lead');
+    expect(getItem).toHaveBeenCalledWith('object', 'lead', undefined);
   });
 
   it('refuses a mixed id/object array — no buttons, and the placeholder and the console name the offending index', async () => {
@@ -176,7 +176,7 @@ describe('record:quick_actions — declared action ids through the shared rule (
     // ordinary empty state.
     mount({ actions: ['covert_lead'] });
     expect(await screen.findByText(/no actions configured/i)).toBeInTheDocument();
-    expect(getItem).toHaveBeenCalledWith('object', 'lead');
+    expect(getItem).toHaveBeenCalledWith('object', 'lead', undefined);
     expect(errorMessages().filter((m) => m.includes('refused'))).toEqual([]);
   });
 });

@@ -150,7 +150,7 @@ describe('DatasetWidget — chartConfig reaches the real chart DOM (objectstack#
   it('keeps the container default height when none is declared', async () => {
     const { container } = await renderWidget({ type: 'bar' });
     expect(chartEl(container).style.height).toBe('');
-    expect(chartEl(container).className).toContain('h-[350px]');
+    expect(chartEl(container).className).toContain('h-[var(--ui-chart-height,350px)]');
   });
 
   // Negative pin for the one key refused on criterion 1 (nothing reads it). This

@@ -60,10 +60,12 @@ import {
  * row) — and every realistic config is a table of per-cell inputs and row
  * actions under one container, `address`'s shape at larger scale.
  */
+// Choice cards expose a RadioGroup container, so the host label uses IDREF too.
 const GROUP_LABELLED = [
   'address',
   'geolocation',
   'checkboxes',
+  'choice-cards',
   'radio',
   'rating',
   'file',

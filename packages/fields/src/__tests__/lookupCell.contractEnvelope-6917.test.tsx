@@ -143,7 +143,7 @@ describe('LookupCellRenderer find() envelope — objectui#6917 arm A', () => {
   it('does NOT read `records` — folded into `data` below the adapter', async () => {
     // `records` is the below-the-adapter spelling; both adapters'
     // `normalizeQueryResult` return `data` before an answer reaches here. The
-    // chip falls back to the raw id rather than legitimising a second
+    // chip reports an unresolved record rather than legitimising a second
     // de-facto contract. This is also the caricature guard: an extractor that
     // returned a constant, or always returned the first row of whatever it was
     // handed, would answer "Should not resolve" here.
@@ -151,7 +151,8 @@ describe('LookupCellRenderer find() envelope — objectui#6917 arm A', () => {
       records: [{ id: 'id_records', name: 'Should not resolve' }],
     });
     await waitFor(() => {
-      expect(screen.getByText('id_records')).toBeInTheDocument();
+      expect(screen.getByText('Record not resolved on this screen')).toBeInTheDocument();
+      expect(screen.queryByText('id_records')).not.toBeInTheDocument();
     });
     expect(screen.queryByText('Should not resolve')).not.toBeInTheDocument();
   });

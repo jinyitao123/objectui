@@ -61,7 +61,7 @@
  */
 import '@testing-library/jest-dom/vitest';
 import { describe, it, expect } from 'vitest';
-import { render, screen, fireEvent, within } from '@testing-library/react';
+import { render, screen, fireEvent, within, waitFor } from '@testing-library/react';
 import React from 'react';
 import { MemoryRouter, Routes, Route, useLocation } from 'react-router-dom';
 
@@ -73,6 +73,7 @@ import { ComponentRegistry } from '@object-ui/core';
 import { SchemaRenderer, MetadataCtx } from '@object-ui/react';
 import '../app-launcher-renderer';
 import '../nav-menu-renderer';
+import { ExpressionProvider } from '../../providers/ExpressionProvider';
 
 /* ── Fixtures ─────────────────────────────────────────────────────────────── */
 
@@ -84,6 +85,7 @@ import '../nav-menu-renderer';
 const APPS = [
   {
     name: 'crm',
+    _packageId: 'com.example.crm',
     label: 'CRM',
     icon: 'Building2',
     navigation: [
@@ -115,21 +117,16 @@ const APPS = [
   { name: 'account', label: 'Account', hidden: true, navigation: [] },
 ];
 
-/**
- * Stable module-level value: `MetadataCtx` consumers list the context value in
- * effect deps, and a fresh object per render re-runs them forever.
- *
- * `objects` is what the runtime-capability gate probes. `sys_invoice` is
- * deliberately absent so the `requiresObject` guard has something to do — and
- * the set is non-empty, which is what takes the "metadata still loading, show
- * everything" short-circuit out of the picture.
- */
+const OBJECTS = [
+  { name: 'crm_account', label: 'Account', icon: 'Building2' },
+  { name: 'crm_deal', label: 'Deal', icon: 'Handshake' },
+];
+
+// The capability gate resolves only the active app's referenced names. A
+// missing sys_invoice is a completed item miss, not an unfinished directory.
 const METADATA = {
   apps: APPS,
-  objects: [
-    { name: 'crm_account', label: 'Account', icon: 'Building2' },
-    { name: 'crm_deal', label: 'Deal', icon: 'Handshake' },
-  ],
+  get objects() { throw new Error('Navigation must not enumerate all Object schemas'); },
   dashboards: [],
   reports: [],
   pages: [],
@@ -138,7 +135,11 @@ const METADATA = {
   refresh: async () => {},
   invalidate: () => {},
   ensureType: async () => [],
-  getItem: async () => null,
+  getItem: async (type: string, name: string, packageId?: string) =>
+    type === 'object' && packageId === APPS[0]._packageId
+      ? OBJECTS.find(object => object.name === name) ?? null
+      : null,
+  getItemScope: 'phase1-page-blocks-test',
   getItemsByType: () => [],
   getTypeStatus: () => 'ready' as const,
 };
@@ -160,6 +161,7 @@ function renderPage(type: string) {
   return render(
     <MemoryRouter initialEntries={['/apps/crm']}>
       <MetadataCtx.Provider value={METADATA as never}>
+        <ExpressionProvider app={APPS[0]}>
         <LocationProbe />
         <Routes>
           <Route
@@ -168,6 +170,7 @@ function renderPage(type: string) {
           />
           <Route path="*" element={<div>navigated away</div>} />
         </Routes>
+        </ExpressionProvider>
       </MetadataCtx.Provider>
     </MemoryRouter>,
   );
@@ -237,7 +240,7 @@ describe('objectui#6661 — spec `PageComponentType` members that had no rendere
   });
 
   describe('nav:menu', () => {
-    it('renders the active app’s navigation tree with hrefs from `resolveHref`', () => {
+    it('renders the active app’s navigation tree with hrefs from `resolveHref`', async () => {
       renderPage('nav:menu');
 
       // 1. Real content: the menu itself, with its accessible name.
@@ -250,15 +253,15 @@ describe('objectui#6661 — spec `PageComponentType` members that had no rendere
       //    note `/view/kanban`, which only the shared resolver produces.
       expect(within(menu).getByRole('link', { name: 'Accounts' })).toHaveAttribute(
         'href',
-        '/apps/crm/crm_account',
+        '/apps/com.example.crm/crm_account',
       );
       expect(within(menu).getByRole('link', { name: 'Pipeline' })).toHaveAttribute(
         'href',
-        '/apps/crm/crm_deal/view/kanban',
+        '/apps/com.example.crm/crm_deal/view/kanban',
       );
       expect(within(menu).getByRole('link', { name: 'Win rate' })).toHaveAttribute(
         'href',
-        '/apps/crm/report/win_rate',
+        '/apps/com.example.crm/report/win_rate',
       );
       // A `url` item keeps its absolute target and opens out of the SPA.
       const handbook = within(menu).getByRole('link', { name: 'Handbook' });
@@ -271,7 +274,7 @@ describe('objectui#6661 — spec `PageComponentType` members that had no rendere
       //    both are gated away — the `visible` expression and the
       //    `requiresObject` runtime-capability probe respectively.
       expect(screen.queryByText('Draft area')).toBeNull();
-      expect(screen.queryByText('Billing')).toBeNull();
+      await waitFor(() => expect(screen.queryByText('Billing')).toBeNull());
 
       // 4. The literal symptom the card reported. `nav:menu` IS in the eager
       //    placeholder set, so this is the text it drew before the fix.
@@ -284,7 +287,7 @@ describe('objectui#6661 — spec `PageComponentType` members that had no rendere
 
       expect(screen.getByTestId('pathname')).toHaveTextContent('/apps/crm');
       fireEvent.click(screen.getByRole('link', { name: 'Accounts' }));
-      expect(screen.getByTestId('pathname')).toHaveTextContent('/apps/crm/crm_account');
+      expect(screen.getByTestId('pathname')).toHaveTextContent('/apps/com.example.crm/crm_account');
     });
   });
 });

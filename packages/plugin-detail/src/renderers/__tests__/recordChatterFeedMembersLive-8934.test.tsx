@@ -323,7 +323,8 @@ describe.each(BLOCK_NAMES)('%s: the five AFFORDANCE members still move the timel
 
     cleanup();
     mountAs(blockName, { ...AFFORDANCES, enableThreading: false }, withReply);
-    expect(rootBodies()).toEqual(['Root comment', 'A threaded reply']);
+    // Unthreaded activity stays in the timeline's newest-first order.
+    expect(rootBodies()).toEqual(['A threaded reply', 'Root comment']);
   });
 });
 

@@ -13,11 +13,11 @@
  *     same source the platform's save gate parses with;
  *  2. the CONSUMED set, extracted from `DatasetWidget.tsx` source text — the
  *     one component every spec-legal (dataset-bound) widget renders through.
- *     Since objectui#7293 that set is the declared five PLUS `description`:
+ *     Since objectui#7293 that set is the declared five PLUS `description` and `drillDown`:
  *     the metric branch renders the sub-caption, so the accepted set and the
  *     measured read set finally coincide;
  *  3. the sub-caption convention read site in `DashboardRenderer.tsx`, the
- *     evidence for the single accepted key the spec does not declare;
+ *     evidence for `description`, one of the two renderer extras;
  *  4. a repo tripwire for NEW files that start reading `widget.options`.
  *
  * ## What the instrument can and cannot see — read before trusting a verdict
@@ -58,11 +58,12 @@ import {
 } from '../dashboard-widget-options.js';
 
 /**
- * The one accepted key `DashboardWidgetOptionsSchema` does not declare — the
+ * The sub-caption key `DashboardWidgetOptionsSchema` does not declare — the
  * sub-caption convention (objectui#4032 item 4, objectstack#8056 `subCaption`).
  * Named once here so leg 1 and leg 2 cannot drift apart about which key it is.
  */
 const SUBCAPTION_KEY = 'description';
+const RENDERER_EXTRA_KEYS = [SUBCAPTION_KEY, 'drillDown'];
 
 /** Repo root, located by marker file — never by counting `..` segments. */
 const repoRoot = (() => {
@@ -103,12 +104,18 @@ describe('leg 1 — the spec side of the pin', () => {
     expect(declaredKeys).toEqual(['dateGranularity', 'limit', 'sortBy', 'sortOrder', 'stageOrder']);
   });
 
-  it('every declared key is accepted, and the only undeclared accepted key is `description`', () => {
+  it('every declared key and the measured renderer extras are accepted', () => {
     for (const key of declaredKeys) expect(CONSUMED_WIDGET_OPTION_KEYS).toContain(key);
     const extras = CONSUMED_WIDGET_OPTION_KEYS.filter((k) => !declaredKeys.includes(k));
-    // `description` is the sub-caption convention key (leg 3). Any OTHER
-    // undeclared entry needs its own documented read-site evidence first.
-    expect(extras).toEqual([SUBCAPTION_KEY]);
+    // The sub-caption read is covered in leg 3; DatasetWidget consumes
+    // drillDown directly and passes it to its drill-through handlers.
+    expect(extras).toEqual(RENDERER_EXTRA_KEYS);
+  });
+
+  it('the public schema preserves the consumed drill-down configuration', () => {
+    const drillDown = { enabled: false, target: 'dialog', maxRows: 25 };
+    const parsed = DashboardWidgetOptionsSchema.parse({ drillDown });
+    expect(parsed.drillDown).toEqual(drillDown);
   });
 
   it('`dataset` is required — the fact the census scopes itself by', () => {
@@ -149,7 +156,7 @@ describe('leg 2 — the renderer side: DatasetWidget source census', () => {
     expect(src, 'computed access into the options bag').not.toMatch(/\boptions\[/);
   });
 
-  it('the extracted read set is the declared set plus the sub-caption key', () => {
+  it('the extracted read set is the declared set plus the measured renderer extras', () => {
     const extracted = new Set<string>();
     for (const m of src.matchAll(/\boptions\.([A-Za-z_$][\w$]*)/g)) extracted.add(m[1]!);
     // Instrument control: a zero here is a broken instrument, not a reading —
@@ -160,7 +167,7 @@ describe('leg 2 — the renderer side: DatasetWidget source census', () => {
     // was accepted on the strength of a read site in a DIFFERENT file (leg 3).
     // The metric branch now reads it here too, so the sub-caption key is a
     // first-class member of this census rather than an exception to it.
-    expect([...extracted].sort()).toEqual([...declaredKeys, SUBCAPTION_KEY].sort());
+    expect([...extracted].sort()).toEqual([...declaredKeys, ...RENDERER_EXTRA_KEYS].sort());
   });
 
   it('every accepted key now has a read site in the file the census measures', () => {

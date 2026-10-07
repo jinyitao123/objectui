@@ -203,8 +203,8 @@ const zh = {
       fileNameRequired: '请输入文件名。',
       format: '格式',
       formatCsv: 'CSV',
-      formatXlsx: 'Excel (.xlsx)',
-      formatJson: 'JSON',
+      formatXlsx: 'Excel 工作簿 (.xlsx)',
+      formatJson: 'JSON 格式',
       preview: '数据预览（最多 {{count}} 行）',
       noPreviewRows: '暂无预览数据。',
       exporting: '正在导出…',
@@ -236,6 +236,10 @@ const zh = {
     },
   },
   fields: {
+    choiceCards: {
+      selectOnly: '选项卡片仅适用于选择字段。',
+      singleValueOnly: '选项卡片仅支持选择一个值。请为此字段使用多选控件。',
+    },
     declaredLabelSelect: {
       unlistedValue: '现有值：{{value}}',
     },

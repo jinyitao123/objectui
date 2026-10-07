@@ -190,8 +190,8 @@ const ja = {
       fileNameRequired: 'ファイル名を入力してください。',
       format: '形式',
       formatCsv: 'CSV',
-      formatXlsx: 'Excel (.xlsx)',
-      formatJson: 'JSON',
+      formatXlsx: 'Excel ブック (.xlsx)',
+      formatJson: 'JSON 形式',
       preview: 'プレビュー（最大{{count}}行）',
       noPreviewRows: 'プレビューできる行がありません。',
       exporting: 'エクスポート中…',
@@ -229,6 +229,10 @@ const ja = {
     },
   },
   fields: {
+    choiceCards: {
+      selectOnly: '選択カードには選択フィールドが必要です。',
+      singleValueOnly: '選択カードで選べる値は1つです。このフィールドには複数選択用のウィジェットを使用してください。',
+    },
     declaredLabelSelect: {
       unlistedValue: '既存の値: {{value}}',
     },

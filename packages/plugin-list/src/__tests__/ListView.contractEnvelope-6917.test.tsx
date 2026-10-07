@@ -59,6 +59,7 @@ import React from 'react';
 
 import { I18nProvider, SchemaRendererProvider } from '@object-ui/react';
 import { ListView } from '../ListView';
+import { ComponentRegistry } from '@object-ui/core';
 import type { ListViewSchema } from '@object-ui/types';
 
 const OBJECT = 'showcase_contact';
@@ -72,6 +73,13 @@ const ROWS = [
 ];
 
 beforeAll(() => {
+  // Observe the public grid handoff without importing an undeclared sibling
+  // dependency. Grid's own pager behavior is covered in plugin-grid tests.
+  ComponentRegistry.register('object-grid', ({ manualPagination, rowCount }: any) => (
+    <div data-testid="contract-grid" data-manual-pagination={manualPagination}>
+      {manualPagination ? `${rowCount} total` : null}
+    </div>
+  ), { namespace: 'test', label: 'Envelope grid probe', category: 'view' });
   if (!Element.prototype.scrollIntoView) {
     Element.prototype.scrollIntoView = vi.fn() as any;
   }
@@ -109,7 +117,7 @@ const listSchema = (): ListViewSchema => ({
  */
 async function recordCountText(answer: unknown): Promise<string> {
   const ds = makeDataSource(answer);
-  const { getByTestId } = render(
+  const { queryByTestId, getByText } = render(
     // Without an English provider the `{{count}}` interpolation never runs and
     // the raw template reaches the DOM, which would make the count unassertable.
     <I18nProvider config={{ defaultLanguage: 'en', detectBrowserLanguage: false }}>
@@ -120,15 +128,17 @@ async function recordCountText(answer: unknown): Promise<string> {
   );
   let bar!: HTMLElement;
   await waitFor(() => {
-    bar = getByTestId('record-count-bar');
-    expect(within(bar).getByText(/record/)).toBeInTheDocument();
+    bar = queryByTestId('record-count-bar') ?? getByText(/^\d+ total$/);
+    expect(bar).toBeInTheDocument();
   });
-  return within(bar).getByText(/record/).textContent ?? '';
+  return bar.dataset.testid === 'record-count-bar'
+    ? within(bar).getByText(/record/).textContent ?? ''
+    : bar.textContent ?? '';
 }
 
 describe('ListView find() envelope — objectui#6917', () => {
   it('still reads the server-side `total` — the contract\'s count member', async () => {
-    expect(await recordCountText({ data: ROWS, total: 42 })).toBe('42 records');
+    expect(await recordCountText({ data: ROWS, total: 42 })).toBe('42 total');
   });
 
   it('does NOT read `count` — falls back to the honest page-local row count', async () => {
@@ -148,6 +158,6 @@ describe('ListView find() envelope — objectui#6917', () => {
     // Green before AND after the fix: the arm that was always correct. Its
     // presence is what makes the refusals above a reading of THIS deletion
     // rather than of a ListView that stopped counting.
-    expect(await recordCountText({ data: ROWS, total: 42, count: 7 })).toBe('42 records');
+    expect(await recordCountText({ data: ROWS, total: 42, count: 7 })).toBe('42 total');
   });
 });

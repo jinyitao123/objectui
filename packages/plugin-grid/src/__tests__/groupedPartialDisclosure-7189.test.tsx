@@ -420,7 +420,7 @@ describe('ObjectGrid — a grouped grid discloses that it grouped a page (object
     // grouped render path — and therefore this disclosure — is the same at
     // every viewport. Pinned in source because jsdom cannot measure it:
     // it applies media-query rules irrespective of `innerWidth`.
-    expect(src).toContain('if (useCardView && data.length > 0 && !isGrouped) {');
+    expect(src).toContain("if (mobileLayout === 'cards' && useCardView && data.length > 0 && !isGrouped) {");
     // And the disclosure itself carries no responsive visibility utility.
     const noticeMarkup = src.slice(src.indexOf('data-testid="grouping-partial-notice"'));
     expect(noticeMarkup.slice(0, 400)).not.toMatch(/\b(hidden|sm:hidden|md:hidden|md:block|lg:block)\b/);

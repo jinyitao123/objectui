@@ -12,7 +12,7 @@
  *
  * The production report (objectstack#12649, hotcrm, promo-video recon) tried
  * eight ways of getting columns onto a `<list-view>` in an html-kind page and
- * got ONE picture from all eight: the row count ("23 records"), the
+ * got ONE picture from all eight: the row count ("23 total"), the
  * filter/group/sort toolbar, and **no data columns at all — only the index
  * column**, with zero diagnostics anywhere. That uniformity is what made the
  * card so hard to anchor: it read as a single bug, and it was not one. It was
@@ -156,7 +156,7 @@ describe("#6598 — all eight reported `columns` spellings on a kind:'html' page
       expectNotTheReportedSymptom(r);
       expect(r.headers).toEqual([INDEX_COLUMN, 'Opportunity Name', 'Amount']);
       expect(r.headers).not.toContain('Stage');
-      expect(r.text).toContain('23 records');
+      expect(r.text).toContain('23 total');
     });
 
     it('form 3 — an object-array with bare identifier keys', async () => {
@@ -180,7 +180,7 @@ describe("#6598 — all eight reported `columns` spellings on a kind:'html' page
       expectNotTheReportedSymptom(r);
       expect(r.headers).toContain('Opportunity Name');
       expect(r.headers).toContain('Amount');
-      expect(r.text).toContain('23 records');
+      expect(r.text).toContain('23 total');
     };
 
     it('form 7 — no `columns` attribute at all', async () => {

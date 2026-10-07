@@ -115,17 +115,23 @@ twenty-eight day ranges), resource rows, and events; only events whose
 the matrix. The host keeps unmatched or unplanned events in its own list.
 
 ```tsx
-import { ResourceScheduleGrid } from '@object-ui/components';
+import { ResourceScheduleGrid, type ResourceScheduleEvent } from '@object-ui/components';
 
-<ResourceScheduleGrid
-  aria-label="Engineer schedule"
-  resourceHeaderLabel="Engineer"
-  resources={[{ id: 'r-1', label: 'Engineer One' }]}
-  dateColumns={[{ key: '2030-04-01', label: 'Apr 1' }]}
-  events={[{ id: 'e-1', resourceId: 'r-1', dateKey: '2030-04-01', title: 'Calibration' }]}
-  emptyLabel="No resources in this period"
-  onEventClick={openScheduleItem}
-/>
+export function EngineerSchedule({ openScheduleItem }: {
+  openScheduleItem: (event: ResourceScheduleEvent) => void;
+}) {
+  return (
+    <ResourceScheduleGrid
+      aria-label="Engineer schedule"
+      resourceHeaderLabel="Engineer"
+      resources={[{ id: 'r-1', label: 'Engineer One' }]}
+      dateColumns={[{ key: '2030-04-01', label: 'Apr 1' }]}
+      events={[{ id: 'e-1', resourceId: 'r-1', dateKey: '2030-04-01', title: 'Calibration' }]}
+      emptyLabel="No resources in this period"
+      onEventClick={openScheduleItem}
+    />
+  );
+}
 ```
 
 Without `onEventClick`, event cards are display-only and are not exposed as
@@ -168,18 +174,24 @@ Home/End move focus without selecting; the callback fires only for a changed
 selection, once per navigation event.
 
 ```tsx
+import { useState } from 'react';
 import { SegmentedRadioGroup } from '@object-ui/components';
 
-<SegmentedRadioGroup
-  aria-label="Priority"
-  value={priority}
-  onValueChange={setPriority}
-  options={[
-    { value: 'high', label: 'High' },
-    { value: 'medium', label: 'Medium' },
-    { value: 'low', label: 'Low' },
-  ]}
-/>
+export function PriorityPicker() {
+  const [priority, setPriority] = useState('medium');
+  return (
+    <SegmentedRadioGroup
+      aria-label="Priority"
+      value={priority}
+      onValueChange={setPriority}
+      options={[
+        { value: 'high', label: 'High' },
+        { value: 'medium', label: 'Medium' },
+        { value: 'low', label: 'Low' },
+      ]}
+    />
+  );
+}
 ```
 
 Its geometry consumes `--ui-control-height`, `--ui-control-font-size`,
@@ -324,14 +336,20 @@ the committed range's first month. `disabled`, `minDate` and `maxDate` apply
 to calendar selection and shortcuts.
 
 ```tsx
-import { DateRangeControl } from '@object-ui/components';
+import { useState } from 'react';
+import { DateRangeControl, type DateRangeControlValue } from '@object-ui/components';
 
-<DateRangeControl
-  value={range}
-  onValueChange={setRange}
-  label="Receipt dates"
-  quickRanges={[{ label: 'Previous week through today', daysBack: 7 }]}
-/>
+export function ReceiptDates() {
+  const [range, setRange] = useState<DateRangeControlValue>();
+  return (
+    <DateRangeControl
+      value={range}
+      onValueChange={setRange}
+      label="Receipt dates"
+      quickRanges={[{ label: 'Previous week through today', daysBack: 7 }]}
+    />
+  );
+}
 ```
 
 `quickRanges` contains host-owned labels and calendar-day offsets. An offset

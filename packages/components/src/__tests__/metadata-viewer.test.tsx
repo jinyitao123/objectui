@@ -79,7 +79,7 @@ describe('element:metadata_viewer', () => {
       // backlog is the default option → initial; done has no outgoing → final
       expect(screen.getByText(/initial/i)).toBeTruthy();
       expect(screen.getByText(/final/i)).toBeTruthy();
-      expect(getItem).toHaveBeenCalledWith('object', 'showcase_task');
+      expect(getItem).toHaveBeenCalledWith('object', 'showcase_task', undefined);
     });
 
     it('warns when the named rule is absent', async () => {
