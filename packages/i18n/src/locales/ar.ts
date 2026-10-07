@@ -233,6 +233,9 @@ const ar = {
     },
   },
   fields: {
+    declaredLabelSelect: {
+      unlistedValue: 'القيمة الحالية: {{value}}',
+    },
     image: {
       upload: "رفع صورة",
       addMore: "إضافة المزيد من الصور",
@@ -2597,6 +2600,8 @@ const ar = {
     badgeReport: "تقرير",
   },
   empty: {
+    pageLoadError: 'تعذر تحميل الصفحة',
+    pageLoadErrorDescription: 'تعذر تحميل الصفحة. تحقق من اتصالك وحاول مرة أخرى.',
     objectNotFound: "الكائن غير موجود",
     objectNotFoundDescription: "تعريف الكائن \"{{name}}\" مفقود. تحقق من الإعداد أو ارجع للخلف.",
     interfacePageSourceMissing: "تشير صفحة الواجهة هذه إلى \"{{name}}\"، وهو غير متاح.",

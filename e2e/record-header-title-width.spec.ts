@@ -3,6 +3,7 @@ import { compile } from 'tailwindcss';
 import { readFileSync } from 'node:fs';
 import { fileURLToPath } from 'node:url';
 import path from 'node:path';
+import ts from 'typescript';
 
 /**
  * GEOMETRY pin for the record-header title/action width arbitration on the two
@@ -123,6 +124,68 @@ const PAGE_FILE = 'packages/layout/src/PageHeader.tsx';
 const detailSrc = read(DETAIL_FILE);
 const pageSrc = read(PAGE_FILE);
 
+/** Read the default PageHeader's actual JSX row. A workspace breadcrumb is a
+ * sibling of that row, so "the last class literal before the button" is not
+ * its container. Only the default variant and absent caller class overrides
+ * are evaluated here; a new expression shape must fail instead of guessing. */
+function pageHeaderClasses(source: string) {
+  const tree = ts.createSourceFile(PAGE_FILE, source, ts.ScriptTarget.Latest, true, ts.ScriptKind.TSX);
+  type Opening = ts.JsxOpeningElement | ts.JsxSelfClosingElement;
+  const openings: Opening[] = [];
+  const visit = (node: ts.Node) => {
+    if (ts.isJsxOpeningElement(node) || ts.isJsxSelfClosingElement(node)) openings.push(node);
+    ts.forEachChild(node, visit);
+  };
+  visit(tree);
+  const attribute = (node: Opening, name: string) => node.attributes.properties.find(
+    (value): value is ts.JsxAttribute => ts.isJsxAttribute(value) && value.name.getText(tree) === name,
+  );
+  const named = (name: string, value: string) => {
+    const matches = openings.filter(node => {
+      const attr = attribute(node, name)?.initializer;
+      return attr && ts.isStringLiteral(attr) && attr.text === value;
+    });
+    if (matches.length !== 1) throw new Error(`${PAGE_FILE}: expected one ${name}="${value}" element`);
+    return matches[0];
+  };
+  const parentDiv = (node: ts.Node): Opening => {
+    for (let parent = node.parent; parent; parent = parent.parent) {
+      if (ts.isJsxElement(parent) && parent.openingElement.tagName.getText(tree) === 'div') return parent.openingElement;
+    }
+    throw new Error(`${PAGE_FILE}: no parent div for ${node.getText(tree)}`);
+  };
+  const classValue = (expression: ts.Expression): string => {
+    if (ts.isStringLiteralLike(expression)) return expression.text;
+    if (ts.isCallExpression(expression) && ts.isIdentifier(expression.expression) && expression.expression.text === 'cn')
+      return expression.arguments.map(classValue).filter(Boolean).join(' ');
+    if (ts.isBinaryExpression(expression) && expression.operatorToken.kind === ts.SyntaxKind.AmpersandAmpersandToken
+      && ts.isIdentifier(expression.left) && expression.left.text === 'isWorkspaceVariant') return '';
+    if (ts.isConditionalExpression(expression) && ts.isIdentifier(expression.condition) && expression.condition.text === 'isWorkspaceVariant')
+      return classValue(expression.whenFalse);
+    if (ts.isIdentifier(expression) && ['className', 'titleClassName', 'subtitleClassName'].includes(expression.text)) return '';
+    throw new Error(`${PAGE_FILE}: unsupported default class expression: ${expression.getText(tree)}`);
+  };
+  const classes = (node: Opening, required: string[]): string => {
+    const attr = attribute(node, 'className')?.initializer;
+    const value = attr && ts.isStringLiteral(attr) ? attr.text
+      : attr && ts.isJsxExpression(attr) && attr.expression ? classValue(attr.expression) : '';
+    for (const token of required) if (!value.split(/\s+/).includes(token))
+      throw new Error(`${PAGE_FILE}: ${node.tagName.getText(tree)} className does not carry "${token}"`);
+    return value;
+  };
+  const back = named('aria-label', 'Back to list');
+  const row = parentDiv(back);
+  const headings = openings.filter(node => node.tagName.getText(tree) === 'h1');
+  if (headings.length !== 1) throw new Error(`${PAGE_FILE}: expected one title heading`);
+  return {
+    row: classes(row, ['flex-wrap', 'items-center']),
+    backButton: classes(back, ['flex-shrink-0']),
+    titleColumn: classes(parentDiv(headings[0]), ['flex-1', 'flex-col']),
+    h1: classes(headings[0], ['truncate']),
+    slot: classes(named('data-slot', 'page-header-actions'), ['ml-auto']),
+  };
+}
+
 const DETAIL = {
   // `{schema.showHeader !== false && (` opens the header this card is about —
   // the one that renders when the host does NOT supply a `page:header`.
@@ -137,13 +200,7 @@ const DETAIL = {
   tail: classBefore(detailSrc, DETAIL_FILE, '{/* Prev/Next Record Navigation */}', ['shrink-0']),
 };
 
-const PAGE = {
-  row: classBefore(pageSrc, PAGE_FILE, 'aria-label="Back to list"', ['flex-wrap', 'items-center']),
-  backButton: classAt(pageSrc, PAGE_FILE, 'aria-label="Back to list"', 1, ['flex-shrink-0']),
-  titleColumn: classBefore(pageSrc, PAGE_FILE, '{resolvedTitle ? (', ['flex-1', 'flex-col']),
-  h1: classAt(pageSrc, PAGE_FILE, '{resolvedTitle ? (', 1, ['truncate']),
-  slot: classAt(pageSrc, PAGE_FILE, '{slot && <div className=', 1, ['ml-auto']),
-};
+const PAGE = pageHeaderClasses(pageSrc);
 
 /** The measured render size of `<Button size="icon">` in both headers. */
 const ICON_BUTTON = 'h-10 w-10 shrink-0';

@@ -16,6 +16,7 @@ describe('WorkspaceHeader workspace variant', () => {
     render(<PageHeader title="Shipments" />);
 
     expect(screen.getByRole('heading', { level: 1, name: 'Shipments' })).toHaveClass('truncate');
+    expect(screen.getByRole('heading', { level: 1, name: 'Shipments' }).parentElement).toHaveClass('min-w-48');
     expect(screen.queryByRole('navigation', { name: 'breadcrumb' })).not.toBeInTheDocument();
     expect(document.querySelector('[data-slot="workspace-header-breadcrumb"]')).toBeNull();
   });
@@ -77,6 +78,8 @@ describe('WorkspaceHeader workspace variant', () => {
     expect(frame).toBeInTheDocument();
     expect(heading).toHaveClass('whitespace-normal', 'break-words');
     expect(heading).not.toHaveClass('truncate');
+    expect(heading.parentElement).toHaveClass('min-w-0');
+    expect(heading.parentElement).not.toHaveClass('min-w-48');
     expect(heading.textContent).toBe(title);
   });
 

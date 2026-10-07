@@ -229,6 +229,9 @@ const ja = {
     },
   },
   fields: {
+    declaredLabelSelect: {
+      unlistedValue: '既存の値: {{value}}',
+    },
     image: {
       upload: "画像をアップロード",
       addMore: "画像を追加",
@@ -2592,6 +2595,8 @@ const ja = {
     badgeReport: "レポート",
   },
   empty: {
+    pageLoadError: 'ページを読み込めません',
+    pageLoadErrorDescription: 'ページを読み込めませんでした。接続を確認して、もう一度お試しください。',
     objectNotFound: "オブジェクトが見つかりません",
     objectNotFoundDescription: "オブジェクト「{{name}}」の定義が見つかりません。設定を確認するか、有効なオブジェクトを選択してください。",
     interfacePageSourceMissing: "このインターフェースページは「{{name}}」を参照していますが、利用できません。",

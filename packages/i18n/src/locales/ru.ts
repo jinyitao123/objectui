@@ -235,6 +235,9 @@ const ru = {
     },
   },
   fields: {
+    declaredLabelSelect: {
+      unlistedValue: 'Текущее значение: {{value}}',
+    },
     image: {
       upload: "Загрузить изображение",
       addMore: "Добавить ещё изображения",
@@ -2603,6 +2606,8 @@ const ru = {
     badgeReport: "Отчёт",
   },
   empty: {
+    pageLoadError: 'Не удалось загрузить страницу',
+    pageLoadErrorDescription: 'Не удалось загрузить страницу. Проверьте подключение и попробуйте ещё раз.',
     objectNotFound: "Объект не найден",
     objectNotFoundDescription: "Определение объекта \"{{name}}\" отсутствует. Проверьте конфигурацию или вернитесь назад.",
     interfacePageSourceMissing: "Эта интерфейсная страница ссылается на \"{{name}}\", который недоступен.",

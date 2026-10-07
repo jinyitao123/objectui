@@ -229,6 +229,9 @@ const ko = {
     },
   },
   fields: {
+    declaredLabelSelect: {
+      unlistedValue: '기존 값: {{value}}',
+    },
     image: {
       upload: "이미지 업로드",
       addMore: "이미지 더 추가",
@@ -2589,6 +2592,8 @@ const ko = {
     badgeReport: "보고서",
   },
   empty: {
+    pageLoadError: '페이지를 불러올 수 없습니다',
+    pageLoadErrorDescription: '페이지를 불러오지 못했습니다. 연결을 확인한 후 다시 시도하세요.',
     objectNotFound: "오브젝트를 찾을 수 없습니다",
     objectNotFoundDescription: "\"{{name}}\" 오브젝트 정의가 없습니다. 구성을 확인하거나 뒤로 이동하세요.",
     interfacePageSourceMissing: "이 인터페이스 페이지는 \"{{name}}\"을(를) 참조하지만 사용할 수 없습니다.",

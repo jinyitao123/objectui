@@ -229,6 +229,9 @@ const fr = {
     },
   },
   fields: {
+    declaredLabelSelect: {
+      unlistedValue: 'Valeur existante : {{value}}',
+    },
     image: {
       upload: "Téléverser une image",
       addMore: "Ajouter d'autres images",
@@ -2592,6 +2595,8 @@ const fr = {
     badgeReport: "Rapport",
   },
   empty: {
+    pageLoadError: 'Impossible de charger la page',
+    pageLoadErrorDescription: 'La page n\'a pas pu être chargée. Vérifiez votre connexion et réessayez.',
     objectNotFound: "Objet introuvable",
     objectNotFoundDescription: "La définition de l'objet \"{{name}}\" est manquante. Vérifiez votre configuration ou revenez en arrière.",
     interfacePageSourceMissing: "Cette page d'interface référence \"{{name}}\", qui n'est pas disponible.",

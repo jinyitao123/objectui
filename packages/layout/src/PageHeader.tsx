@@ -259,7 +259,7 @@ export function PageHeader({
             )}
             {...props}
         >
-            {workspaceBreadcrumbSchema && (
+            {workspaceBreadcrumbSchema !== null && (
                 <div
                     data-slot="workspace-header-breadcrumb"
                     className="mb-[var(--ui-workspace-header-breadcrumb-margin-bottom,0.5rem)] min-w-0"
@@ -296,7 +296,7 @@ export function PageHeader({
                         {typeof icon === 'string' ? <LazyIcon name={icon} className="size-5" /> : icon}
                     </div>
                 )}
-                <div className="flex min-w-0 flex-1 flex-col">
+                <div className={cn('flex flex-1 flex-col', isWorkspaceVariant ? 'min-w-0' : 'min-w-48')}>
                     {resolvedTitle ? (
                         <h1 className={cn(
                             isWorkspaceVariant ? 'whitespace-normal break-words' : 'truncate',

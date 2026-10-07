@@ -228,6 +228,9 @@ const pt = {
     },
   },
   fields: {
+    declaredLabelSelect: {
+      unlistedValue: 'Valor existente: {{value}}',
+    },
     image: {
       upload: "Enviar imagem",
       addMore: "Adicionar mais imagens",
@@ -2589,6 +2592,8 @@ const pt = {
     badgeReport: "Relatório",
   },
   empty: {
+    pageLoadError: 'Não foi possível carregar a página',
+    pageLoadErrorDescription: 'Não foi possível carregar a página. Verifique sua conexão e tente novamente.',
     objectNotFound: "Objeto não encontrado",
     objectNotFoundDescription: "A definição do objeto \"{{name}}\" está ausente. Verifique sua configuração ou navegue de volta.",
     interfacePageSourceMissing: "Esta página de interface faz referência a \"{{name}}\", que não está disponível.",

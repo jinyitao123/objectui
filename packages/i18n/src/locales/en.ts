@@ -261,6 +261,9 @@ const en = {
     },
   },
   fields: {
+    declaredLabelSelect: {
+      unlistedValue: 'Existing value: {{value}}',
+    },
     relativeDate: {
       overdue: 'Overdue {{count}}d',
     },
@@ -2949,6 +2952,8 @@ const en = {
     badgeReport: 'report',
   },
   empty: {
+    pageLoadError: 'Unable to load page',
+    pageLoadErrorDescription: 'The page could not be loaded. Check your connection and try again.',
     objectNotFound: 'Object Not Found',
     objectNotFoundDescription: 'Object "{{name}}" definition missing. Check your configuration or navigate back to select a valid object.',
     interfacePageSourceMissing: 'This interface page references "{{name}}", which is not available.',

@@ -236,6 +236,9 @@ const zh = {
     },
   },
   fields: {
+    declaredLabelSelect: {
+      unlistedValue: '现有值：{{value}}',
+    },
     relativeDate: {
       overdue: '逾期 {{count}} 天',
     },
@@ -2679,6 +2682,8 @@ const zh = {
     badgeReport: '报表',
   },
   empty: {
+    pageLoadError: '无法加载页面',
+    pageLoadErrorDescription: '页面加载失败。请检查连接后重试。',
     objectNotFound: '未找到对象',
     objectNotFoundDescription: '对象 “{{name}}” 的定义不存在。请检查配置或返回选择有效的对象。',
     interfacePageSourceMissing: '此界面页引用了 “{{name}}”，但该来源不可用。',

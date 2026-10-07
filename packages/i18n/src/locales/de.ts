@@ -229,6 +229,9 @@ const de = {
     },
   },
   fields: {
+    declaredLabelSelect: {
+      unlistedValue: 'Vorhandener Wert: {{value}}',
+    },
     image: {
       upload: "Bild hochladen",
       addMore: "Weitere Bilder hinzufügen",
@@ -2590,6 +2593,8 @@ const de = {
     badgeReport: "Bericht",
   },
   empty: {
+    pageLoadError: 'Seite konnte nicht geladen werden',
+    pageLoadErrorDescription: 'Die Seite konnte nicht geladen werden. Prüfen Sie Ihre Verbindung und versuchen Sie es erneut.',
     objectNotFound: "Objekt nicht gefunden",
     objectNotFoundDescription: "Definition des Objekts „{{name}}“ fehlt. Überprüfen Sie Ihre Konfiguration oder navigieren Sie zurück.",
     interfacePageSourceMissing: "Diese Interface-Seite verweist auf „{{name}}“, das nicht verfügbar ist.",

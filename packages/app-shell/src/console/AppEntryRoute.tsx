@@ -171,7 +171,7 @@ export function AppEntryRoute({
             <EmptyTitle>{t('console.notFound.title', { defaultValue: 'Page not found' })}</EmptyTitle>
             <EmptyDescription>
               {t('console.notFound.description', {
-                defaultValue: 'The URL you followed does not match an entry in this app.',
+                defaultValue: 'The URL you followed does not match any view in this app.',
               })}
             </EmptyDescription>
           </Empty>
