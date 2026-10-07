@@ -47,7 +47,7 @@ dialog already read selected surface values; generic ObjectUI renderers do not
 infer a page from them. Quote and project measurements remain available for
 future consumers. Keep each measured row, header and tab size attached to its
 surface instead of applying one table density to every list. See the
-[Console guide](/docs/guide/console#optional-geometry-profile) for component
+[Console guide](../../content/docs/guide/console.md#optional-geometry-profile) for component
 boundaries and current gaps.
 
 The standalone component preview uses local in-memory fixtures and no platform

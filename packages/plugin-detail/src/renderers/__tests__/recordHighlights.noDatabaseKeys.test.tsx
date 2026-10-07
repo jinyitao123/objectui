@@ -13,7 +13,8 @@ vi.mock('@object-ui/react', async importOriginal => {
   };
 });
 
-vi.mock('@object-ui/permissions', () => ({
+vi.mock('@object-ui/permissions', async importOriginal => ({
+  ...(await importOriginal<Record<string, unknown>>()),
   usePermissions: () => ({ hasCapabilities: () => true }),
   useFieldPermissions: () => ({ readableFields: (names: string[]) => names }),
 }));

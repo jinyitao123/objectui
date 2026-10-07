@@ -11,7 +11,10 @@ import { act, renderHook, waitFor } from '@testing-library/react';
 import { useAuth } from '@object-ui/auth';
 import { useRecordApprovals } from './useRecordApprovals';
 
-vi.mock('@object-ui/auth', () => ({ useAuth: vi.fn() }));
+vi.mock('@object-ui/auth', async importOriginal => ({
+  ...(await importOriginal<Record<string, unknown>>()),
+  useAuth: vi.fn(),
+}));
 
 function response(data: unknown, status = 200) {
   return {

@@ -238,7 +238,7 @@ component props, not additions to serialized date-field or Page metadata.
 
 The popup is portaled, so put its host CSS variables on `popoverClassName`.
 The calendar geometry tokens and fallback dimensions are documented under
-[Host geometry tokens](../../../packages/components/README.md#host-geometry-tokens).
+[Host geometry tokens](https://github.com/jinyitao123/objectui/blob/main/packages/components/README.md#host-geometry-tokens).
 The input continues to use the host's control geometry and icon-width tokens.
 
 `SegmentedRadioGroup` takes controlled `value`/`onValueChange`, an `options`
