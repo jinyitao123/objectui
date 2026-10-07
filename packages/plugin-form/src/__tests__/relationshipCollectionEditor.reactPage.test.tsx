@@ -1,8 +1,10 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { fireEvent, render, screen, waitFor } from '@testing-library/react';
+import userEvent from '@testing-library/user-event';
 import '@testing-library/jest-dom';
 import React from 'react';
 import { ComponentRegistry } from '@object-ui/core';
+import { I18nProvider } from '@object-ui/i18n';
 import { AdapterCtx, SchemaRenderer } from '@object-ui/react';
 import { ObjectStackAdapter } from '@object-ui/data-objectstack';
 import { MePermissionsProvider, type MePermissionsResponse } from '@object-ui/permissions';
@@ -195,6 +197,76 @@ afterEach(() => {
 });
 
 describe('trusted React runtime components through the React Page SDK', () => {
+  it('retains controlled DatePicker input, native form validity and calendar behavior in a string page', async () => {
+    const adapter = makeAdapter();
+    const user = userEvent.setup();
+    expect(ComponentRegistry.getReactRuntimeComponents().find(entry => entry.name === 'DatePicker')?.injectDataSource).toBe(false);
+    render(<I18nProvider persistLanguage={false} config={{ defaultLanguage: 'en', detectBrowserLanguage: false }}>
+      <AdapterCtx.Provider value={adapter}>
+        <SchemaRenderer schema={{ type: 'home', kind: 'react', name: 'date_runtime_page', source: `
+function Page() {
+  const [value, setValue] = React.useState('');
+  const [disabled, setDisabled] = React.useState(false);
+  const [valid, setValid] = React.useState('unchecked');
+  const [submits, setSubmits] = React.useState(0);
+  const form = React.useRef(null);
+  return <form ref={form} aria-label="Date draft" onSubmit={event => { event.preventDefault(); setSubmits(count => count + 1); }}>
+    <DatePicker aria-label="Planned start" label="Planned start" name="planned_start"
+      value={value} onValueChange={setValue} disabled={disabled} placeholder="Choose date" className="host-date" />
+    <button type="button" onClick={() => setValid(String(form.current.reportValidity()))}>Check validity</button>
+    <button type="button" onClick={() => setDisabled(current => !current)}>Toggle date editing</button>
+    <output aria-label="Date value">{value}</output>
+    <output aria-label="Form validity">{valid}</output>
+    <output aria-label="Submit count">{submits}</output>
+  </form>;
+}` } as never} />
+      </AdapterCtx.Provider>
+    </I18nProvider>);
+
+    const input = await screen.findByRole('textbox', { name: 'Planned start' }) as HTMLInputElement;
+    expect(input).toHaveClass('host-date');
+    expect(input).toHaveAttribute('placeholder', 'Choose date');
+    expect(input.form).toBe(screen.getByRole('form', { name: 'Date draft' }));
+    await user.type(input, '2026-10-07');
+    await user.tab();
+    expect(screen.getByRole('status', { name: 'Date value' })).toHaveTextContent('2026-10-07');
+    expect(input).toHaveValue(new Intl.DateTimeFormat('en', { calendar: 'gregory', year: 'numeric', month: 'long', day: 'numeric' }).format(new Date(2026, 9, 7)));
+    await user.click(screen.getByRole('button', { name: 'Check validity' }));
+    expect(screen.getByRole('status', { name: 'Form validity' })).toHaveTextContent('true');
+
+    await user.clear(input);
+    await user.type(input, '2026-02-30');
+    await user.click(screen.getByRole('button', { name: 'Check validity' }));
+    expect(input.validity.customError).toBe(true);
+    expect(input).toHaveAttribute('aria-invalid', 'true');
+    expect(screen.getByRole('status', { name: 'Date value' })).toHaveTextContent('2026-02-30');
+    expect(screen.getByRole('status', { name: 'Form validity' })).toHaveTextContent('false');
+
+    await user.clear(input);
+    await user.type(input, '2026-10-07');
+    await user.click(screen.getByRole('button', { name: 'Calendar' }));
+    await screen.findByRole('grid');
+    const dayLabel = new Intl.DateTimeFormat('en', { dateStyle: 'full', calendar: 'gregory' }).format(new Date(2026, 9, 8));
+    await user.click(screen.getByRole('button', { name: dayLabel }));
+    expect(screen.getByRole('status', { name: 'Date value' })).toHaveTextContent('2026-10-08');
+    expect(screen.queryByRole('grid')).not.toBeInTheDocument();
+    await user.click(screen.getByRole('button', { name: 'Calendar' }));
+    await user.click(await screen.findByRole('button', { name: 'Clear' }));
+    expect(input).toHaveValue('');
+    expect(input.validity.valid).toBe(true);
+    expect(screen.getByRole('status', { name: 'Date value' })).toBeEmptyDOMElement();
+
+    await user.click(screen.getByRole('button', { name: 'Toggle date editing' }));
+    expect(input).toBeDisabled();
+    const trigger = screen.getByRole('button', { name: 'Calendar' });
+    expect(trigger).toBeDisabled();
+    fireEvent.click(trigger);
+    expect(screen.queryByRole('grid')).not.toBeInTheDocument();
+    expect(screen.getByRole('status', { name: 'Submit count' })).toHaveTextContent('0');
+    expect(adapter.create).not.toHaveBeenCalled();
+    expect(adapter.update).not.toHaveBeenCalled();
+  });
+
   it('composes collapsible sections and controlled segmented radio choices without persistence', async () => {
     const adapter = makeAdapter();
     for (const name of ['FormSectionContainer', 'SegmentedRadioGroup']) {

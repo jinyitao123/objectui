@@ -188,6 +188,16 @@ retains its existing `columns`, `collapsible`, initial `collapsed`, `showBorder`
 is local; children unmount while collapsed, so the page owns values that must
 survive. It neither infers filled-field counters nor submits fields.
 
+The same plugin registers the existing `<DatePicker>` with no adapter access.
+Use controlled `value`/`onValueChange` for strings: valid dates emit
+`YYYY-MM-DD`, clearing emits `''`, and invalid input retains its draft text and
+sets native input custom validity. Before a host-owned submit, call the outer
+form's `reportValidity()`. Display formatting follows the active display locale
+on blur. The control keeps its existing `label`, `aria-label`, `name`,
+`required`, `placeholder`, `className`, `disabled`, `minDate`/`maxDate` and
+Date-valued `date`/`onDateChange` API; registration adds no date parsing rules
+or serialized metadata.
+
 `SegmentedRadioGroup` takes controlled `value`/`onValueChange`, an `options`
 array of string `value`/`label` pairs with optional per-option `disabled`, group
 `disabled`, an accessible name and `className`. It preserves radio semantics

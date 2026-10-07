@@ -16,7 +16,7 @@ import {
   type ElementDataSourceMapping,
 } from '@object-ui/react';
 import type { DataSource, ObjectFormSchema } from '@object-ui/types';
-import { CompositeDialog, DocumentWorkspace, DocumentSection, SegmentedRadioGroup, Switch, type ObjectFormController } from '@object-ui/components';
+import { CompositeDialog, DatePicker, DocumentWorkspace, DocumentSection, SegmentedRadioGroup, Switch, type ObjectFormController } from '@object-ui/components';
 import { GridField } from '@object-ui/fields';
 import { ObjectForm } from './ObjectForm';
 import { ExportConfigurationDialog } from './ExportConfigurationDialog';
@@ -590,6 +590,7 @@ ComponentRegistry.registerReactRuntimeComponent('DocumentSection', DocumentSecti
 ComponentRegistry.registerReactRuntimeComponent('Switch', Switch, { injectDataSource: false });
 ComponentRegistry.registerReactRuntimeComponent('FormSectionContainer', FormSectionContainer, { injectDataSource: false });
 ComponentRegistry.registerReactRuntimeComponent('SegmentedRadioGroup', SegmentedRadioGroup, { injectDataSource: false });
+ComponentRegistry.registerReactRuntimeComponent('DatePicker', DatePicker, { injectDataSource: false });
 ComponentRegistry.registerReactRuntimeComponent('GridField', GridField);
 
 // A development module replacement creates new component constructors. Release
@@ -608,6 +609,7 @@ formHot?.dispose(() => {
     ['Switch', Switch],
     ['FormSectionContainer', FormSectionContainer],
     ['SegmentedRadioGroup', SegmentedRadioGroup],
+    ['DatePicker', DatePicker],
     ['GridField', GridField],
   ] as const) {
     const registration = ComponentRegistry.getReactRuntimeComponents()

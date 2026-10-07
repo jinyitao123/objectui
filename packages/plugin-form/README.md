@@ -11,7 +11,7 @@ controlled row-action regression.
 
 Loading this plugin registers `DocumentWorkspace`, `DocumentSection`,
 `CompositeDialog`, `RelationshipCollectionEditor`, `Switch`, `FormSectionContainer`,
-`SegmentedRadioGroup`, and `GridField` in the trusted
+`SegmentedRadioGroup`, `DatePicker`, and `GridField` in the trusted
 React page runtime. Workspace and section slots are presentation-only. A direct
 `GridField` accepts the fields package's React-only `getRowKey` and
 `renderSelectionToolbar` callbacks, retaining controlled draft edits and readonly
@@ -1188,6 +1188,14 @@ components for the host's `kind:'react'` runtime scope:
   `value`/`label` and optional `disabled`, and a group accessible name. It also
   accepts group `disabled` and `className`. It receives no adapter and performs
   no persistence. Geometry uses the existing control and button CSS tokens.
+- `<DatePicker>` reuses the existing date control from `@object-ui/components`
+  without injecting an adapter. Its controlled string channel is `value` /
+  `onValueChange`: valid dates emit `YYYY-MM-DD`, clearing emits `''`, and
+  invalid input emits the draft text while setting native custom validity.
+  The host can call its surrounding form's `reportValidity()` before writing.
+  `label`, input accessibility props, `placeholder`, `className`, `disabled`,
+  and `minDate`/`maxDate` retain their existing behavior. The existing
+  `date`/`onDateChange` channel remains available for Date-valued callers.
 
 These registrations are code-only runtime entries, not schema registrations or
 `PUBLIC_BLOCKS`/`REACT_BLOCKS` authoring declarations. The host imports this
