@@ -379,7 +379,7 @@ export const MetricWidget = ({
           </div>
         ) : (
           <>
-            <div className={cn('text-[2rem] leading-none font-extrabold tabular-nums tracking-tight truncate', textClasses)}>{displayValue}</div>
+            <div className={cn('mt-[var(--ui-dashboard-metric-value-margin-top,0px)] text-[length:var(--ui-dashboard-metric-value-font-size,2rem)] leading-[var(--ui-dashboard-metric-value-line-height,1)] [font-weight:var(--ui-dashboard-metric-value-font-weight,800)] tabular-nums tracking-tight truncate', textClasses)}>{displayValue}</div>
             <div className="text-xs font-medium text-muted-foreground truncate">{resolvedLabel}</div>
           </>
         )}
@@ -389,8 +389,9 @@ export const MetricWidget = ({
 
   return (
     <Card
+      data-dashboard-metric-card=""
       className={cn(
-        "h-full overflow-hidden",
+        "h-full overflow-hidden min-h-[var(--ui-dashboard-metric-card-min-height,auto)]",
         onClick && "cursor-pointer transition-colors hover:bg-accent/40 focus-visible:ring-2 focus-visible:ring-ring focus-visible:outline-none",
         className,
       )}
@@ -405,14 +406,14 @@ export const MetricWidget = ({
       } : undefined}
       {...domProps}
     >
-      <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-        <CardTitle className="text-sm font-medium truncate">
+      <CardHeader className="flex flex-row items-center justify-between space-y-0 pt-[var(--ui-dashboard-metric-padding-y,1.5rem)] px-[var(--ui-dashboard-metric-padding-x,1.5rem)] pb-[var(--ui-dashboard-metric-header-padding-bottom,0.5rem)] [--ui-card-divider-display:none]">
+        <CardTitle className="text-[length:var(--ui-dashboard-metric-title-font-size,0.875rem)] leading-[var(--ui-dashboard-metric-title-line-height,1.25rem)] [font-weight:var(--ui-dashboard-metric-title-font-weight,500)] truncate">
           {resolvedLabel}
         </CardTitle>
         {resolvedIcon && (
           <div
             className={cn(
-              "flex h-8 w-8 items-center justify-center rounded-md shrink-0",
+            "flex h-[var(--ui-dashboard-metric-icon-size,2rem)] w-[var(--ui-dashboard-metric-icon-size,2rem)] items-center justify-center rounded-md shrink-0",
               iconClasses,
             )}
           >
@@ -420,7 +421,7 @@ export const MetricWidget = ({
           </div>
         )}
       </CardHeader>
-      <CardContent>
+      <CardContent className="px-[var(--ui-dashboard-metric-padding-x,1.5rem)] pt-[var(--ui-dashboard-metric-content-padding-top,0rem)] pb-[var(--ui-dashboard-metric-padding-y,1.5rem)]">
         {loading ? (
           <div className="flex items-center gap-2 text-muted-foreground" data-testid="metric-loading">
             <Loader2 className="h-4 w-4 animate-spin" />
@@ -433,9 +434,9 @@ export const MetricWidget = ({
           </div>
         ) : (
           <>
-            <div className="text-2xl font-bold tabular-nums tracking-tight truncate">{displayValue}</div>
+            <div className="mt-[var(--ui-dashboard-metric-value-margin-top,0px)] text-[length:var(--ui-dashboard-metric-value-font-size,1.5rem)] leading-[var(--ui-dashboard-metric-value-line-height,2rem)] [font-weight:var(--ui-dashboard-metric-value-font-weight,700)] tabular-nums tracking-tight truncate">{displayValue}</div>
             {(trend || description) && (
-              <div className="text-xs text-muted-foreground mt-1 flex flex-wrap items-center gap-x-2 gap-y-0.5 min-w-0">
+              <div className="text-xs text-muted-foreground mt-[var(--ui-dashboard-metric-note-margin-top,0.25rem)] flex flex-wrap items-center gap-x-2 gap-y-0.5 min-w-0">
                 {trend && (
                   <span className={cn(
                     "flex items-center shrink-0 font-medium",

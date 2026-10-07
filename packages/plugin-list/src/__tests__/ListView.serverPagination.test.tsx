@@ -124,16 +124,12 @@ describe('ListView — server-side pagination drives the child grid (#2212)', ()
     expect(lastGridProps.data.length).toBe(PAGE_SIZE);
   });
 
-  it('shows the real match total in the record-count bar, not the current window length (#586)', async () => {
+  it('leaves the known total to the DataTable pager instead of repeating it in the ListView bar', async () => {
     const ds = makeDataSource();
-    const { findByTestId } = renderList(ds);
+    const { queryByTestId } = renderList(ds);
     // Wait until server pagination has engaged (the window is the first batch).
     await waitFor(() => expect(lastGridProps?.rowCount).toBe(TOTAL));
-    const bar = await findByTestId('record-count-bar');
-    // The bar must report the grand total (3125), NOT the page window (50) that
-    // `data.length` would give under server pagination.
-    expect(bar.textContent).toContain(String(TOTAL));
-    expect(bar.textContent).not.toContain(String(PAGE_SIZE));
+    expect(queryByTestId('record-count-bar')).toBeNull();
   });
 
   it('REFETCHES with $skip when the grid turns the page (reaches records past batch 1)', async () => {

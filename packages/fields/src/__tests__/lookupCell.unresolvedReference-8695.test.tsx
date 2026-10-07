@@ -25,17 +25,16 @@
  *
  * The first two are BYTE-IDENTICAL to what a `text` cell prints for the same
  * string — the screen states a confident fact it does not have, so a dirty row
- * reads exactly like a clean one. The third destroys the raw id, which
- * objectui#8434's triage named as "the only clue for diagnosing existing dirty
- * rows". Two opposite failures, one state, chosen by `isLikelyOpaqueId`.
+ * reads exactly like a clean one. The third hides the raw id. The current
+ * product UI contract omits internal keys for every unresolved shape.
  *
  * ── ⭐ Why the pins below assert AGREEMENT ────────────────────────────────
  * A per-shape assertion ("the opaque one now shows its id") would go green on
  * a repair that made both shapes wrong in a NEW matching way. The disagreement
  * IS the finding, so the load-bearing assertion is that the three shapes get
- * the SAME treatment — their markup normalises to one string — with a floor
- * underneath it (the affordance is present, the raw value survives, and the
- * sentence is epistemic) so that "identically wrong" cannot pass either.
+ * the SAME treatment — their markup is one string — with a floor underneath
+ * it (the affordance is present, no internal key is exposed, and the sentence
+ * is epistemic) so that "identically wrong" cannot pass either.
  *
  * ── ⭐ How many states hide behind "unresolved" — measured, not assumed ────
  * Six causes reach this arm and the renderer distinguishes NONE of them:
@@ -113,11 +112,10 @@ describe('objectui#8695 — AGREEMENT: one epistemic state gets ONE answer', () 
       </div>,
     );
 
-    // Normalise each cell by its OWN raw value: what remains is the treatment.
-    // Equality across the three is the assertion the card's title asks for.
+    // The user-facing marker is independent of the stored value's shape.
     const normalised = SHAPES.map(([, value]) => {
       const cell = container.querySelector<HTMLElement>(`[data-shape="${value}"]`)!;
-      return cell.innerHTML.split(value).join('«RAW»');
+      return cell.innerHTML;
     });
 
     expect(
@@ -129,29 +127,25 @@ describe('objectui#8695 — AGREEMENT: one epistemic state gets ONE answer', () 
     expect(normalised[0], 'the shared answer must BE the stated affordance').toContain(
       'data-slot="unresolved-reference"',
     );
-    expect(normalised[0], 'and it must be where the raw value is').toContain('«RAW»');
+    expect(normalised[0]).toContain('Record not resolved on this screen');
+    for (const [, value] of SHAPES) expect(normalised[0]).not.toContain(value);
   });
 
-  it.each(SHAPES)('%s — states unresolved and KEEPS its raw value', (label, value) => {
+  it.each(SHAPES)('%s — states unresolved without exposing the stored value', (label, value) => {
     const { container } = renderCell('lookup', value, REF);
 
     expect(marks(container), `${label}: exactly one affordance`).toHaveLength(1);
-    // ⛔ The evidence-destruction half of the defect: the muted `—` replaced
-    // the id outright, so the only readable trace of a dirty row was gone.
-    expect(
-      textOf(container),
-      `${label}: the raw value is the only clue for diagnosing a dirty row`,
-    ).toBe(value);
+    expect(textOf(container), `${label}: the stored value must not be visible`).not.toContain(value);
 
     const stated = marks(container)[0]!.getAttribute('title') ?? '';
     expect(stated.length, `${label}: the affordance must state something`).toBeGreaterThan(0);
-    expect(stated, `${label}: the sentence must name the value it is about`).toContain(value);
+    expect(stated, `${label}: the message must not expose the stored value`).not.toContain(value);
   });
 
   it.each(FAMILIES)('`%s` routes to the same answer — the surface is all three', (family) => {
     const seen = SHAPES.map(([, value]) => {
       const { container } = renderCell(family, value, REF);
-      const html = container.innerHTML.split(value).join('«RAW»');
+      const html = container.innerHTML;
       cleanup();
       return html;
     });
@@ -180,7 +174,7 @@ describe('objectui#8695 — ADDITIVE, NOT SUBTRACTIVE: the sentence that graded 
     ).not.toBe(asText);
   });
 
-  it('the multi-value shape is not left silent while the scalar one speaks', () => {
+  it('the multi-value shape uses the same marker and hides internal keys', () => {
     // One unresolved entry of each shape and one RESOLVED entry, in one cell:
     // the resolved chip is this render's own positive control.
     const { container } = renderCell(
@@ -192,12 +186,16 @@ describe('objectui#8695 — ADDITIVE, NOT SUBTRACTIVE: the sentence that graded 
     expect(marks(container), 'both unresolved chips say so').toHaveLength(2);
     expect(
       [...marks(container)].map((m) => m.textContent),
-      'and both keep their raw value inside the chip',
-    ).toEqual(['Ada Lovelace', '01HQZX9K2M4N6P8R']);
+      'both unresolved entries use the same localized message',
+    ).toEqual([
+      (en as any).detail.unresolvedLookupReference,
+      (en as any).detail.unresolvedLookupReference,
+    ]);
+    expect(container.textContent).not.toContain('01HQZX9K2M4N6P8R');
     expect(textOf(container), 'the resolved chip is untouched').toContain('Globex');
   });
 
-  it('the overflow chip lists the values it hides, not a row of dashes', () => {
+  it('the overflow chip gives a generic label instead of exposing hidden keys', () => {
     const { container } = renderCell(
       'lookup',
       ['a', 'b', 'c', 'Ada Lovelace', '01HQZX9K2M4N6P8R'],
@@ -206,8 +204,8 @@ describe('objectui#8695 — ADDITIVE, NOT SUBTRACTIVE: the sentence that graded 
     const overflow = screen.getByText('+2');
     expect(
       overflow.getAttribute('title'),
-      'the hidden references stay reachable — `—, —` named nothing',
-    ).toBe('Ada Lovelace, 01HQZX9K2M4N6P8R');
+    ).toBe((en as any).detail.moreReferences);
+    expect(overflow.getAttribute('title')).not.toContain('01HQZX9K2M4N6P8R');
     expect(container).toBeTruthy();
   });
 });
@@ -223,7 +221,7 @@ describe('objectui#8695 — THE SENTENCE: epistemic, and about a RECORD', () => 
       stated,
       `${label}: this cell cannot know the record is absent — only that it did not resolve it`,
     ).not.toMatch(/not found|does not exist|no such|invalid|missing/i);
-    expect(stated, `${label}: it must say what it DOES know`).toMatch(/unresolved/i);
+    expect(stated, `${label}: it must say what it DOES know`).toMatch(/unresolved|not resolved/i);
   });
 
   // ⭐ The one place objectui#8434's remedy did NOT transplant as-is. Its pack
@@ -247,8 +245,9 @@ describe('objectui#8695 — THE SENTENCE: epistemic, and about a RECORD', () => 
     // so this pin is the comparison instead.
     const { container } = renderCell('lookup', 'Ada Lovelace', REF);
     const stated = marks(container)[0]!.getAttribute('title');
-    const packed = (en as any).detail.unresolvedLookupReference.replace('{{value}}', 'Ada Lovelace');
+    const packed = (en as any).detail.unresolvedLookupReference;
     expect(stated, 'the code fallback and the en pack must not drift apart').toBe(packed);
+    expect(stated).not.toContain('Ada Lovelace');
   });
 });
 
@@ -301,6 +300,14 @@ describe('objectui#8695 — POSITIVE CONTROLS: a resolved reference is untouched
     expect(marks(container), 'nothing to resolve is not a failure to resolve').toHaveLength(0);
     expect(container.querySelector('[data-slot="empty-value"]')).not.toBeNull();
     expect(textOf(container)).toBe('—');
+  });
+
+  it('an expanded record with only a database key does not show that key', () => {
+    const databaseKey = 'db-customer-key-123';
+    const { container } = renderCell('lookup', { id: databaseKey }, REF);
+    expect(marks(container)).toHaveLength(1);
+    expect(textOf(container)).toBe((en as any).detail.unresolvedLookupReference);
+    expect(container.textContent).not.toContain(databaseKey);
   });
 
   it('the affordance sits INSIDE the record link, which still addresses the record', () => {

@@ -50,7 +50,13 @@ export interface MetadataContextValue extends MetadataCacheState {
   refresh: (type?: string) => Promise<void>;
   invalidate: (type: string, name?: string) => void;
   ensureType: (type: string) => Promise<any[]>;
-  getItem: (type: string, name: string) => Promise<any | null>;
+  getItem: (type: string, name: string, packageId?: string) => Promise<any | null>;
+  /**
+   * Changes when the provider's principal, organization, preview world, or
+   * named-item cache generation changes. Item hooks use it to hide stale data
+   * before the effect for the new scope runs.
+   */
+  getItemScope?: string;
   getItemsByType: (type: string) => any[];
   /**
    * Per-type load status. Lazy types ('page', 'dashboard', …) return their
@@ -100,6 +106,7 @@ const NO_METADATA_PROVIDER: MetadataContextValue = Object.freeze({
   invalidate: () => {},
   ensureType: async () => [],
   getItem: async () => null,
+  getItemScope: 'no-provider',
   getItemsByType: () => [],
   getTypeStatus: () => 'ready' as const,
 });
@@ -116,36 +123,33 @@ export function useMetadata(): MetadataContextValue {
 export function useMetadataItem(
   type: string,
   name: string | undefined | null,
+  packageId?: string,
 ): { item: any | null; loading: boolean; error: Error | null } {
-  const { getItem } = useMetadata();
-  const [state, setState] = useState<{ item: any | null; loading: boolean; error: Error | null }>({
-    item: null,
-    loading: !!name,
-    error: null,
-  });
+  const { getItem, getItemScope } = useMetadata();
+  const requestKey = JSON.stringify([type, packageId ?? null, name ?? null, getItemScope ?? null]);
+  const [state, setState] = useState<{
+    key: string;
+    item: any | null;
+    loading: boolean;
+    error: Error | null;
+  }>(() => ({ key: requestKey, item: null, loading: !!name, error: null }));
+  const visibleState = state.key === requestKey
+    ? state
+    : { key: requestKey, item: null, loading: !!name, error: null };
 
   useEffect(() => {
     if (!name) {
-      // Bail out when already cleared instead of installing a fresh object.
-      // Belt-and-braces against the loop the frozen fallback above fixes at the
-      // source: `getItem` is an effect dep, so ANY caller whose context value
-      // is rebuilt per render — a hand-rolled one in a test, which this
-      // interface explicitly invites — would otherwise re-run this effect,
-      // re-set an equal-but-new state object, and re-render forever.
-      setState((s) => (s.item === null && !s.loading && s.error === null
-        ? s
-        : { item: null, loading: false, error: null }));
       return;
     }
     let cancelled = false;
-    setState(s => ({ ...s, loading: true, error: null }));
-    getItem(type, name)
+    getItem(type, name, packageId)
       .then(item => {
-        if (!cancelled) setState({ item, loading: false, error: null });
+        if (!cancelled) setState({ key: requestKey, item, loading: false, error: null });
       })
       .catch(err => {
         if (!cancelled) {
           setState({
+            key: requestKey,
             item: null,
             loading: false,
             error: err instanceof Error ? err : new Error(String(err)),
@@ -155,7 +159,7 @@ export function useMetadataItem(
     return () => {
       cancelled = true;
     };
-  }, [type, name, getItem]);
+  }, [type, name, packageId, requestKey, getItem]);
 
-  return state;
+  return visibleState;
 }

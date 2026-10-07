@@ -13,7 +13,8 @@ import {
   useSchemaContext,
   type ElementDataSourceMapping,
 } from '@object-ui/react';
-import { ObjectGantt } from './ObjectGantt';
+import { ObjectGantt, type ObjectGanttProps } from './ObjectGantt';
+import { GanttView } from './GanttView';
 
 export { ObjectGantt };
 export type { ObjectGanttProps, QuickFilterDef } from './ObjectGantt';
@@ -26,7 +27,7 @@ export type {
   QuickFilterLabels,
 } from './QuickFilterBar';
 
-export { GanttView } from './GanttView';
+export { GanttView };
 export type {
   GanttViewProps,
   GanttTask,
@@ -87,7 +88,7 @@ const OBJECT_GANTT_DATA_SOURCE: ElementDataSourceMapping = {
 };
 
 // Register component
-export const ObjectGanttRenderer: React.FC<{ schema: any }> = elementDataSourceBlock(({ schema }) => {
+export const ObjectGanttRenderer: React.FC<Pick<ObjectGanttProps, 'schema' | 'onRowClick' | 'onTaskClick'>> = elementDataSourceBlock(({ schema, onRowClick, onTaskClick }) => {
   // `useSchemaContext()` may hand back a NULL adapter: a host with nothing
   // bound spells absence either way, and the seam declares both
   // (`DataSource | null | undefined`, objectui#7912). The widget below
@@ -107,7 +108,9 @@ export const ObjectGanttRenderer: React.FC<{ schema: any }> = elementDataSourceB
       testId="object-gantt"
       errorTitle="This gantt chart’s data source could not be resolved"
     >
-      {(bound) => <ObjectGantt schema={bound} dataSource={dataSource} />}
+      {/* Forward only declared host navigation callbacks. Paged host rows and
+          layout props must not replace the timeline's own governed query. */}
+      {(bound) => <ObjectGantt schema={bound} dataSource={dataSource} onRowClick={onRowClick} onTaskClick={onTaskClick} />}
     </ElementDataSourceGate>
   );
 });

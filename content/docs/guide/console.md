@@ -9,6 +9,74 @@ The **Console** is the reference application for [ObjectUI](/docs/guide). It ren
 
 ## Quick Start
 
+### Optional geometry profile
+
+Compact metric headers retain a decorative, aria-hidden corner mark separately
+from any configured drill action. Help sits beside the label, and the Gantt
+toolbar wraps to its available container width while keeping period labels
+readable.
+
+Use `VITE_UI_PROFILE=compact-enterprise` to enable the Console's compact host
+geometry tokens. Public controls use custom wrappers over unchanged Shadcn
+primitives; list, grid and form renderers consume the same host variables.
+Form metadata still owns field groups, explicit columns, validation and
+submission. A modal retains its fixed action footer and independently
+scrolling body. Collapsible form sections can be activated with Enter or Space.
+In the compact profile, section chrome places a chevron after the heading and
+shows a filled/applicable-field ratio. Collapsed groups retain draft values
+and validation; submitting with an invalid field expands its group and focuses
+the error. Predicates and field permissions still determine applicability.
+
+The native modal uses one inset per header/body/footer rather than adding the
+mobile-dialog's desktop padding around all three. Date fields use the shared
+calendar under this profile; see [date field editing](/docs/guide/fields#editing-date-fields).
+Inline master-detail controls reuse the same geometry while retaining their
+existing typed fields, computed amounts and transaction requirement.
+The public Card family and JSON card renderer consume shared radius, padding,
+shadow, title and inset-divider variables. Workspace composition owns the card
+boundary; a standalone master-detail form does not create an extra outer card
+inside an existing modal. The Details gallery supplies that boundary explicitly.
+The compact modal asks before a dirty Cancel when `confirmOnDiscard` is enabled;
+Keep editing preserves the draft. Default-host cancellation is unchanged.
+
+Dataset chart plots consume `--ui-dashboard-chart-height` through the shared
+`--ui-chart-height` seam. The compact candidate uses a 280.25px plot; the card's
+own heading and insets bring the complete chart panel to 365.75px. The default
+plot remains 350px, and explicit chart dimensions keep precedence. This changes
+presentation only: selection, filters, security context and aggregation remain
+on the native Dataset path.
+The Dashboard page host and filter bar also consume workspace-chrome tokens:
+title panel margin/padding/minimum height, surface/border/radius, and filter
+panel spacing. Header text follows the model's showTitle/showDescription
+flags. Header actions still execute in DashboardRenderer; no duplicate action
+runner or undeclared organization/search control is introduced.
+Dataset-bound KPI cards keep the native Dataset query and may use the existing
+`options.icon`, widget `description` and `options.drillDown` renderer extras.
+The compact profile places the description in a help tooltip, shows an emphasis
+rule and exposes the drill arrow only when the Dataset response includes its
+base object. The drill uses the metric's resolved filter and returned time
+range; it does not synthesize trend bars from the value. The arrow opens the
+existing shared drill drawer, forwarding its target, columns, row limit and
+inline report. Its custom drill filter and mode are not interpreted on this
+metric path; a named report reference also needs a host resolver.
+`options.description` continues to render as the separate sub-caption.
+
+The profile is opt-in and keeps the existing dimensions as CSS fallbacks.
+It contains no business state or permission rules. Host apps may supply their
+own token values instead; authored `className` overrides remain available.
+
+The profile also publishes measurements under `--ui-page-*` and
+`--ui-surface-*`. The standard body, control and table-heading tokens describe
+shared values; quote, contact-list and project-list row heights, tabs and
+contact summary cards stay scoped to their measured surfaces. Forge's
+host-scoped contact list and profile dialog consume selected surface values;
+generic ObjectUI renderers do not infer a page from them. Quote and project
+values remain available for future consumers. `ListView` remains the
+model-backed list API, while the trusted React `RecordTable` composes the
+existing `data-table` schema and leaves fetching and server paging to its host.
+See the Forge page-polish baseline for the observed dimensions and the
+component-by-component handoff.
+
 ```bash
 # From the repository root
 pnpm install
@@ -97,9 +165,14 @@ flags (marketplace, AI Studio, SSO, custom domain), and the cloud URL. Operators
 these on the **server**, not in the SPA, which is why changing them needs no console rebuild.
 
 Apps, objects and views themselves are metadata fetched over HTTP — discovered at connect
-time and loaded on demand. To change what the console shows, change the metadata on the
-server: author it in the ObjectStack server project (`objectstack.config.ts` lives **there**,
-not here) or edit and publish it from Studio. See
+time and loaded on demand. On ordinary app routes, the console resolves Object schemas by
+the names referenced by the active app navigation and current surface; it does not fetch the
+entire Object catalog just to open an app. Studio catalog and action-parameter tools keep
+broader reads when they need that context. Record detail also loads the full Object
+directory on demand to discover reverse related lists from child schemas; a lightweight
+relationship index is not available yet. To change what the console shows, change the
+metadata on the server: author it in the ObjectStack server project (`objectstack.config.ts`
+lives **there**, not here) or edit and publish it from Studio. See
 [ObjectOS Integration](/docs/guide/objectos-integration) for the server-side configuration
 shape.
 

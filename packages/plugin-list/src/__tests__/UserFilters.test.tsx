@@ -9,6 +9,7 @@
 import * as React from 'react';
 import { describe, it, expect, vi } from 'vitest';
 import { render, screen, fireEvent } from '@testing-library/react';
+import userEvent from '@testing-library/user-event';
 import { I18nProvider } from '@object-ui/i18n';
 import { UserFilters } from '../UserFilters';
 
@@ -94,6 +95,46 @@ describe('UserFilters — selection persistence (ADR-0047)', () => {
     // Clearing via the badge × empties the selection
     fireEvent.click(screen.getByTestId('filter-clear-status'));
     expect(onSelectionsChange).toHaveBeenLastCalledWith({ status: [] });
+  });
+
+  it('cancels the open picker and clears a selected filter by keyboard without losing focus', async () => {
+    const user = userEvent.setup();
+    const onFilterChange = vi.fn();
+    const onSubmit = vi.fn((event: React.FormEvent) => event.preventDefault());
+    render(
+      <I18nProvider config={{ defaultLanguage: 'en', detectBrowserLanguage: false }}>
+        <form onSubmit={onSubmit}>
+          <UserFilters
+            config={{ element: 'dropdown', fields: [{ field: 'status' }] }}
+            objectDef={objectDef}
+            data={[]}
+            onFilterChange={onFilterChange}
+            initialSelections={{ status: ['todo'] }}
+          />
+        </form>
+      </I18nProvider>,
+    );
+
+    const trigger = screen.getByTestId('filter-badge-status');
+    trigger.focus();
+    await user.keyboard('{Enter}');
+    expect(screen.getByTestId('filter-options-status')).toBeVisible();
+    await user.keyboard('{Escape}');
+    expect(screen.queryByTestId('filter-options-status')).not.toBeInTheDocument();
+    expect(trigger).toHaveFocus();
+    expect(trigger).toHaveTextContent('1');
+
+    const clearButton = screen.getByRole('button', { name: 'Remove Status' });
+    expect(clearButton).toHaveAttribute('type', 'button');
+    clearButton.focus();
+    expect(clearButton).toHaveFocus();
+    await user.keyboard('{Enter}');
+
+    expect(onFilterChange.mock.calls.at(-1)?.[0]).toEqual([]);
+    expect(screen.queryByRole('button', { name: 'Remove Status' })).not.toBeInTheDocument();
+    expect(trigger).toHaveFocus();
+    expect(screen.queryByTestId('filter-options-status')).not.toBeInTheDocument();
+    expect(onSubmit).not.toHaveBeenCalled();
   });
 
   it('restores the active tab from initialSelections._tab and emits its filters', () => {
@@ -321,9 +362,8 @@ describe('UserFilters — every button declares type="button" (objectstack#6952,
   });
 
   it('the chip clear affordance does not submit the enclosing form either', () => {
-    // The × lives INSIDE the chip button and only stopPropagation()s, which
-    // does not cancel a submit button's activation behaviour — so the chip's
-    // own `type` is what keeps a clear click from submitting.
+    // Both the filter trigger and its clear affordance are buttons inside the
+    // host form; each must keep its own activation from submitting that form.
     const onSubmit = vi.fn(noopSubmit);
     render(
       <form onSubmit={onSubmit}>

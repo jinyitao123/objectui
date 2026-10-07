@@ -1,7 +1,12 @@
 // Copyright (c) 2025 ObjectStack. Licensed under the Apache-2.0 license.
 
 import { describe, expect, it } from 'vitest';
-import { resolveHomeUrl, resolveRootUrl, resolveConsoleUrl } from '../resolveHomeUrl';
+import {
+  normalizeConsoleRouterPath,
+  resolveHomeUrl,
+  resolveRootUrl,
+  resolveConsoleUrl,
+} from '../resolveHomeUrl';
 
 describe('resolveHomeUrl', () => {
   it('builds an absolute /_console/home URL when base href points at the console mount', () => {
@@ -68,5 +73,32 @@ describe('resolveConsoleUrl', () => {
     expect(resolveConsoleUrl('apps/my_app', 'https://host.example/')).toBe(
       'https://host.example/apps/my_app',
     );
+  });
+});
+
+describe('normalizeConsoleRouterPath', () => {
+  const mount = 'https://host.example/_console/';
+
+  it('removes the exact mount from a root-relative target and keeps query and hash', () => {
+    expect(normalizeConsoleRouterPath(
+      '/_console/apps/forge/page_contracts/record/SC-1?tab=detail#materials',
+      mount,
+    )).toBe('/apps/forge/page_contracts/record/SC-1?tab=detail#materials');
+    expect(normalizeConsoleRouterPath('/_console?from=action#top', mount)).toBe('/?from=action#top');
+  });
+
+  it('leaves app-relative, relative, external, and near-prefix targets unchanged', () => {
+    expect(normalizeConsoleRouterPath('/apps/forge/page_contracts', mount)).toBe('/apps/forge/page_contracts');
+    expect(normalizeConsoleRouterPath('apps/forge/page_contracts', mount)).toBe('apps/forge/page_contracts');
+    expect(normalizeConsoleRouterPath('https://host.example/_console/apps/forge', mount))
+      .toBe('https://host.example/_console/apps/forge');
+    expect(normalizeConsoleRouterPath('//host.example/_console/apps/forge', mount))
+      .toBe('//host.example/_console/apps/forge');
+    expect(normalizeConsoleRouterPath('/_consoleish/apps/forge', mount)).toBe('/_consoleish/apps/forge');
+  });
+
+  it('does nothing when the console is mounted at the document root', () => {
+    expect(normalizeConsoleRouterPath('/apps/forge/page_contracts', 'https://host.example/'))
+      .toBe('/apps/forge/page_contracts');
   });
 });

@@ -100,6 +100,7 @@ import type { FeedItem, RecordActivityComponentProps, RecordChatterComponentProp
 import { RecordChatterPanel } from '../RecordChatterPanel';
 import type { FeedFilterMode } from '../RecordActivityTimeline';
 import { applyFeedConfig, normalizeFilterMode, normalizeLimit } from './recordActivityFeed';
+import { useRecordAriaProps } from './recordComponentAria';
 
 const splitDesigner = (props: Record<string, any>) => {
   const { 'data-obj-id': id, 'data-obj-type': type, style, ...rest } = props || {};
@@ -120,6 +121,18 @@ export const RecordChatterRenderer: React.FC<RecordChatterRendererProps> = ({
   useRecordContext();
   const discussion = useDiscussionContext();
   const { designer } = splitDesigner(props);
+  /**
+   * The block's authored `aria` bag, honoured through the family's ONE read
+   * point (objectui#9556). Called here, with the other hooks, because every
+   * renderer below it has early returns.
+   *
+   * ⛔ No `defaultRole`: with nothing authored this container stays the bare
+   * `div` it has always been, so a page that never wrote `aria` renders
+   * byte-identical DOM. An author who does write one gets a `region` to carry
+   * it — see `recordComponentAria.ts` for why the attribute alone would reach
+   * nobody.
+   */
+  const ariaProps = useRecordAriaProps(schema.aria);
 
   // Merge schema-supplied config (position, feed sub-config) with the three
   // AFFORDANCE defaults a host fallback wants when no author supplied any.
@@ -210,6 +223,11 @@ export const RecordChatterRenderer: React.FC<RecordChatterRendererProps> = ({
       ),
     [discussionItems, feed?.types, feed?.showCompleted, feed?.unifiedTimeline, pageSize],
   );
+  // The discussion stream is a reader-facing comment history, so put the
+  // newest item first after `applyFeedConfig` has kept the latest page in
+  // chronological order. An explicitly unified activity timeline retains its
+  // chronological narrative order.
+  const orderedItems = feed?.unifiedTimeline ? applied.items : [...applied.items].reverse();
 
   // `record-activity.tsx` writes its own `handleLoadMore` with an empty
   // dependency list. The setter is named here instead — it is stable, so the
@@ -229,9 +247,9 @@ export const RecordChatterRenderer: React.FC<RecordChatterRendererProps> = ({
   const mentionsEnabled = feed?.enableMentions !== false;
 
   return (
-    <div className={className} {...designer}>
+    <div className={className} {...designer} {...ariaProps}>
       <RecordChatterPanel
-        items={applied.items}
+        items={orderedItems}
         config={config}
         // "Load more" grows the window by `limit`. Without this pair an
         // authored `limit` would be a silent truncation of the feed instead of

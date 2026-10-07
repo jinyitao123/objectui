@@ -87,7 +87,7 @@ const LEGACY_TITLE = 'Legacy Title From A Stored Document';
 const CANONICAL_LABEL = 'Sales Overview';
 
 /** Mount the view over exactly one stored dashboard document. */
-async function mountWith(dashboard: Record<string, unknown>) {
+async function mountViewWith(dashboard: Record<string, unknown>) {
   meta.value = {
     apps: [],
     objects: [],
@@ -110,7 +110,14 @@ async function mountWith(dashboard: Record<string, unknown>) {
     </MetadataCtx.Provider>,
   );
 
-  // The view renders a skeleton first; the header only exists once loading ends.
+  // The view renders a skeleton first; the renderer mounts once loading ends,
+  // including when the DashboardHeader flags suppress all page text.
+  await waitFor(() => expect(cap.props).not.toBeNull());
+  return container;
+}
+
+async function mountWith(dashboard: Record<string, unknown>) {
+  const container = await mountViewWith(dashboard);
   await waitFor(() => expect(container.querySelector('h1')).not.toBeNull());
   return container.querySelector('h1')!;
 }
@@ -169,5 +176,51 @@ describe('DashboardView — the root `title` read arm is retired (objectui#7509)
     await waitFor(() => expect(cap.props).not.toBeNull());
     expect(cap.props.schema.widgets).toHaveLength(1);
     expect(cap.props.schema.widgets[0].title).toBe('Revenue');
+  });
+});
+
+describe('DashboardView — DashboardHeader text flags control the page chrome', () => {
+  it('hides the title while retaining an enabled description', async () => {
+    const container = await mountViewWith({
+      name: 'sales_overview',
+      label: CANONICAL_LABEL,
+      description: 'Quarterly dashboard description',
+      header: { showTitle: false, showDescription: true },
+      widgets: [],
+    });
+
+    expect(container.querySelector('h1')).toBeNull();
+    expect(container.querySelector('[data-dashboard-page-header]')).not.toBeNull();
+    expect(screen.getByText('Quarterly dashboard description')).toBeTruthy();
+  });
+
+  it('hides the description while retaining an enabled title', async () => {
+    const container = await mountViewWith({
+      name: 'sales_overview',
+      label: CANONICAL_LABEL,
+      description: 'Quarterly dashboard description',
+      header: { showTitle: true, showDescription: false },
+      widgets: [],
+    });
+
+    expect(container.querySelector('h1')?.textContent).toBe(CANONICAL_LABEL);
+    expect(screen.queryByText('Quarterly dashboard description')).toBeNull();
+  });
+
+  it('removes empty page chrome and leaves declared actions with DashboardRenderer', async () => {
+    const actions = [{ label: 'Open report', actionUrl: '/reports/quarterly', actionType: 'url' }];
+    const container = await mountViewWith({
+      name: 'sales_overview',
+      label: CANONICAL_LABEL,
+      description: 'Quarterly dashboard description',
+      header: { showTitle: false, showDescription: false, actions },
+      widgets: [],
+    });
+
+    expect(container.querySelector('[data-dashboard-page-header]')).toBeNull();
+    expect(container.querySelector('h1')).toBeNull();
+    expect(screen.queryByText('Quarterly dashboard description')).toBeNull();
+    expect(cap.props.hideHeaderText).toBe(true);
+    expect(cap.props.schema.header.actions).toEqual(actions);
   });
 });

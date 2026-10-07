@@ -189,6 +189,34 @@ function principalScope(): string {
 }
 
 /**
+ * A named item's cache key carries the same principal, tenant and preview
+ * scope as the request that filled it, plus the package that owns the name.
+ * A page name is not globally unique across installed packages.
+ */
+function metadataItemCacheKey(
+  name: string,
+  packageId: string | undefined,
+  preview: boolean,
+  orgScope = activeOrgScope(),
+  principal = principalScope(),
+): string {
+  return JSON.stringify([orgScope, principal, preview ? 'draft' : 'published', packageId ?? null, name]);
+}
+
+function metadataItemScopeKey(preview: boolean, generation: number, userId: string | null): string {
+  return JSON.stringify([activeOrgScope(), principalScope(), userId, preview ? 'draft' : 'published', generation]);
+}
+
+function cachedItemName(key: string): string | null {
+  try {
+    const parsed: unknown = JSON.parse(key);
+    return Array.isArray(parsed) && typeof parsed[4] === 'string' ? parsed[4] : null;
+  } catch {
+    return null;
+  }
+}
+
+/**
  * `objectui:metadata:<type>:<orgId>:<principal>` — see {@link activeOrgScope}
  * and {@link principalScope}. Both scopes come from the same client-local
  * storage the request that filled the entry tenanted and authenticated itself
@@ -278,15 +306,44 @@ export function extractItems(res: unknown): any[] {
   return [];
 }
 
-function extractItem(res: unknown): any | null {
+const META_ITEM_ENVELOPE_MARKERS = [
+  'lock',
+  'lockReason',
+  'lockSource',
+  'lockDocsUrl',
+  'provenance',
+  'editable',
+  'deletable',
+  'resettable',
+  'sortability',
+] as const;
+
+function extractItem(res: unknown, expectedType: string, expectedName: string): any | null {
   if (res == null) return null;
-  if (typeof res === 'object' && 'item' in res) {
-    return (res as { item: any }).item ?? null;
+  if (typeof res === 'object' && !Array.isArray(res)) {
+    const candidate = res as Record<string, unknown>;
+    if ('item' in candidate) return candidate.item ?? null;
+
+    // ObjectStack 17.3 can answer a missing named metadata item with HTTP 200
+    // and the identity/protection half of GetMetaItemResponse, omitting only
+    // `item`. Treat that as a miss. Returning the partial envelope as a
+    // document makes a page lookup look like an object (and vice versa), so
+    // the app-entry resolver reports a false page/object ambiguity.
+    const isEmptyEnvelope = candidate.type === expectedType
+      && candidate.name === expectedName
+      && META_ITEM_ENVELOPE_MARKERS.some(key => Object.prototype.hasOwnProperty.call(candidate, key));
+    if (isEmptyEnvelope) return null;
   }
   return res;
 }
 
-function isNamedItem(item: unknown): item is { name: string } {
+function isMetadataItemNotFound(error: unknown): boolean {
+  if (!error || typeof error !== 'object') return false;
+  const candidate = error as { httpStatus?: unknown; status?: unknown; statusCode?: unknown };
+  return candidate.httpStatus === 404 || candidate.status === 404 || candidate.statusCode === 404;
+}
+
+function isNamedItem(item: unknown): item is { name: string; _packageId?: unknown } {
   return (
     !!item &&
     typeof item === 'object' &&
@@ -602,6 +659,9 @@ export function MetadataProvider({ children, adapter, ttlMs = DEFAULT_TTL_MS }: 
   const unscopedSeedTypesRef = useRef<Set<string>>(new Set<string>());
   const adapterRef = useRef(adapter);
   adapterRef.current = adapter;
+  const { activeOrganization, user } = useAuth();
+  const activeOrgId = activeOrganization?.id ?? null;
+  const activeUserId = user?.id ?? null;
 
   // ADR-0037 Live Canvas: when the tree is in draft-preview mode, metadata
   // reads come from the REST `?preview=draft` overlay (pending ADR-0033
@@ -619,6 +679,7 @@ export function MetadataProvider({ children, adapter, ttlMs = DEFAULT_TTL_MS }: 
   previewClientRef.current = previewClient;
 
   const [version, setVersion] = useState(0);
+  const [itemGeneration, setItemGeneration] = useState(0);
   // Defer state bumps so they never occur synchronously during a consumer's
   // render phase. `ensureType` may be invoked from inside `useMemo` getters
   // (e.g. when a list-page renders and triggers a lazy fetch), and React
@@ -629,6 +690,14 @@ export function MetadataProvider({ children, adapter, ttlMs = DEFAULT_TTL_MS }: 
       queueMicrotask(() => setVersion(v => v + 1));
     } else {
       Promise.resolve().then(() => setVersion(v => v + 1));
+    }
+  }, []);
+
+  const bumpItemGeneration = useCallback(() => {
+    if (typeof queueMicrotask === 'function') {
+      queueMicrotask(() => setItemGeneration(v => v + 1));
+    } else {
+      Promise.resolve().then(() => setItemGeneration(v => v + 1));
     }
   }, []);
 
@@ -687,6 +756,8 @@ export function MetadataProvider({ children, adapter, ttlMs = DEFAULT_TTL_MS }: 
       }
 
       const started = Date.now();
+      const requestOrgScope = activeOrgScope();
+      const requestPrincipal = principalScope();
       entry.status = 'loading';
       entry.error = null;
       // Preview mode reads the draft-overlaid world (`?preview=draft`);
@@ -713,7 +784,28 @@ export function MetadataProvider({ children, adapter, ttlMs = DEFAULT_TTL_MS }: 
           entry.byName.clear();
           for (const it of items) {
             if (isNamedItem(it)) {
-              entry.byName.set(it.name, it);
+              const packageId = typeof it._packageId === 'string' && it._packageId
+                ? it._packageId
+                : undefined;
+              const scopedKey = metadataItemCacheKey(
+                it.name,
+                packageId,
+                !!preview,
+                requestOrgScope,
+                requestPrincipal,
+              );
+              entry.byName.set(scopedKey, it);
+              const unscopedKey = metadataItemCacheKey(
+                it.name,
+                undefined,
+                !!preview,
+                requestOrgScope,
+                requestPrincipal,
+              );
+              // `preferLocal` historically falls back to the first matching
+              // package when the active package has no copy. Keep that
+              // unscoped list order while storing exact package hits separately.
+              if (!entry.byName.has(unscopedKey)) entry.byName.set(unscopedKey, it);
             }
           }
           // Never let the draft-overlaid world poison the published session
@@ -762,12 +854,24 @@ export function MetadataProvider({ children, adapter, ttlMs = DEFAULT_TTL_MS }: 
   );
 
   const getItem = useCallback(
-    (type: string, name: string): Promise<any | null> => {
+    (type: string, name: string, packageId?: string): Promise<any | null> => {
       const entry = getEntry(type);
+      const scopedPackageId = typeof packageId === 'string' && packageId.trim() ? packageId : undefined;
+      const requestOrgScope = activeOrgScope();
+      const requestPrincipal = principalScope();
+      const preview = previewClientRef.current;
+      const requestPreview = !!preview;
+      const cacheKey = metadataItemCacheKey(
+        name,
+        scopedPackageId,
+        requestPreview,
+        requestOrgScope,
+        requestPrincipal,
+      );
 
-      if (entry.byName.has(name)) {
-        debug(`item cache hit type=${type} name=${name}`);
-        return Promise.resolve(entry.byName.get(name) ?? null);
+      if (entry.byName.has(cacheKey)) {
+        debug(`item cache hit type=${type} name=${name} package=${scopedPackageId ?? '(unscoped)'}`);
+        return Promise.resolve(entry.byName.get(cacheKey) ?? null);
       }
 
       let pending = itemPromisesRef.current.get(type);
@@ -775,17 +879,20 @@ export function MetadataProvider({ children, adapter, ttlMs = DEFAULT_TTL_MS }: 
         pending = new Map();
         itemPromisesRef.current.set(type, pending);
       }
-      const existing = pending.get(name);
+      const existing = pending.get(cacheKey);
       if (existing) return existing;
 
       const started = Date.now();
-      const preview = previewClientRef.current;
       const fetchItem: Promise<unknown> = preview
-        ? preview.get(type, name)
-        : adapterRef.current.getClient().meta.getItem(type, name);
+        ? preview.get(type, name, scopedPackageId ? { packageId: scopedPackageId } : {})
+        : adapterRef.current.getClient().meta.getItem(
+          type,
+          name,
+          scopedPackageId ? { packageId: scopedPackageId } : {},
+        );
       const promise = fetchItem
         .then((res: unknown) => {
-          const item = extractItem(res);
+          const item = extractItem(res, type, name);
           // objectui#7650 — the BY-NAME serve path needs the same
           // canonicalization the LIST path applies in `ensureType` above.
           //
@@ -803,21 +910,29 @@ export function MetadataProvider({ children, adapter, ttlMs = DEFAULT_TTL_MS }: 
           // consumers too. Idempotent and in place, so a def the list pass
           // already stamped is untouched.
           if (type === 'object' && item) normalizeSchemaReferenceKeys(item);
-          if (item) entry.byName.set(name, item);
-          debug(`fetched item type=${type} name=${name} in ${Date.now() - started}ms`);
-          pending!.delete(name);
+          const responseStillScoped = cacheRef.current.get(type) === entry
+            && itemPromisesRef.current.get(type) === pending
+            && pending!.get(cacheKey) === promise
+            && metadataItemCacheKey(name, scopedPackageId, !!previewClientRef.current) === cacheKey;
+          if (item && responseStillScoped) entry.byName.set(cacheKey, item);
+          debug(`fetched item type=${type} name=${name} package=${scopedPackageId ?? '(unscoped)'} in ${Date.now() - started}ms`);
+          if (pending!.get(cacheKey) === promise) pending!.delete(cacheKey);
           return item;
         })
         .catch((err: unknown) => {
-          pending!.delete(name);
-          debug(`fetch item failed type=${type} name=${name}`, err);
-          return null;
+          if (pending!.get(cacheKey) === promise) pending!.delete(cacheKey);
+          if (isMetadataItemNotFound(err)) {
+            debug(`item not found type=${type} name=${name} package=${scopedPackageId ?? '(unscoped)'}`);
+            return null;
+          }
+          debug(`fetch item failed type=${type} name=${name} package=${scopedPackageId ?? '(unscoped)'}`, err);
+          throw err;
         });
 
-      pending.set(name, promise);
+      pending.set(cacheKey, promise);
       return promise;
     },
-    [getEntry],
+    [activeOrgId, activeUserId, getEntry, itemGeneration, previewDrafts],
   );
 
   const refresh = useCallback(
@@ -826,22 +941,31 @@ export function MetadataProvider({ children, adapter, ttlMs = DEFAULT_TTL_MS }: 
         const entry = getEntry(type);
         entry.fetchedAt = 0;
         entry.byName.clear();
+        itemPromisesRef.current.delete(type);
+        bumpItemGeneration();
         await ensureType(type);
         return;
       }
-      const types = Array.from(cacheRef.current.keys()).filter(
-        t => cacheRef.current.get(t)!.status !== 'idle',
-      );
+      const allTypes = Array.from(cacheRef.current.keys());
+      const types = allTypes.filter(t => cacheRef.current.get(t)!.status !== 'idle');
+      for (const t of allTypes.filter(
+        key => cacheRef.current.get(key)!.status === 'idle' && cacheRef.current.get(key)!.byName.size > 0,
+      )) {
+        cacheRef.current.get(t)!.byName.clear();
+        itemPromisesRef.current.delete(t);
+      }
+      bumpItemGeneration();
       await Promise.all(
         types.map(t => {
           const entry = cacheRef.current.get(t)!;
           entry.fetchedAt = 0;
           entry.byName.clear();
+          itemPromisesRef.current.delete(t);
           return ensureType(t);
         }),
       );
     },
-    [ensureType, getEntry],
+    [bumpItemGeneration, ensureType, getEntry],
   );
 
   const invalidate = useCallback(
@@ -849,7 +973,9 @@ export function MetadataProvider({ children, adapter, ttlMs = DEFAULT_TTL_MS }: 
       const entry = cacheRef.current.get(type);
       if (!entry) return;
       if (name) {
-        entry.byName.delete(name);
+        for (const key of entry.byName.keys()) if (cachedItemName(key) === name) entry.byName.delete(key);
+        const pending = itemPromisesRef.current.get(type);
+        if (pending) for (const key of pending.keys()) if (cachedItemName(key) === name) pending.delete(key);
         entry.items = entry.items.filter((it: any) => it?.name !== name);
         debug(`invalidated type=${type} name=${name}`);
       } else {
@@ -859,10 +985,12 @@ export function MetadataProvider({ children, adapter, ttlMs = DEFAULT_TTL_MS }: 
         entry.error = null;
         entry.fetchedAt = 0;
         debug(`invalidated type=${type}`);
+        itemPromisesRef.current.delete(type);
       }
+      bumpItemGeneration();
       bump();
     },
-    [bump],
+    [bump, bumpItemGeneration],
   );
 
   // ADR-0037 P2.5 — same-document live refresh: while this tree renders the
@@ -914,19 +1042,25 @@ export function MetadataProvider({ children, adapter, ttlMs = DEFAULT_TTL_MS }: 
   // survives into another organization's reads. Same shape as the preview-mode
   // clear above — swapping the active org swaps the world every `/meta/*`
   // request resolves in.
-  const { activeOrganization } = useAuth();
-  const activeOrgId = activeOrganization?.id ?? null;
   const lastOrgId = useRef<string | null>(null);
+  const lastUserId = useRef<string | null>(null);
+  const hasObservedPrincipal = useRef(false);
   useEffect(() => {
-    const previous = lastOrgId.current;
+    const previousOrgId = lastOrgId.current;
+    const previousUserId = lastUserId.current;
     lastOrgId.current = activeOrgId;
+    lastUserId.current = activeUserId;
+    const orgChanged = previousOrgId !== null && previousOrgId !== activeOrgId;
+    const userChanged = (previousUserId !== null && previousUserId !== activeUserId)
+      || (previousUserId === null && activeUserId !== null && hasObservedPrincipal.current);
+    if (activeUserId !== null) hasObservedPrincipal.current = true;
     // The FIRST resolution (unknown → known) is NOT a switch. AuthProvider
     // resolves the active organization asynchronously after mount, so this
     // effect sees `null → <id>` on every normal boot; clearing there would
     // throw away the eager `app`/`object`/`view` fetches while they are still
     // in flight and make the next render refetch all three — precisely the
     // doubled-request regression objectui#4042 pinned.
-    if (previous === null || previous === activeOrgId) {
+    if (!orgChanged && !userChanged) {
       // ── The seed written before the org was known (objectui#5243) ────────
       //
       // Not a switch, but it IS the moment the scope of this boot's own seed
@@ -952,7 +1086,7 @@ export function MetadataProvider({ children, adapter, ttlMs = DEFAULT_TTL_MS }: 
       // boot miss its own entry, which is the optimization's whole point.
       // And deliberately not a refetch: that would trade this card's miss for
       // the objectui#4042 request-budget regression.
-      if (previous === null && activeOrgId && unscopedSeedTypesRef.current.size > 0) {
+      if (previousOrgId === null && activeOrgId && unscopedSeedTypesRef.current.size > 0) {
         for (const type of unscopedSeedTypesRef.current) {
           const entry = cacheRef.current.get(type);
           if (entry && entry.status === 'ready' && entry.items.length > 0) {
@@ -986,7 +1120,7 @@ export function MetadataProvider({ children, adapter, ttlMs = DEFAULT_TTL_MS }: 
     return () => {
       cancelled = true;
     };
-  }, [activeOrgId, bump, ensureType]);
+  }, [activeOrgId, activeUserId, bump, ensureType]);
 
   useEffect(() => {
     let cancelled = false;
@@ -1011,7 +1145,10 @@ export function MetadataProvider({ children, adapter, ttlMs = DEFAULT_TTL_MS }: 
       entry.fetchedAt = 0;
       for (const it of cached) {
         if (isNamedItem(it)) {
-          entry.byName.set(it.name, it);
+          const packageId = typeof it._packageId === 'string' && it._packageId ? it._packageId : undefined;
+          entry.byName.set(metadataItemCacheKey(it.name, packageId, false), it);
+          const unscopedKey = metadataItemCacheKey(it.name, undefined, false);
+          if (!entry.byName.has(unscopedKey)) entry.byName.set(unscopedKey, it);
         }
       }
       bump();
@@ -1037,6 +1174,7 @@ export function MetadataProvider({ children, adapter, ttlMs = DEFAULT_TTL_MS }: 
     };
   }, [adapter, ensureType, getEntry, bump, previewDrafts]);
 
+  const itemScope = metadataItemScopeKey(previewDrafts, itemGeneration, activeUserId);
   const value = useMemo<MetadataContextValue>(() => {
     void version;
 
@@ -1073,6 +1211,7 @@ export function MetadataProvider({ children, adapter, ttlMs = DEFAULT_TTL_MS }: 
       invalidate,
       ensureType,
       getItem,
+      getItemScope: itemScope,
       getItemsByType,
       // Pure read — must NOT kick a fetch, so render-phase status checks
       // can't recurse into ensureType.
@@ -1080,7 +1219,7 @@ export function MetadataProvider({ children, adapter, ttlMs = DEFAULT_TTL_MS }: 
     };
 
     return base;
-  }, [version, initialLoading, initialError, ensureType, getItem, getEntry, refresh, invalidate]);
+  }, [version, initialLoading, initialError, ensureType, getItem, getEntry, refresh, invalidate, itemScope]);
 
   return <MetadataCtx.Provider value={value}>{children}</MetadataCtx.Provider>;
 }

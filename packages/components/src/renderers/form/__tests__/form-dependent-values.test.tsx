@@ -11,10 +11,11 @@
  *
  * Dependent (cascading) lookups resolve their `dependsOn` gate and filters
  * from the `dependentValues` prop. The form renderer must inject the LIVE
- * form values there — pre-fix nothing injected the prop and the widget's
- * context fallback read `ctx.formValues`, a member `SchemaRendererContext`
- * never had, so in create mode a dependent lookup stayed gated forever no
- * matter what the user picked in the parent field.
+ * form values there — pre-fix nothing injected the prop and the widget fell
+ * back to reading `ctx.formValues`, a member `SchemaRendererContext` never had,
+ * so in create mode a dependent lookup stayed gated forever no matter what the
+ * user picked in the parent field. That fallback has since been retired
+ * (objectui#7206), so this prop is the only channel there is.
  */
 
 import { describe, it, expect, beforeAll, vi } from 'vitest';
@@ -26,6 +27,14 @@ import '../../../renderers';
 // `dependentValues` so the test can assert on the injection.
 function DependentValuesProbe(props: any) {
   return <div data-testid="dep-probe">{JSON.stringify(props.dependentValues ?? null)}</div>;
+}
+
+function ChoiceCardsProbe(props: { objectName?: string; dependentValues?: Record<string, unknown> }) {
+  return (
+    <div data-testid="choice-cards-probe">
+      {JSON.stringify({ objectName: props.objectName ?? null, dependentValues: props.dependentValues ?? null })}
+    </div>
+  );
 }
 
 // The barrel import moved to module scope (see `import '../../../renderers'`
@@ -41,9 +50,10 @@ beforeAll(() => {
   // `visibleWhen` + `dependsOn` gate from the SAME live `dependentValues` channel
   // (#2284/#1583) — regression guard for the injection reaching option fields.
   ComponentRegistry.register('field:select', DependentValuesProbe, { namespace: 'test' });
+  ComponentRegistry.register('field:choice-cards', ChoiceCardsProbe, { namespace: 'test' });
 }, 30000);
 
-function renderForm(fields: any[]) {
+function renderForm(fields: any[], objectName?: string) {
   const Form = ComponentRegistry.get('form')!;
   return render(
     <Form
@@ -51,6 +61,7 @@ function renderForm(fields: any[]) {
         type: 'form',
         showSubmit: false,
         showCancel: false,
+        ...(objectName ? { objectName } : null),
         fields,
       }}
     />,
@@ -109,6 +120,26 @@ describe('form renderer — dependentValues injection for data-source fields (#2
     });
   });
 
+  it('feeds choice cards the owning object name and live sibling values', async () => {
+    renderForm([
+      { name: 'country', label: 'Country', type: 'input', defaultValue: '' },
+      {
+        name: 'province',
+        label: 'Province',
+        type: 'select',
+        widget: 'field:choice-cards',
+        dependsOn: 'country',
+        options: [{ label: 'Zhejiang', value: 'zj', visibleWhen: "record.country == 'cn'" }],
+      },
+    ], 'purchase_order');
+
+    const snapshot = () => JSON.parse(screen.getByTestId('choice-cards-probe').textContent!);
+    expect(snapshot()).toMatchObject({ objectName: 'purchase_order' });
+
+    fireEvent.change(screen.getByLabelText(/country/i), { target: { value: 'cn' } });
+    await waitFor(() => expect(snapshot().dependentValues).toMatchObject({ country: 'cn' }));
+  });
+
 });
 
 describe('form renderer — the allow-table is the SHARED object (objectui#4770)', () => {
@@ -116,7 +147,7 @@ describe('form renderer — the allow-table is the SHARED object (objectui#4770)
     // Identity, not membership — the same pin the two dialog surfaces carry
     // (`app-shell/src/views/ActionParamDialog.dialogRecord.test.tsx`,
     // `plugin-grid/src/__tests__/bulkActionDialogRecord.test.tsx`). The
-    // injection cases above pass against ANY set holding these four members,
+    // injection cases above pass against ANY set holding these five members,
     // including the private `CASCADE_OPTION_FIELD_TYPES` copy this form carried
     // until objectui#4770 — so they cannot report the failure mode #4770
     // closed, which was the three copies drifting apart. The spy is installed
@@ -134,10 +165,18 @@ describe('form renderer — the allow-table is the SHARED object (objectui#4770)
           dependsOn: 'country',
           options: [{ label: 'Zhejiang', value: 'zj', visibleWhen: "record.country == 'cn'" }],
         },
+        {
+          name: 'reason',
+          label: 'Reason',
+          type: 'select',
+          widget: 'field:choice-cards',
+          options: [{ label: 'Project', value: 'project' }],
+        },
       ]);
       // The form normalizes `field:select` to `select` BEFORE the lookup, so
       // the key reaching the shared set is the widget key it is defined on.
       expect(spy.mock.calls.map(([k]) => k)).toContain('select');
+      expect(spy.mock.calls.map(([k]) => k)).toContain('choice-cards');
     } finally {
       spy.mockRestore();
     }

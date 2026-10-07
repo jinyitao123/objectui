@@ -2,6 +2,15 @@
 
 Dashboard plugin for Object UI - Create beautiful dashboards with metrics, charts, and widgets.
 
+## Host workspace chrome
+
+The filter bar consumes optional host surface, border, radius and padding
+tokens. Its heading remains hidden and controls stay left-aligned by default;
+compact hosts can show the translated heading, align controls to the right and
+wrap at narrow widths. Controls, filter values, reset behavior and Dataset
+bindings retain their existing contract. Chart plot height is separate from
+the card heading and inset through `--ui-dashboard-chart-height`.
+
 ## Features
 
 - **Dashboard Layouts** - Grid-based dashboard layouts
@@ -66,13 +75,13 @@ const schema = {
 ### What the side-effect import registers
 
 That single import is the whole of registration — there is no components map to
-iterate over. Importing the entry runs the eight `ComponentRegistry.register(...)`
+iterate over. Importing the entry runs the eight live `ComponentRegistry.register(...)`
 calls in `src/index.tsx`, which claim exactly these schema types. The keys below
 are read off those calls:
 
 | Namespaced key | Bare-name fallback | Renderer behind it |
 | --- | --- | --- |
-| `view:dashboard` | `dashboard` | `DashboardRenderer` — the widget container |
+| `plugin-dashboard:dashboard` | `dashboard` | `DashboardRenderer` — the widget container |
 | `plugin-dashboard:metric` | `metric` | `MetricWidget` — one KPI value |
 | `plugin-dashboard:metric-card` | `metric-card` | `MetricCard` — KPI with trend and icon |
 | `plugin-dashboard:object-metric` | `object-metric` | internal wrapper around `ObjectMetricWidget` — aggregates over an object |
@@ -83,12 +92,26 @@ are read off those calls:
 
 `ComponentRegistry.register` publishes `namespace:type`, and — unless the call
 passes `skipFallback: true` — the bare `type` as a back-compat fallback
-(`packages/core/src/registry/Registry.ts:194`, fallback branch at `:226`). No
-call in this package passes `skipFallback`, so each type above resolves under
-both spellings. The two `object-*` types are served by internal wrappers that
+(`packages/core/src/registry/Registry.ts:194`, fallback branch at `:226`). Every
+call behind the table above leaves `skipFallback` unset, so each type there
+resolves under both spellings. The two `object-*` types are served by internal wrappers that
 first resolve the spec's per-element `dataSource` binding (through
 `ElementDataSourceGate` from `@object-ui/react`) and then render the exported
 component, which is why those rows name a wrapper rather than an export.
+
+⛔ One further registration is deliberately absent from the table above. Until
+objectui#9533 the dashboard renderer was published as `view:dashboard`, while
+`apps/console`'s lazy stubs and the CLI's known-type whitelist already spelled it
+`plugin-dashboard:dashboard`; the bare `dashboard` key therefore declared one
+namespace before the chunk loaded and the other after it, and the
+`plugin-dashboard:dashboard` stub was never cleared, so that spelling could never
+resolve. The renderer now registers under `plugin-dashboard`, and the retired
+`view:dashboard` key is answered by a tombstone widget that refuses BY NAME and
+names `plugin-dashboard:dashboard` as its replacement — so an authored
+`view:dashboard` gets a visible refusal carrying its own migration, never a
+silent fall-through. That tombstone registration passes `skipFallback: true`, so
+it claims no bare key, and `view:dashboard` is deliberately NOT a renderable key:
+`objectui check` reports it as unknown.
 
 ### Registering a component under your own key
 
@@ -141,6 +164,22 @@ const schema: DashboardComponentSchema = {
 
 `type` and `widgets` are the required keys; every other key above is optional.
 
+Dashboard `gap` stays in author control: an explicit value is converted from
+quarter-rem units and wins over visual defaults. When omitted, the responsive
+layout reads `--ui-dashboard-grid-gap` (fallback `1rem` on desktop and stacked
+widgets, `0.75rem` between mobile KPI tiles). Filter controls use
+`--ui-dashboard-toolbar-gap` (fallback `0.5rem`). Widget `layout: { x, y, w,
+h }` supplies grid spans; for example, `w: 7` and `w: 4` on an 11-column grid
+can approximate the report's 1.75:1 chart split without adding a layout key.
+
+Dashboard cards consume the shared Card geometry variables
+`--ui-card-padding`, `--ui-card-header-padding-bottom`,
+`--ui-card-content-padding-top`, and `--ui-card-title-*`. Their utility-class
+fallbacks retain the existing component geometry when a host does not define a
+profile. `--ui-dashboard-header-border-width` controls the dashboard's fallback
+bottom border (default `1px`); set it to `0px` when the shared CardHeader draws
+its divider.
+
 ### Metric Card
 
 Display a single metric or KPI:
@@ -169,6 +208,56 @@ const card: MetricCardNode = {
 
 `value` is the only required key. `title` and `description` take a plain string
 or the spec's inline per-locale map (`I18nLabel`).
+The standalone `MetricCard` has no separate help-text prop, so its `description`
+remains the caption beneath the value. Dataset dashboard widgets have the
+distinct top-level `description` field and can use that as header help without
+changing the `options.description` sub-caption.
+
+The dashboard widget `description` is the card's explanatory text; a dataset
+metric's `options.description` is its sub-caption. On the compact host the
+header text moves into a help tooltip while the sub-caption stays beneath the
+value. `options.icon` supplies the metric icon name from the same open renderer
+options bag; `DashboardWidgetSchema` has no top-level `icon` or `drillDown`
+member. A dataset-bound metric's `options.drillDown` uses the existing
+`DrillDownConfig`: the arrow appears only when the config enables it and the
+Dataset response includes its base object. The shared drill drawer receives its
+target, column and row-limit settings and uses the widget's resolved query
+scope and an inline report definition. Its custom `filter` expression is not
+forwarded because a metric click has no bucket event to interpolate; `mode` is
+not interpreted by the shared drawer. Named report references still require a
+host resolver, which this package does not provide. Period comparison
+indicators continue to come only from the server-backed `compareTo` query; no
+trend series is inferred or drawn from the displayed value.
+
+The renderer also supports ordered top-N dataset output through `options.sortBy`,
+`options.sortOrder`, and a positive `options.limit`. `sortBy` must name a
+projected dimension or value; the renderer does not invent a numbered rank
+column, so a visible rank must come from the dataset itself.
+
+Compact metric headers can place a small, aria-hidden corner mark after the
+title and help. This is presentation only and never acts as a drill button.
+The declared drill action remains separate and requires a server-provided
+record source. `--ui-dashboard-metric-title-flex`,
+`--ui-dashboard-metric-icon-glyph-size` and
+`--ui-dashboard-metric-corner-mark-*` tune this header without adding metadata.
+
+KPI cards use separate `--ui-dashboard-metric-title-*` and
+`--ui-dashboard-metric-value-*` variables so a compact metric label does not
+inherit a chart heading's type scale. Their horizontal and vertical padding,
+header/content spacing, icon size, note spacing, and minimum height use
+`--ui-dashboard-metric-padding-x`, `--ui-dashboard-metric-padding-y`,
+`--ui-dashboard-metric-header-padding-bottom`,
+`--ui-dashboard-metric-content-padding-top`,
+`--ui-dashboard-metric-inner-padding`, `--ui-dashboard-metric-icon-size`,
+`--ui-dashboard-metric-value-margin-top`,
+`--ui-dashboard-metric-note-margin-top`,
+`--ui-dashboard-metric-delta-margin-top`, and
+`--ui-dashboard-metric-card-min-height`. The compact profile also uses
+`--ui-dashboard-metric-accent-line-*`, `--ui-dashboard-metric-help-*`, and
+`--ui-dashboard-metric-drill-button-size` for its optional emphasis rule,
+tooltip affordance and drill control. Missing host tokens keep the emphasis
+rule and help affordance hidden; the fallback values retain each renderer’s
+previous geometry and typography.
 
 #### Percent `format` patterns (`'0%'`, `'0.00%'`)
 

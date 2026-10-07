@@ -1299,6 +1299,11 @@ const ENGINE_STRINGS_EN: Record<string, string> = {
   'perm.admin.help':
     'Lets holders administer a business-unit subtree (assign users, manage bindings) without full admin.',
   'perm.admin.businessUnit': 'Business unit',
+  // The dependent controls' disabled reason (objectui#9464): `businessUnit` is
+  // the one key the framework's admin-scope shape requires, so a scope written
+  // before one is named is refused wholesale when the record is saved.
+  'perm.admin.businessUnitRequired':
+    'Name a business unit first — a scope without one is refused when the record is saved.',
   'perm.admin.includeSubtree': 'Include subtree',
   'perm.admin.manageAssignments': 'Manage assignments',
   'perm.admin.manageBindings': 'Manage bindings',
@@ -1313,6 +1318,15 @@ const ENGINE_STRINGS_EN: Record<string, string> = {
   // nothing was written and retrying is the whole remedy.
   'perm.save.rereadFailed':
     'Save cancelled: the current permission set could not be re-read, so rows contributed by other packages cannot be preserved. Nothing was saved — please try again.',
+  // objectui#9484 — the ENVIRONMENT door's re-read runs AFTER the write, so
+  // its rejection is not a failed save and must not be worded like one. It
+  // opens with the outcome that is certain ("Saved."), then says exactly what
+  // is degraded: the matrix on screen is the accepted body, not a fresh read.
+  // Deliberately shares no wording with `perm.save.rereadFailed` above — that
+  // one cancels a save, this one confirms one, and a permission surface cannot
+  // afford the two reading alike.
+  'perm.save.rereadStale':
+    'Saved. The follow-up read that refreshes this view did not answer, so the matrix below shows what was just saved rather than the server\'s copy. Reopen this permission set to confirm.',
   // objectui#4446 — names the gate that actually tripped. The old wording
   // ("OS_METADATA_WRITABLE not enabled") blamed a deployment env var for a
   // per-type registry declaration, and had no reachable honest case: the env
@@ -3276,6 +3290,9 @@ const ENGINE_STRINGS_ZH: Record<string, string> = {
   'perm.admin.title': '委派管理范围',
   'perm.admin.help': '允许持有者管理某业务单元子树(分配用户、管理绑定),无需完全管理员权限。',
   'perm.admin.businessUnit': '业务单元',
+  // objectui#9464 — 见 EN 表同键注释。
+  'perm.admin.businessUnitRequired':
+    '请先填写业务单元 — 没有业务单元的范围在保存记录时会被拒绝。',
   'perm.admin.includeSubtree': '包含子树',
   'perm.admin.manageAssignments': '管理分配',
   'perm.admin.manageBindings': '管理绑定',
@@ -3286,6 +3303,9 @@ const ENGINE_STRINGS_ZH: Record<string, string> = {
   // objectui#9420 — 见 EN 表同键注释。
   'perm.save.rereadFailed':
     '保存已取消：无法重新读取当前权限集，其他包贡献的权限行将无法保留。本次未写入任何内容，请重试。',
+  // objectui#9484 — 见 EN 表同键注释。
+  'perm.save.rereadStale':
+    '已保存。用于刷新此视图的后续读取没有返回，因此下方矩阵显示的是刚刚保存的内容，而不是服务端的副本。请重新打开该权限集以确认。',
   // objectui#4446 — 见 EN 表同键注释：旧文案把「每类型注册表声明」说成「部署环境变量未启用」。
   'perm.readOnly': '只读（该元数据类型没有运行时写入通道）',
   'perm.readOnly.hint':

@@ -71,19 +71,19 @@ function renderGrid(opts?: Record<string, any>) {
  * They are therefore separately observable, and each case below asserts both.
  */
 const COLUMN_COPY: Record<string, string[]> = {
-  compact: ['px-3', 'py-1', 'h-9', 'text-[13px]', 'leading-tight'],
-  short: ['px-3', 'py-1', 'h-9', 'text-[13px]', 'leading-normal'],
-  medium: ['px-3', 'py-1.5', 'h-11', 'text-[13px]', 'leading-normal'],
-  tall: ['px-3', 'py-2.5', 'h-14', 'text-sm'],
-  extra_tall: ['px-3', 'py-3.5', 'h-16', 'text-sm', 'leading-relaxed'],
+  compact: ['px-[var(--ui-table-cell-padding-x,0.75rem)]', 'py-1', 'h-9', 'text-[length:var(--ui-table-font-size,13px)]', 'leading-tight'],
+  short: ['px-[var(--ui-table-cell-padding-x,0.75rem)]', 'py-1', 'h-9', 'text-[length:var(--ui-table-font-size,13px)]', 'leading-normal'],
+  medium: ['px-[var(--ui-table-cell-padding-x,0.75rem)]', 'py-1.5', 'h-11', 'text-[length:var(--ui-table-font-size,13px)]', 'leading-normal'],
+  tall: ['px-[var(--ui-table-cell-padding-x,0.75rem)]', 'py-2.5', 'h-14', 'text-[length:var(--ui-table-font-size,0.875rem)]'],
+  extra_tall: ['px-[var(--ui-table-cell-padding-x,0.75rem)]', 'py-3.5', 'h-16', 'text-[length:var(--ui-table-font-size,0.875rem)]', 'leading-relaxed'],
 };
 
 const TABLE_COPY: Record<string, string[]> = {
-  compact: ['px-3', 'py-1', 'text-[13px]', 'leading-tight'],
-  short: ['px-3', 'py-1', 'text-[13px]', 'leading-normal'],
-  medium: ['px-3', 'py-1.5', 'text-[13px]', 'leading-normal'],
-  tall: ['px-3', 'py-2.5', 'text-sm'],
-  extra_tall: ['px-3', 'py-3.5', 'text-sm', 'leading-relaxed'],
+  compact: ['px-[var(--ui-table-cell-padding-x,0.75rem)]', 'py-1', 'text-[length:var(--ui-table-font-size,13px)]', 'leading-tight'],
+  short: ['px-[var(--ui-table-cell-padding-x,0.75rem)]', 'py-1', 'text-[length:var(--ui-table-font-size,13px)]', 'leading-normal'],
+  medium: ['px-[var(--ui-table-cell-padding-x,0.75rem)]', 'py-1.5', 'text-[length:var(--ui-table-font-size,13px)]', 'leading-normal'],
+  tall: ['px-[var(--ui-table-cell-padding-x,0.75rem)]', 'py-2.5', 'text-[length:var(--ui-table-font-size,0.875rem)]'],
+  extra_tall: ['px-[var(--ui-table-cell-padding-x,0.75rem)]', 'py-3.5', 'text-[length:var(--ui-table-font-size,0.875rem)]', 'leading-relaxed'],
 };
 
 /** Every `h-*` floor the column copy can emit — exactly one may be present. */

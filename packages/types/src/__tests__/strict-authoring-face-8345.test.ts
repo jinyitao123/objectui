@@ -67,17 +67,23 @@ type Issue = {
   path: PropertyKey[];
   keys?: string[];
   errors?: Issue[][];
+  issues?: Issue[];
 };
 
 /**
  * Flatten a zod error tree. A refusal inside a union arrives as one
  * `invalid_union` carrying a group of issue lists per arm, and a child slot is
- * a union of six arms, so the interesting issue is never at the top level.
+ * a union of six arms, so the interesting issue is never at the top level. A
+ * refusal inside a `Map` or `Set` entry whose key is not a property key arrives
+ * the same way one level down: one `invalid_key` / `invalid_element` carrying
+ * the entry's own issues under `issues`.
  */
 function flatten(issues: readonly Issue[], out: Issue[] = []): Issue[] {
   for (const issue of issues) {
     if (issue.code === 'invalid_union' && issue.errors) {
       for (const group of issue.errors) flatten(group, out);
+    } else if (issue.issues) {
+      flatten(issue.issues, out);
     } else {
       out.push(issue);
     }
@@ -222,18 +228,29 @@ describe('checks survive the clone — a twin rebuilt with `z.object(shape)` wou
     expect(z.object({ a: z.number() }).safeParse({ a: -1 }).success).toBe(true);
   });
 
-  it('the live instance: the `chatbot` body clause still fires at a child slot', () => {
+  it('the live instance: the `chatbot` body document is refused at a child slot', () => {
     // `defineNodeComponentUnion` installs a `superRefine` on the union that sits
-    // in the node slot, and only there. So this document is accepted at the root
-    // and refused one slot down — on BOTH faces. A twin that dropped the check
-    // would accept the nested form and this test would go red on the strict row.
+    // in the node slot, and only there. A twin that dropped the check would
+    // accept the nested form and this test would go red on the strict row.
+    //
+    // ⚠️ INVERTED by objectui#8572, which retired `ChatbotSchema.body` on both
+    // published faces: the two ROOT legs read `toBe(true)` until that ruling, and
+    // the asymmetry they recorded — accepted at the root, refused one slot down —
+    // is gone because the ARM itself now refuses the key at every depth. The legs
+    // are inverted rather than dropped because the root verdict is half of what
+    // this case reads, and a case that stopped reading the root would stop
+    // noticing if the two faces ever disagreed there.
+    // ⚠️ And the honest consequence, stated rather than left for a reader to
+    // discover: this input no longer DISCRIMINATES the clause, because the arm
+    // refuses it with or without the wrapper. The clause's own disposition is not
+    // this file's and not this ruling's; `../zod/base.zod.ts` carries it.
     const chatbot = { type: 'chatbot', messages: [], body: { foo: 'bar' } };
     const nested = { type: 'card', children: [chatbot] };
 
-    expect(StrictAnyComponentSchema.safeParse(chatbot).success).toBe(true);
+    expect(StrictAnyComponentSchema.safeParse(chatbot).success).toBe(false);
     expect(StrictAnyComponentSchema.safeParse(nested).success).toBe(false);
-    // …and unchanged on the tolerant face, which is (c) again on this input.
-    expect(AnyComponentSchema.safeParse(chatbot).success).toBe(true);
+    // …and the same on the tolerant face, which is (c) again on this input.
+    expect(AnyComponentSchema.safeParse(chatbot).success).toBe(false);
     expect(AnyComponentSchema.safeParse(nested).success).toBe(false);
   });
 });
@@ -313,7 +330,12 @@ describe('the population is closed — every reachable object on the twin, not a
 });
 
 describe('what strict could not close is enumerated, not claimed', () => {
-  /** Every def type the walker treats as opaque. Nothing else may be reported. */
+  /**
+   * Every def type the walker treats as opaque. Over the PUBLISHED face nothing
+   * else may be reported: a schema-bearing wrapper the walker has no arm for
+   * is reported under its own def type (the `success` case below), so a new
+   * kind arriving on the face reds the subset assertion and names itself.
+   */
   const OPAQUE_KINDS = ['custom', 'function', 'transform'] as const;
 
   it('every limit reported over the published face is one of the recorded opaque kinds', () => {
@@ -358,6 +380,116 @@ describe('what strict could not close is enumerated, not claimed', () => {
     const preprocessed = z.preprocess((v) => v, z.object({ a: z.string() }));
     expect(preprocessed.safeParse({ a: 'x', bogus: 1 }).success).toBe(true);
     expect(deriveStrictAuthoringSchema(preprocessed).safeParse({ a: 'x', bogus: 1 }).success).toBe(false);
+  });
+
+  /**
+   * ⚠️ THE FOUR WRAPPER KINDS THE FIRST ROUND SWALLOWED — the director's item 3
+   * on objectui#8345. `set`, `map`, `prefault` and `promise` each carry a schema,
+   * and the walker's `default:` arm used to hand every one of them back as if it
+   * were a leaf: the object inside stayed OPEN and nothing was reported — a hole
+   * with no symptom, because none of the four is on the published face (the
+   * census at the end of this block pins that absence, which is why every
+   * control here is synthetic rather than a document). Each is walked now: the
+   * inner object is closed, an invented key inside it is refused and NAMED, and
+   * an opaque node inside is still reported — the report path passes through
+   * the wrapper instead of stopping at it.
+   */
+  describe('the four wrapper kinds are walked, not swallowed — `set` / `map` / `prefault` / `promise`', () => {
+    const inner = z.object({ a: z.string() });
+    const INVENTED = 'inventedInsideWrapper';
+    const withInvented = { a: 'x', [INVENTED]: 1 };
+
+    it('`set`: an invented key inside the element is refused and named', () => {
+      const wrapped = z.set(inner);
+      expect(wrapped.safeParse(new Set([withInvented])).success).toBe(true); // (c) on this input
+      const result = deriveStrictAuthoringSchema(wrapped).safeParse(new Set([withInvented]));
+      expect(result.success).toBe(false);
+      expect(refusedKeys(result)).toEqual([INVENTED]);
+    });
+
+    it('`map`: the key schema AND the value schema are closed', () => {
+      const wrapped = z.map(inner, inner);
+      expect(wrapped.safeParse(new Map([[withInvented, withInvented]])).success).toBe(true);
+      const twin = deriveStrictAuthoringSchema(wrapped);
+      expect(refusedKeys(twin.safeParse(new Map([[{ a: 'k' }, withInvented]])))).toEqual([INVENTED]);
+      expect(refusedKeys(twin.safeParse(new Map([[withInvented, { a: 'v' }]])))).toEqual([INVENTED]);
+      expect(twin.safeParse(new Map([[{ a: 'k' }, { a: 'v' }]])).success).toBe(true);
+    });
+
+    it('`prefault`: the inner object is closed and the prefault value still applies', () => {
+      const wrapped = inner.prefault({ a: 'fallback' });
+      expect(wrapped.safeParse(withInvented).success).toBe(true);
+      const twin = deriveStrictAuthoringSchema(wrapped);
+      expect(refusedKeys(twin.safeParse(withInvented))).toEqual([INVENTED]);
+      expect(twin.safeParse(undefined)).toEqual({ success: true, data: { a: 'fallback' } });
+    });
+
+    it('`promise`: the inner object is closed (async parse — zod refuses to parse a promise synchronously)', async () => {
+      const wrapped = z.promise(inner);
+      expect((await wrapped.safeParseAsync(Promise.resolve(withInvented))).success).toBe(true);
+      const result = await deriveStrictAuthoringSchema(wrapped).safeParseAsync(Promise.resolve(withInvented));
+      expect(result.success).toBe(false);
+      expect(refusedKeys(result)).toEqual([INVENTED]);
+    });
+
+    it('the report path passes THROUGH each wrapper: an opaque node inside is still reported, with its trail', () => {
+      // One opaque node PER wrapper, deliberately: the walker memoises by node
+      // identity and reports each distinct node once, so a single shared
+      // instance would be reported at the first wrapper only and read as four
+      // silent ones.
+      const opaque = () => z.custom<string>((v) => typeof v === 'string');
+      const reported: StrictAuthoringLimit[] = [];
+      deriveStrictAuthoringSchema(
+        z.object({
+          inSet: z.set(opaque()),
+          inMapKey: z.map(opaque(), z.string()),
+          inMapValue: z.map(z.string(), opaque()),
+          inPrefault: opaque().prefault('x'),
+          inPromise: z.promise(opaque()),
+        }),
+        { onOpaqueShape: (limit) => reported.push(limit) },
+      );
+      expect(reported.map((l) => `${l.kind}@${l.path}`).sort()).toEqual([
+        'custom@#/shape/inMapKey/keyType',
+        'custom@#/shape/inMapValue/valueType',
+        'custom@#/shape/inPrefault/innerType',
+        'custom@#/shape/inPromise/innerType',
+        'custom@#/shape/inSet/valueType',
+      ]);
+    });
+
+    it('none of the four is on the published face today — the controls above are the coverage, not the corpus', () => {
+      // Read on the FORCED tolerant graph, so the count is of the whole face and
+      // not of whatever the eager part happened to hold.
+      StrictAnyComponentSchema.safeParse(KNOWN_GOOD);
+      const { kinds } = census(AnyComponentSchema);
+      expect(['set', 'map', 'prefault', 'promise'].map((kind) => [kind, kinds[kind] ?? 0]))
+        .toEqual([['set', 0], ['map', 0], ['prefault', 0], ['promise', 0]]);
+      // Non-vacuity: the same census sees the kinds the face IS made of.
+      expect(kinds.object).toBeGreaterThan(250);
+      expect(kinds.union).toBeGreaterThan(0);
+    });
+  });
+
+  it('a schema-bearing kind the walker has NO arm for is reported, not swallowed — `success` is the live instance', () => {
+    // zod 4.4.3 leaves exactly one such kind: `z.success(X)` parses X into a
+    // boolean and can never refuse, so walking it would move an OUTPUT value
+    // while closing nothing. It is reported under its own def type instead —
+    // the half of the reporter's contract the four wrappers above used to break.
+    const reported: StrictAuthoringLimit[] = [];
+    deriveStrictAuthoringSchema(
+      z.object({ flag: z.success(z.object({ a: z.string() })) }),
+      { onOpaqueShape: (limit) => reported.push(limit) },
+    );
+    expect(reported).toEqual([{ kind: 'success', path: '#/shape/flag' }]);
+
+    // The control the other way: a leaf is a leaf, and nothing is reported.
+    const leafReports: StrictAuthoringLimit[] = [];
+    deriveStrictAuthoringSchema(
+      z.object({ s: z.string(), n: z.number(), e: z.enum(['a', 'b']), l: z.literal(1), d: z.date() }),
+      { onOpaqueShape: (limit) => leafReports.push(limit) },
+    );
+    expect(leafReports).toEqual([]);
   });
 });
 
@@ -481,6 +613,8 @@ type CensusDef = Record<string, unknown> & { type: string };
 interface Census {
   /** Distinct schema nodes reached. */
   nodes: number;
+  /** Distinct schema nodes reached, by def type — what the face is made of. */
+  kinds: Record<string, number>;
   /** How many of those answered `typeof 'function'` (JIT instances). */
   functionTyped: number;
   /** Nodes whose def type is `object`. */
@@ -496,13 +630,14 @@ const isSchemaNode = (value: unknown): boolean =>
 
 function census(schema: unknown): Census {
   const seen = new Set<unknown>();
-  const out: Census = { nodes: 0, functionTyped: 0, objects: 0, closed: 0, openPaths: [] };
+  const out: Census = { nodes: 0, kinds: {}, functionTyped: 0, objects: 0, closed: 0, openPaths: [] };
   const visit = (node: unknown, path: string): void => {
     if (!isSchemaNode(node) || seen.has(node)) return;
     seen.add(node);
     out.nodes += 1;
     if (typeof node === 'function') out.functionTyped += 1;
     const def = (node as { _zod: { def: CensusDef } })._zod.def;
+    out.kinds[def.type] = (out.kinds[def.type] ?? 0) + 1;
     if (def.type === 'object') {
       out.objects += 1;
       const catchall = def.catchall as { _zod?: { def?: { type?: string } } } | undefined;

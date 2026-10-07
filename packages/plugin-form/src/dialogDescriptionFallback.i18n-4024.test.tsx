@@ -42,9 +42,9 @@
 
 import { describe, it, expect, vi, afterEach } from 'vitest';
 import * as React from 'react';
-import { render, screen, cleanup, waitFor } from '@testing-library/react';
-import { I18nProvider } from '@object-ui/i18n';
-import { registerAllFields } from '@object-ui/fields';
+import { fireEvent, render, screen, cleanup, waitFor } from '@testing-library/react';
+import { createI18n, I18nProvider, loadBuiltInLocale } from '@object-ui/i18n';
+import { LineItemsField, registerAllFields } from '@object-ui/fields';
 import { ModalForm } from './ModalForm';
 import { DrawerForm } from './DrawerForm';
 
@@ -65,10 +65,17 @@ const ds: any = {
 
 const EN_FALLBACK = 'Complete the form fields, then submit or cancel.';
 const ZH_FALLBACK = '填写表单字段,然后提交或取消。';
+const EN_COMPOUND_DESCRIPTION = 'Enter the record and its line items, then save.';
+const ZH_COMPOUND_DESCRIPTION = '填写主记录及其明细行，然后保存。';
+const JA_COMPOUND_DESCRIPTION = 'レコードと明細行を入力して保存してください。';
 
-function inLocale(language: string, body: React.ReactElement) {
+async function inLocale(language: string, body: React.ReactElement) {
+  const instance = createI18n({ defaultLanguage: language, detectBrowserLanguage: false });
+  const catalogue = await loadBuiltInLocale(language);
+  if (catalogue) instance.addResourceBundle(language, 'translation', catalogue, true, false);
+  await instance.changeLanguage(language);
   return render(
-    <I18nProvider config={{ defaultLanguage: language, detectBrowserLanguage: false }}>
+    <I18nProvider instance={instance}>
       {body}
     </I18nProvider>,
   );
@@ -122,28 +129,87 @@ const drawer = (description?: string) => (
   />
 );
 
+const compoundModal = () => (
+  <ModalForm
+    schema={{
+      objectName: 'task', mode: 'create', open: true, title: 'New task', onOpenChange: vi.fn(),
+      subforms: [{
+        childObject: 'task_line', relationshipField: 'task', amountField: 'amount', totalField: 'amount',
+        columns: [
+          { name: 'description', label: 'Description', type: 'text' },
+          { name: 'amount', label: 'Amount', type: 'currency' },
+        ],
+      }],
+    } as any}
+    dataSource={ds}
+  />
+);
+
+const columnChooser = () => (
+  <LineItemsField
+    value={[{ description: 'Line A', amount: 12 }]}
+    onChange={vi.fn()}
+    field={{ type: 'grid', name: 'line_items', columns: [
+      { name: 'description', label: 'Description', type: 'text' },
+      { name: 'amount', label: 'Amount', type: 'currency', defaultHidden: true },
+    ] }}
+  />
+);
+
 describe('form dialog sr-only description fallback resolves from the bundle (objectui#4024)', () => {
   it('zh-CN modal: the accessible description is the translated fallback', async () => {
-    inLocale('zh', modal());
+    await inLocale('zh', modal());
     await waitFor(async () => expect(await accessibleDescription()).toBe(ZH_FALLBACK));
   });
 
   it('zh-CN drawer: the accessible description is the translated fallback', async () => {
-    inLocale('zh', drawer());
+    await inLocale('zh', drawer());
     await waitFor(async () => expect(await accessibleDescription()).toBe(ZH_FALLBACK));
   });
 
   it('en modal: unchanged English sentence (must-not-change)', async () => {
-    inLocale('en', modal());
+    await inLocale('en', modal());
     await waitFor(async () => expect(await accessibleDescription()).toBe(EN_FALLBACK));
   });
 
   it('an authored description still wins over the fallback, in any locale', async () => {
-    inLocale('zh', modal('Only the fields marked required.'));
+    await inLocale('zh', modal('Only the fields marked required.'));
     await waitFor(async () =>
       expect(await accessibleDescription()).toBe('Only the fields marked required.'),
     );
   });
+});
+
+describe('compound form dialog copy uses the active locale', () => {
+  it('renders the accessible description, line-items title and column controls in Chinese', async () => {
+    await inLocale('zh', compoundModal());
+    await waitFor(async () => expect(await accessibleDescription()).toBe(ZH_COMPOUND_DESCRIPTION));
+    expect(screen.getByText('明细行')).toBeInTheDocument();
+    cleanup();
+    await inLocale('zh', columnChooser());
+    expect(screen.getByText('列')).toBeInTheDocument();
+    fireEvent.click(screen.getByTestId('line-items-columns'));
+    expect(screen.getByText('可选列')).toBeInTheDocument();
+  });
+
+  it('keeps English copy and uses a shipped locale or English fallback for column controls', async () => {
+    await inLocale('en', compoundModal());
+    await waitFor(async () => expect(await accessibleDescription()).toBe(EN_COMPOUND_DESCRIPTION));
+    expect(screen.getByText('Line Items')).toBeInTheDocument();
+  });
+
+  it('uses the Japanese compound-form translations', async () => {
+    cleanup();
+    await inLocale('ja', compoundModal());
+    await waitFor(async () => expect(await accessibleDescription()).toBe(JA_COMPOUND_DESCRIPTION));
+    expect(screen.getByText('明細行')).toBeInTheDocument();
+    cleanup();
+    await inLocale('ja', columnChooser());
+    expect(screen.getByTestId('line-items-columns')).toHaveTextContent('列');
+    fireEvent.click(screen.getByTestId('line-items-columns'));
+    expect(screen.getByText('任意の列')).toBeInTheDocument();
+  });
+
 });
 
 /**

@@ -2,6 +2,20 @@
 
 Grid plugin for Object UI - Advanced data grid with sorting, filtering, and pagination.
 
+## Host geometry tokens
+
+Grid header and cell presentation can consume `--ui-table-font-size`,
+`--ui-table-header-font-size` and `--ui-table-cell-padding-x`. Their fallbacks
+retain the existing geometry. Authored column widths, row height/density,
+selection, inline editing and query behavior remain controlled by the schema.
+Typed cell renderers consume the same table font token through `@object-ui/fields`.
+
+When ListView owns an empty result, its existing React empty state is passed
+through ObjectGrid to the table's viewport slot. The authorized column headers
+remain visible without also showing the table's default empty copy. Standalone
+tables keep their default empty state; this host composition does not add a
+serialized ObjectGrid or DataTable key.
+
 ## Features
 
 - **Data grid** — enterprise-grade grid over one ObjectQL object
@@ -569,6 +583,11 @@ const schema: ObjectGridSchema = {
 `ObjectGridComponentProps` — they are functions, so no metadata document can hold
 them, and writing one into a schema does nothing at all: the grid builds the inner
 table's handlers itself and never reads any of these nine off the schema.
+
+`mobileLayout` is another React-only `ObjectGridComponentProps` option. It accepts
+`'cards'` (the default) or `'table'`; choose `'table'` when a host needs a
+horizontally scrollable grid on narrow screens. It is not an `ObjectGridSchema`
+key or an authoring input.
 
 The one callback the grid does read off the schema is `onNavigate`, declared on
 `ObjectGridSchema` for programmatic callers only. It is a function value too, so

@@ -5,18 +5,63 @@
 
 import { ComponentRegistry } from '@object-ui/core';
 import { PageHeader } from './PageHeader';
+import { WorkspaceToolbar } from './WorkspaceToolbar';
+import { ListSummary } from './ListSummary';
+import { CategoryDistribution } from './CategoryDistribution';
+import { StatusTabs } from './StatusTabs';
 import { PageCard } from './PageCard';
 import { ResponsiveGrid } from './ResponsiveGrid';
 import { NavigationRenderer } from './NavigationRenderer';
 import { AppSchemaRenderer } from './AppSchemaRenderer';
+import { DataEmptyState, DateRangeControl, DocumentSection, DocumentWorkspace, ResourceScheduleGrid } from '@object-ui/components';
 
 export * from './PageHeader';
+export * from './WorkspaceToolbar';
+export * from './ListSummary';
+export * from './CategoryDistribution';
+export * from './StatusTabs';
 export * from './AppShell';
 export * from './PageCard';
 export * from './SidebarNav';
 export * from './ResponsiveGrid';
 export * from './NavigationRenderer';
 export * from './AppSchemaRenderer';
+
+// React Page runtime components are code-only capabilities, not schema types.
+// Keep these registrations in this entry module: `package.json` explicitly
+// marks the package entry as side-effectful so production bundlers preserve them.
+const reactPageRuntimeComponents = [
+  ['WorkspaceHeader', PageHeader],
+  ['WorkspaceToolbar', WorkspaceToolbar],
+  ['ListSummary', ListSummary],
+  ['CategoryDistribution', CategoryDistribution],
+  ['StatusTabs', StatusTabs],
+  ['DataEmptyState', DataEmptyState],
+  ['DateRangeControl', DateRangeControl],
+  ['ResourceScheduleGrid', ResourceScheduleGrid],
+  ['DocumentSection', DocumentSection],
+  ['DocumentWorkspace', DocumentWorkspace],
+] as const;
+
+for (const [name, component] of reactPageRuntimeComponents) {
+  ComponentRegistry.registerReactRuntimeComponent(name, component, { injectDataSource: false });
+}
+
+// During development replacement, release only registrations still owned by
+// this module. Production duplicate registration remains an error.
+const layoutHot = (import.meta as ImportMeta & {
+  hot?: { dispose(callback: () => void): void };
+}).hot;
+
+layoutHot?.dispose(() => {
+  for (const [name, component] of reactPageRuntimeComponents) {
+    const registration = ComponentRegistry.getReactRuntimeComponents()
+      .find((entry) => entry.name === name);
+    if (registration?.component === component) {
+      ComponentRegistry.unregisterReactRuntimeComponent(name);
+    }
+  }
+});
 
 export function registerLayout() {
   // Legacy `page-header` alias. Kept for any consumer schemas that still

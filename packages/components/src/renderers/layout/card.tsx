@@ -16,7 +16,7 @@ import {
   CardDescription,
   CardContent,
   CardFooter
-} from '../../ui';
+} from '../../custom/profile-card';
 import { forwardRef } from 'react';
 
 // Index signature on the parameter annotation, not on the `forwardRef` type
@@ -69,7 +69,7 @@ const CardRenderer = forwardRef<HTMLDivElement, { schema: CardSchema; className?
           because the sibling `body: 0` went through `undefined || 0 === 0`
           and leaked. `renderNodeSlot` covers both; the alias order is
           unchanged. */}
-      {renderNodeSlot(schema.children || schema.body, (body) => (
+      {renderNodeSlot(schema.children, (body) => (
         <CardContent>{renderChildren(body)}</CardContent>
       ))}
       {renderNodeSlot(schema.footer, (footer) => (

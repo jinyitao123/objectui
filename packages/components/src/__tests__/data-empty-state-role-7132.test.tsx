@@ -25,7 +25,7 @@
  */
 
 import { describe, it, expect } from 'vitest';
-import { render } from '@testing-library/react';
+import { render, screen } from '@testing-library/react';
 import { DataEmptyState, DataErrorState, DataLoadingState } from '../custom/view-states';
 
 const emptyBox = (c: HTMLElement) => c.querySelector('[data-slot="data-empty-state"]');
@@ -45,6 +45,38 @@ describe('DataEmptyState — role default (#7132)', () => {
     expect(emptyBox(container)!.getAttribute('role')).toBe('status');
     // The default must not have displaced the rest of the render.
     expect(container.textContent).toContain('Nothing here yet');
+  });
+
+  it('keeps the default title/description styling and renders no action when none is supplied', () => {
+    const { container } = render(
+      <DataEmptyState title="No calls today" description="There are no scheduled calls." showIcon={false} />,
+    );
+    const box = emptyBox(container)!;
+    expect(box).toHaveAttribute('role', 'status');
+    expect(box.querySelector('h3')).toHaveClass('text-sm', 'font-medium');
+    expect(box.querySelector('p')).toHaveClass('max-w-sm', 'text-sm', 'text-muted-foreground');
+    expect(box.querySelectorAll('button')).toHaveLength(0);
+    expect(box.querySelector('[data-slot="data-empty-state-icon"]')).toBeNull();
+  });
+
+  it('applies title and description class overrides to their elements without leaking props to the DOM', () => {
+    const { container } = render(
+      <DataEmptyState
+        data-testid="compact-empty"
+        title="No calls today"
+        description="There are no scheduled calls."
+        titleClassName="text-[12.25px] leading-[17.5px] font-normal"
+        descriptionClassName="text-[10.5px] leading-[14px] font-normal"
+        showIcon={false}
+      />,
+    );
+    const box = screen.getByTestId('compact-empty');
+    expect(box.querySelector('h3')).toHaveClass('text-[12.25px]', 'leading-[17.5px]', 'font-normal');
+    expect(box.querySelector('h3')).not.toHaveClass('text-sm', 'font-medium');
+    expect(box.querySelector('p')).toHaveClass('text-[10.5px]', 'leading-[14px]', 'font-normal');
+    expect(box.querySelector('p')).not.toHaveClass('text-sm');
+    expect(box.hasAttribute('titleclassname')).toBe(false);
+    expect(box.hasAttribute('descriptionclassname')).toBe(false);
   });
 
   // The borrow this arm was written for is gone — `plugin-list`'s load-failure

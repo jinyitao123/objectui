@@ -119,7 +119,7 @@ function useFileUploads(opts: {
  * Supports single and multiple file uploads with configurable accepted file types.
  * L2: File size validation, per-file progress indicators, error messages.
  */
-export function FileField({ value, onChange, field, readonly, onUploadingChange, error, ...props }: FieldWidgetComponentProps<any>) {
+export function FileField({ value, onChange, field, readonly, disabled = false, onUploadingChange, error, ...props }: FieldWidgetComponentProps<any>) {
   const { t } = useObjectTranslation();
   const inputRef = useRef<HTMLInputElement>(null);
   const cameraRef = useRef<HTMLInputElement>(null);
@@ -156,8 +156,8 @@ export function FileField({ value, onChange, field, readonly, onUploadingChange,
   const handleDragOver = useCallback((e: React.DragEvent) => {
     e.preventDefault();
     e.stopPropagation();
-    setIsDragOver(true);
-  }, []);
+    if (!disabled) setIsDragOver(true);
+  }, [disabled]);
 
   const handleDragLeave = useCallback((e: React.DragEvent) => {
     e.preventDefault();
@@ -169,6 +169,8 @@ export function FileField({ value, onChange, field, readonly, onUploadingChange,
     e.preventDefault();
     e.stopPropagation();
     setIsDragOver(false);
+
+    if (disabled) return;
 
     const droppedFiles = Array.from(e.dataTransfer.files);
     if (accept) {
@@ -184,7 +186,7 @@ export function FileField({ value, onChange, field, readonly, onUploadingChange,
     } else {
       processFiles(droppedFiles);
     }
-  }, [accept, processFiles]);
+  }, [accept, processFiles, disabled]);
 
   if (readonly) {
     // Readonly there is no dropzone: the field's whole rendered surface is the
@@ -220,10 +222,12 @@ export function FileField({ value, onChange, field, readonly, onUploadingChange,
   }
 
   const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    if (disabled) return;
     processFiles(Array.from(e.target.files || []));
   };
 
   const handleRemove = (index: number) => {
+    if (disabled) return;
     if (multiple) {
       const newFiles = files.filter((_: any, i: number) => i !== index);
       onChange(newFiles.length > 0 ? newFiles : null);
@@ -241,6 +245,7 @@ export function FileField({ value, onChange, field, readonly, onUploadingChange,
         type="file"
         multiple={multiple}
         accept={accept}
+        disabled={disabled}
         onChange={handleFileChange}
         className="hidden"
       />
@@ -250,6 +255,7 @@ export function FileField({ value, onChange, field, readonly, onUploadingChange,
           type="file"
           accept="image/*"
           capture={cameraEnabled}
+          disabled={disabled}
           onChange={handleFileChange}
           className="hidden"
           aria-label={t('fields.file.cameraCapture', { defaultValue: 'Camera capture' })}
@@ -278,18 +284,20 @@ export function FileField({ value, onChange, field, readonly, onUploadingChange,
           onDragOver={handleDragOver}
           onDragLeave={handleDragLeave}
           onDrop={handleDrop}
-          onClick={() => inputRef.current?.click()}
+          onClick={() => { if (!disabled) inputRef.current?.click(); }}
           className={`
             flex flex-col items-center justify-center gap-2 p-6 
-            border-2 border-dashed rounded-lg cursor-pointer
+            border-2 border-dashed rounded-lg
             transition-colors duration-200
-            ${isDragOver 
+            ${disabled ? 'cursor-not-allowed opacity-50' : 'cursor-pointer'}
+            ${isDragOver && !disabled
               ? 'border-primary bg-primary/5 text-primary' 
-              : 'border-muted-foreground/25 hover:border-primary/50 text-muted-foreground hover:text-foreground'}
+              : disabled ? 'border-muted-foreground/25 text-muted-foreground' : 'border-muted-foreground/25 hover:border-primary/50 text-muted-foreground hover:text-foreground'}
           `}
           role="button"
-          tabIndex={0}
+          tabIndex={disabled ? -1 : 0}
           onKeyDown={(e) => {
+            if (disabled) return;
             if (e.key === 'Enter' || e.key === ' ') {
               e.preventDefault();
               inputRef.current?.click();
@@ -297,6 +305,7 @@ export function FileField({ value, onChange, field, readonly, onUploadingChange,
           }}
           // AFTER the spread so this widget's own computation wins (#3222).
           aria-invalid={!!error}
+          aria-disabled={disabled || undefined}
         >
           <Upload className={`size-8 ${isDragOver ? 'text-primary' : 'text-muted-foreground'}`} />
           <div className="text-center">
@@ -319,9 +328,10 @@ export function FileField({ value, onChange, field, readonly, onUploadingChange,
             variant="outline"
             size="sm"
             className="w-full"
+            disabled={disabled}
             onClick={(e) => {
               e.stopPropagation();
-              cameraRef.current?.click();
+              if (!disabled) cameraRef.current?.click();
             }}
             data-testid="file-field-camera-button"
           >
@@ -396,6 +406,7 @@ export function FileField({ value, onChange, field, readonly, onUploadingChange,
                   type="button"
                   variant="ghost"
                   size="sm"
+                  disabled={disabled}
                   onClick={(e) => {
                     e.stopPropagation();
                     handleRemove(idx);
@@ -416,9 +427,10 @@ export function FileField({ value, onChange, field, readonly, onUploadingChange,
 /**
  * FileCell — compact upload control for a line-item grid cell (objectui#2360).
  *
- * Same value shape and upload pipeline as {@link FileField}, sized for a 32px
- * grid row: existing files render as removable chips (image thumbnail / file
- * icon + name) and a small button opens the native file picker. No
+ * Same value shape and upload pipeline as {@link FileField}, sized for the
+ * compact grid control height (32px without a host profile): files render as
+ * removable chips (image thumbnail / file icon + name), and a small button
+ * opens the native file picker. No
  * drag-and-drop zone — a grid cell has no room for one; the per-row expand
  * form still offers the full-size FileField.
  */
@@ -482,7 +494,7 @@ export function FileCell({
   const showUpload = !disabled && !uploading && (multiple || files.length === 0);
 
   return (
-    <div className="flex min-h-8 flex-wrap items-center gap-1 px-1 py-0.5">
+    <div className="flex min-h-[var(--ui-control-height,2rem)] flex-wrap items-center gap-[var(--ui-button-gap,0.25rem)] px-1 py-0.5">
       <input
         ref={inputRef}
         type="file"
@@ -506,7 +518,20 @@ export function FileCell({
           ) : (
             <FileIcon className="size-3 shrink-0 text-muted-foreground" />
           )}
-          <span className="truncate">{file.name}</span>
+          {/* THE DEFECT (objectui#9485): this chip stated a name and nothing
+              else, so an attachment on a line-item grid row could not be
+              opened — and under `disabled`, which is this control's READ-ONLY
+              state, the delete button below is gone too, leaving the chip with
+              no affordance at all. Same shared component the other two `file`
+              surfaces draw (objectui#9161), with `icon` suppressed because the
+              chip already drew its own thumbnail or file icon just above.
+              ⛔ A value that resolves to no URL keeps the plain span it always
+              had: no dead anchors (objectui#8490). */}
+          <FileValueAffordance
+            view={file}
+            icon={false}
+            fallback={<span className="truncate">{file.name}</span>}
+          />
           {!disabled && (
             <button
               type="button"
@@ -532,7 +557,7 @@ export function FileCell({
           type="button"
           variant="ghost"
           size="sm"
-          className="h-7 gap-1 px-2 text-xs text-muted-foreground hover:text-foreground"
+          className="h-[var(--ui-control-small-height,1.75rem)] gap-[var(--ui-button-gap,0.25rem)] px-[var(--ui-button-small-padding-x,0.5rem)] text-[length:var(--ui-control-font-size,0.75rem)] text-muted-foreground hover:text-foreground"
           onClick={() => inputRef.current?.click()}
           aria-label={ariaLabel}
           data-cell={dataCell}

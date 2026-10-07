@@ -75,13 +75,45 @@ const makeDS = (objectSchema: any = GROUPED_SCHEMA) =>
 const inputNamed = (name: string) =>
   document.body.querySelector(`input[name="${name}"]`) as HTMLInputElement | null;
 
-beforeEach(() => vi.clearAllMocks());
-afterEach(() => cleanup());
+let previousProfile: string | undefined;
+beforeEach(() => {
+  previousProfile = document.documentElement.dataset.uiProfile;
+  vi.clearAllMocks();
+});
+afterEach(() => {
+  if (previousProfile === undefined) delete document.documentElement.dataset.uiProfile;
+  else document.documentElement.dataset.uiProfile = previousProfile;
+  cleanup();
+});
 
 const CONTAINERS: Array<[string, React.ComponentType<any>, string]> = [
   ['ModalForm', ModalForm as any, 'modal'],
   ['DrawerForm', DrawerForm as any, 'drawer'],
 ];
+
+it('reveals a collapsed date group when native validity refuses submission', async () => {
+  document.documentElement.dataset.uiProfile = 'compact-enterprise';
+  const ds = makeDS({
+    name: 'ticket',
+    fieldGroups: [{ key: 'schedule', label: 'Schedule', collapse: 'expanded' }],
+    fields: { due: { type: 'date', label: 'Due', group: 'schedule' } },
+  });
+  render(<ModalForm schema={{ type: 'object-form', formType: 'modal', objectName: 'ticket', mode: 'create', open: true, initialValues: { due: '2026-09-29' } }} dataSource={ds} />);
+  const input = await waitFor(() => {
+    const input = inputNamed('due');
+    expect(input).not.toBeNull();
+    return input!;
+  });
+  fireEvent.change(input, { target: { value: '2026-02-30' } });
+  expect(input.validity.valid).toBe(false);
+  const group = screen.getByRole('button', { name: /^Schedule$/ });
+  fireEvent.click(group);
+  expect(group.getAttribute('aria-expanded')).toBe('false');
+  input.closest('form')!.requestSubmit();
+  await waitFor(() => expect(group.getAttribute('aria-expanded')).toBe('true'));
+  expect(input.value).toBe('2026-02-30');
+  expect(ds.create).not.toHaveBeenCalled();
+});
 
 describe.each(CONTAINERS)('%s — fieldGroups fallback (#4774)', (_name, Container, formType) => {
   /** No `sections`, no `customFields` — the group fallback is the only producer. */
@@ -138,6 +170,49 @@ describe.each(CONTAINERS)('%s — fieldGroups fallback (#4774)', (_name, Contain
       'ticket',
       expect.objectContaining({ title: 'Broken login', status_note: 'escalated' }),
     );
+  });
+
+  it('toggles a group with the keyboard and retains drafts and the filling count', async () => {
+    document.documentElement.dataset.uiProfile = 'compact-enterprise';
+    const ds = makeDS({
+      ...GROUPED_SCHEMA,
+      fieldGroups: GROUPED_SCHEMA.fieldGroups.map(group => ({ ...group, collapse: 'expanded' })),
+    });
+    renderForm(ds);
+    const header = await screen.findByRole('button', { name: 'Basic Info' });
+    fireEvent.change(inputNamed('title')!, { target: { value: 'Draft title' } });
+    fireEvent.change(inputNamed('assignee')!, { target: { value: 'Alex' } });
+    await waitFor(() => expect(header.textContent).toContain('2/2'));
+    header.focus();
+    fireEvent.keyDown(header, { key: 'Enter' });
+    expect(header.getAttribute('aria-expanded')).toBe('false');
+    expect(screen.queryByRole('textbox', { name: 'Title' })).toBeNull();
+    expect(inputNamed('title')?.value).toBe('Draft title');
+    fireEvent.keyDown(header, { key: ' ' });
+    expect(header.getAttribute('aria-expanded')).toBe('true');
+    expect(screen.getByRole('textbox', { name: 'Title' })).toHaveValue('Draft title');
+    expect(document.activeElement).toBe(header);
+  });
+
+  it('reveals a missing required field in a collapsed group before writing', async () => {
+    const ds = makeDS({
+      ...GROUPED_SCHEMA,
+      fieldGroups: GROUPED_SCHEMA.fieldGroups.map(group => ({ ...group, collapse: 'expanded' })),
+      fields: { ...GROUPED_SCHEMA.fields, title: { ...GROUPED_SCHEMA.fields.title, required: true } },
+    });
+    renderForm(ds);
+    const header = await screen.findByRole('button', { name: 'Basic Info' });
+    fireEvent.click(header);
+    expect(header.getAttribute('aria-expanded')).toBe('false');
+    fireEvent.submit(document.body.querySelector('form') as HTMLFormElement);
+    await waitFor(() => expect(header.getAttribute('aria-expanded')).toBe('true'));
+    expect(ds.create).not.toHaveBeenCalled();
+    expect(screen.getByRole('textbox', { name: 'Title' })).toHaveAttribute('aria-invalid', 'true');
+    fireEvent.change(inputNamed('title')!, { target: { value: 'Validated title' } });
+    fireEvent.click(header);
+    fireEvent.submit(document.body.querySelector('form') as HTMLFormElement);
+    await waitFor(() => expect(ds.create).toHaveBeenCalledTimes(1));
+    expect(ds.create).toHaveBeenCalledWith('ticket', expect.objectContaining({ title: 'Validated title' }));
   });
 
   it('falls back to the flat list when no rendered field opts into a group', async () => {
@@ -199,15 +274,16 @@ describe('DrawerForm — a derived group honours its declared collapse state (#4
     renderDrawer();
     await waitFor(() => expect(document.body.textContent).toContain('Tracking Info'));
 
-    // Header present, body excluded from the DOM.
+    // Header present, controls retain registration but leave the visible layout.
     const header = await screen.findByRole('button', { expanded: false });
     expect(header.textContent).toContain('Tracking Info');
-    expect(inputNamed('status_note')).toBeNull();
+    expect(screen.queryByRole('textbox', { name: 'Status Note' })).toBeNull();
+    expect(inputNamed('status_note')?.closest('[hidden]')).not.toBeNull();
     // The expanded group is unaffected.
     expect(inputNamed('title')).not.toBeNull();
 
     fireEvent.click(header);
 
-    await waitFor(() => expect(inputNamed('status_note')).not.toBeNull());
+    await waitFor(() => expect(screen.getByRole('textbox', { name: 'Status Note' })).toBeDefined());
   });
 });

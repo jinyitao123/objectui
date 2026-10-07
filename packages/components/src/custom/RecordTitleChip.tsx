@@ -41,6 +41,8 @@ export interface RecordTitleChipProps {
   objectLabel?: string;
   /** Record identifier shown next to the object label with a copy button. */
   resourceId?: string;
+  /** Host-verified developer capability. No page schema can grant this. */
+  canCopyRecordId?: boolean;
   /** Hide the favourite star (default: shown). */
   showStar?: boolean;
   /** Hide the copy-id button (default: shown when `resourceId` is given). */
@@ -60,6 +62,7 @@ export const RecordTitleChip: React.FC<RecordTitleChipProps> = ({
   icon,
   objectLabel,
   resourceId,
+  canCopyRecordId = false,
   showStar = true,
   showCopyId = true,
   isFavorite: isFavoriteProp,
@@ -111,7 +114,7 @@ export const RecordTitleChip: React.FC<RecordTitleChipProps> = ({
               {objectLabel}
             </span>
           )}
-          {showCopyId && resourceId && (
+          {canCopyRecordId && showCopyId && resourceId && (
             <Tooltip>
               <TooltipTrigger asChild>
                 <Button

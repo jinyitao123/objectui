@@ -1,5 +1,69 @@
 # @object-ui/plugin-form
 
+## Direct React page composition
+
+In `RelationshipCollectionEditor`, a declared boolean `primaryField` is a
+checkbox in card headers and a pressed star action in the rows presentation.
+Both use the same field permission, readonly predicate and controlled draft;
+the action never writes a record. `onPrimaryChange` lets the host enforce its
+own exclusivity rule. See `RelationshipCollectionEditor.test.tsx` for the
+controlled row-action regression.
+
+Loading this plugin registers `DocumentWorkspace`, `DocumentSection`,
+`CompositeDialog`, `RelationshipCollectionEditor`, `Switch`, `FormSectionContainer`,
+`SegmentedRadioGroup`, `DatePicker`, and `GridField` in the trusted
+React page runtime. Workspace and section slots are presentation-only. A direct
+`GridField` accepts the fields package's React-only `getRowKey` and
+`renderSelectionToolbar` callbacks, retaining controlled draft edits and readonly
+rules. These functions are not serialized schema properties and must not be
+passed through a `Block` field schema. Runtime registration does not add new
+ObjectStack Page metadata.
+
+## Optional host geometry profile
+
+The Console can enable `compact-enterprise` with `VITE_UI_PROFILE` at build
+time. Form controls and inferred layout consume host CSS geometry tokens;
+explicit form/section columns and field spans still override inference.
+Default `FormView.columns` reaches the native record modal, and the profile
+caps only inferred columns at two.
+
+Modal header, scrollable body, fixed footer, title, maximum width/height and
+action gap consume `--ui-modal-*` and `--ui-dialog-*` tokens. The mobile
+fullscreen variant is retained. Shared field grids consume
+`--ui-form-row-gap`/`--ui-form-column-gap`; field label-to-control spacing uses
+`--ui-field-stack-gap`. Without the optional tokens, the existing dimensions
+remain the fallbacks.
+
+These seams change presentation only. Metadata still owns field groups,
+defaults, validation, permissions, relationships and submission. Keyboard
+collapsibility is covered by `src/__tests__/formSectionKeyboard.test.tsx`;
+metadata grouping and inferred layout have their existing regression suites.
+
+Modal section collapse is forwarded from both authored sections and derived
+object field groups. A collapsed group keeps its draft controllers mounted;
+required fields still block submission and the first invalid group opens.
+Collapse is not permission or predicate hiding. Compact section counters show
+filled fields against readable, currently applicable members. Modal content
+has no outer desktop padding: header, body and footer each own one padding
+layer, so an upstream mobile-dialog default cannot double the host inset.
+With `confirmOnDiscard` enabled, the compact host also confirms a dirty Cancel;
+Keep editing returns to the existing draft. The default host retains immediate
+explicit cancellation.
+
+Inline master-detail grids consume the same control and table geometry tokens.
+Their modal accessible description and default line-items heading resolve
+through the active locale. A per-line or document amount total displays an em
+dash when the caller cannot read the amount field or the adapter did not return
+a finite value for a populated row; an explicit readable zero and a readable
+empty create-mode collection remain zero. This does not alter typed columns,
+computed cells, row validation or atomic `batchTransaction` persistence. The
+geometry gallery's Details sample only edits a draft because its in-memory
+adapter has no atomic persistence path.
+
+Auto-derived grids do not use an arbitrary quantity or rate column as their
+amount footer when no amount-like or currency column is available. Authors
+can explicitly choose a numeric `amountField` for a quantity total.
+
 Form plugin for Object UI - Advanced form components with validation, multi-step forms, and field-level control.
 
 ## Features
@@ -69,6 +133,9 @@ There is no aggregate map among them:
 ```typescript
 import {
   ObjectForm,
+  RelationshipCollectionEditor,
+  resolveRelationshipCollectionMetadata,
+  projectRelationshipDraftValues,
   TabbedForm,
   WizardForm,
   SplitForm,
@@ -101,6 +168,19 @@ import {
 
 import type {
   ObjectFormComponentProps,
+  ObjectFormController,
+  ObjectFormValidationResult,
+  RelationshipCollectionEditorProps,
+  RelationshipCollectionEditorController,
+  RelationshipCollectionValidationResult,
+  RelationshipCollectionValidationError,
+  RelationshipDraftRow,
+  RelationshipDraftRowContext,
+  ValidatedRelationshipCollectionDraft,
+  ValidatedRelationshipDraftRow,
+  RelationshipObjectSchemaLike,
+  RelationshipCollectionMetadata,
+  RelationshipCollectionMetadataError,
   ObjectFormProps,              // deprecated alias of ObjectFormComponentProps
   FormSectionContainerProps,
   TabbedFormProps,
@@ -918,6 +998,98 @@ or `'view'`, add the `recordId` of the record being opened. Note that this
 different key with a different vocabulary (`'edit' | 'read' | 'disabled'`, see
 [Schema API](#schema-api)).
 
+### Controlled ObjectForm runtime
+
+React hosts that keep the save operation in a domain workflow can control a
+simple create/edit ObjectForm without replacing its field renderer or its
+react-hook-form instance:
+
+```tsx
+import React from 'react';
+import type { DataSource } from '@object-ui/types';
+import {
+  ObjectForm,
+  type ObjectFormController,
+} from '@object-ui/plugin-form';
+
+function PurchaseEditor({ dataSource, saveThroughAction }: {
+  dataSource: DataSource;
+  saveThroughAction: (values: Record<string, unknown>) => Promise<void>;
+}) {
+  const [values, setValues] = React.useState<Record<string, unknown>>({ code: '' });
+  const [controller, setController] = React.useState<ObjectFormController | null>(null);
+  const [error, setError] = React.useState('');
+
+  async function save() {
+    if (!controller) return;
+    const result = await controller.validate();
+    if (!result.valid) {
+      setError(result.formError ?? Object.values(result.errors).join(', '));
+      return;
+    }
+    setError('');
+    await saveThroughAction(result.values);
+  }
+
+  return (
+    <>
+      <ObjectForm
+        schema={{ type: 'object-form', objectName: 'purchase_order', mode: 'create', showSubmit: false }}
+        dataSource={dataSource}
+        values={values}
+        onValuesChange={setValues}
+        onControllerReady={setController}
+      />
+      {error && <p role="alert">{error}</p>}
+      <button type="button" onClick={save}>Save through workflow</button>
+    </>
+  );
+}
+```
+
+`values`, `onValuesChange`, and `onControllerReady` are React-runtime props on
+`ObjectFormComponentProps`; they are **not** keys of `ObjectFormSchema`, Spec,
+JSON metadata, or the component registration inputs. `onValuesChange` receives
+edits from the mounted form. Echoing those values back does not reset the live
+form; a genuine host update is applied in place, preserving focus, dirty state,
+and collapsed groups. Model defaults still seed fields the host leaves out of
+`values`.
+
+The React Page runtime currently forwards function/value props through its
+registered block wrapper, but these three props are **not** in the generated
+`@objectstack/spec` React Page authoring contract. This runtime example does not
+claim that an authored Page passes `os validate` or publish validation with
+these props; that authoring-contract support is a separate pending change.
+
+`ObjectFormController.validate()` returns
+`{ valid: true, values }` or
+`{ valid: false, errors, formError? }`. It runs the mounted form's existing
+RHF rules and native/custom validity checks, expands and focuses grouped field
+errors, and returns values through the same read-only/system-field and field
+permission sanitization used by persistence. It never calls `submitHandler`,
+`DataSource.create`, or `DataSource.update`. While the form is loading,
+unavailable, or uploading, validation returns `valid: false` without writing.
+`onControllerReady` receives the controller as soon as the ObjectForm runtime
+mounts (so it can report a loading/unavailable result), then receives `null`
+when that ObjectForm unmounts.
+
+For a field the caller may read but not edit, the simple `ObjectForm` renders
+the localized `fields.permissions.editDenied` helper and disables the control.
+The same `checkField(..., 'write')` gate strips that field before a direct
+adapter write or a host-owned `submitHandler`, so the rendered restriction and
+the outgoing payload share one permission decision.
+
+Controlled mode supports `simple` forms, including grouped simple forms, in
+`create` and `edit`. Supplying these runtime props to another form variant or
+to a form with subforms renders an explicit unsupported-mode error; the
+uncontrolled behavior of those variants is unchanged.
+
+Hiding the built-in submit button does not change the form's native Enter-key
+submission. A row collector backed by a data source **must provide
+`submitHandler`** so Enter hands the collected row to the host instead of
+falling through to generic `create`/`update`. `validate()` is separate and does
+not call that handler.
+
 ### The TypeScript route — basic `form`
 
 A bare `form` never fetches or saves by itself: it has no object name and no
@@ -989,6 +1161,183 @@ anything.
 > there is ignored rather than mistaken for a binding. Pass adapters through the
 > provider above.
 
+## Trusted React Page runtime components
+
+The `@object-ui/plugin-form` package entry registers reviewed direct
+components for the host's `kind:'react'` runtime scope:
+
+- `<RelationshipCollectionEditor>` receives the authenticated host adapter and
+  retains its controlled values and function-valued `children` slot.
+- `<CompositeDialog>` is a presentation frame from `@object-ui/components`;
+  its `children` and function-valued `footer` are passed through without
+  injecting a `dataSource` prop.
+- `<ExportConfigurationDialog>` collects a host-owned export scope, ordered
+  display fields, format, and file name. It receives no `dataSource` and does
+  not create an export job or persist a template.
+- `<Switch>` reuses the standard accessible component from
+  `@object-ui/components`. Its `checked`, `onCheckedChange`, `disabled`, and
+  accessible name are controlled by the host page. It receives no adapter and
+  performs no persistence.
+- `<FormSectionContainer>` reuses the exported section container, including
+  `label`, `description`, `columns`, `collapsible`, initial `collapsed`,
+  `showBorder`, `className`, `gridClassName` and React children. It does not
+  receive an adapter or infer field counts. Collapsing unmounts its children;
+  keep field values in the parent page when they must survive a collapse.
+- `<SegmentedRadioGroup>` is the controlled equal-width radio group from
+  `@object-ui/components`. Pass `value`, `onValueChange`, `options` with string
+  `value`/`label` and optional `disabled`, and a group accessible name. It also
+  accepts group `disabled` and `className`. It receives no adapter and performs
+  no persistence. Geometry uses the existing control and button CSS tokens.
+- `<DatePicker>` reuses the existing date control from `@object-ui/components`
+  without injecting an adapter. Its controlled string channel is `value` /
+  `onValueChange`: valid dates emit `YYYY-MM-DD`, clearing emits `''`, and
+  invalid input emits the draft text while setting native custom validity.
+  The host can call its surrounding form's `reportValidity()` before writing.
+  Optional `onValidityChange(valid)` reports the same parsing/range verdict,
+  including `true` for empty input. Cache it in the host when a collapsible
+  section unmounts the control, and keep required-field checks separate.
+  `label`, input accessibility props, `placeholder`, `className`, `disabled`,
+  and `minDate`/`maxDate` retain their existing behavior. The existing
+  `date`/`onDateChange` channel remains available for Date-valued callers.
+
+These registrations are code-only runtime entries, not schema registrations or
+`PUBLIC_BLOCKS`/`REACT_BLOCKS` authoring declarations. The host imports this
+package before mounting pages; late registrations do not refresh an existing
+scope. See the React Pages guide for the authoring-contract boundary.
+
+In development, module replacement releases this module's runtime
+registrations before installing the replacement. Production registration
+continues to reject duplicate component names.
+
+### ExportConfigurationDialog
+
+The host supplies the fields it permits, page and filtered-result counts,
+already formatted preview values, and initial draft values. The dialog owns
+only the temporary selection state while it is open. Field keys are passed
+back to the host but never shown; visible labels and preview values are host
+resolved. The preview displays at most five rows.
+
+```tsx
+<ExportConfigurationDialog
+  open={exportOpen}
+  onOpenChange={setExportOpen}
+  permittedFields={exportFields}
+  initialFields={initialExportFields}
+  initialScope="all"
+  initialFormat="csv"
+  initialFileName="project-tasks"
+  currentPageCount={pageRows.length}
+  filteredTotalCount={filteredTotal}
+  previewRows={previewRows}
+  onExport={(scope, fields, format, fileName) =>
+    downloadExport({ scope, fields, format, fileName })
+  }
+/>
+```
+
+`onExport(scope, fields, format, fileName)` is the only submission callback.
+It may return a promise; the dialog disables editing while it runs and closes
+after success. A rejection leaves the draft open and shows a localized generic
+error. The dialog does not fetch rows, choose permitted fields, infer display
+values, change filtering, or save field order for later sessions. Closing an
+edited draft uses `CompositeDialog`'s discard confirmation.
+
+## Relationship collection drafts
+
+`RelationshipCollectionEditor` is a directly imported React component for
+native React hosts and a code-registered runtime component for trusted
+`kind:'react'` pages. The package entry injects it as
+`<RelationshipCollectionEditor>` before page scopes are built. This does not
+add a JSON schema type, a `PUBLIC_BLOCKS` entry, or a recursive FormView
+contract. The page's function-valued `children` slot stays a runtime React prop;
+the editor uses ObjectForm for fields, permissions, and validation.
+
+Provide `parentObjectName`, `childObjectName`, `dataSource`, controlled `value`
+rows (`{ draftKey, values }`), and `onChange`. The relationship field is inferred
+from the child's metadata or explicitly named with `relationshipField`; that
+foreign key is excluded from row controls and left for the host's transaction.
+`draftKey` is stable editor identity and is never record data.
+
+Each row edit is merged into the editor's latest local draft collection, so a
+late value event from an already mounted row cannot remove a sibling added
+while the host is still echoing an earlier `onChange`. The host remains the
+owner of the controlled `value` and should apply emitted collection snapshots
+in order or with latest-state semantics. The regression test named
+`merges a real row-form edit into the latest draft while the host value echo is delayed`
+pins this behavior with the real ObjectForm row renderer.
+
+`fields` optionally selects declared child controls in host order, and the
+one-time row header uses the same selected set. Unknown fields and the
+transaction-supplied foreign key are configuration errors. Other model-bound
+draft values may still carry host-selected defaults; the mounted ObjectForm's
+outbound permissions and sanitization remain authoritative, including for
+values whose controls were omitted.
+
+`sections` optionally passes existing `@objectstack/spec/ui` `FormSection`
+definitions into each row's ObjectForm. Their Spec `field`, `widget`,
+`colSpan`, and section layout are consumed by ObjectForm's section pipeline;
+the collection removes its `primaryField` from the body field list and section
+members so the header control does not appear twice.
+
+For card rows, `primaryField` names one declared boolean child field and adds a
+localized checkbox to each card header. It uses the row's same controlled
+ObjectForm values and validate/sanitize path. A host may provide
+`onPrimaryChange(draftKey, checked)` to enforce its collection policy, such as
+making the selection exclusive; the editor always updates the selected row
+through `onChange`, and without that callback it changes only that row. The
+field must be a child field rather than the parent lookup. A field the caller
+cannot read has no header control; a field they cannot write, or whose static
+or conditional readonly rule is active, is disabled and its value is excluded
+from the validated draft. `visibleWhen: false` or `hidden: true` hides the
+header control while retaining the value under ObjectForm's existing
+visibility semantics. For a predicate using `parent.*`, pass the actual
+`parentRecord`; ambient predicate scope is preserved.
+
+`onControllerReady` supplies a `RelationshipCollectionEditorController` with
+`validate()`. The result is either `{ valid: true, draft }` or
+`{ valid: false, errors, draft? }`. Each validated row contains writable values
+and any composed child drafts. Errors carry an outer-to-inner `rowKeys` path,
+object name, optional field name, and message. Loading, denied creation,
+unavailable nested controllers, and changes during async validation refuse the
+draft. The editor never calls data-source create/update/delete methods; Enter
+only collects local values through its row form's submit handler.
+
+Use `children={({ row, onControllerReady }) => ...}` for one directly nested
+collection per row and pass the supplied callback to that collection. A nested
+controller is required by default when this slot is supplied; set
+`nestedEditorRequired={false}` only for a slot with no nested collection.
+`includeRow` lets the host skip a fully empty draft before required validation.
+`minRows` constrains included rows; `canRemoveRow` independently constrains
+removal of visible drafts. A required-looking initial empty row need not become
+a persisted record. `createDraftValues` supplies documented local defaults.
+
+The default `presentation="cards"` uses Card/Header/Content for richer rows.
+`presentation="rows"` uses an inline form and a trailing remove action, useful
+for compact contact channels. `columns` controls the native ObjectForm grid;
+rows default to three columns. For a compact unequal layout, `fieldWidths`
+maps selected field names to the static `112` or `132` pixel widths; unlisted
+fields fill the remaining space. The field order remains the `fields` order.
+The built-in templates cover the two fixed widths in either order followed by
+fill, a single fixed column beside fill, and the corresponding one- or
+two-column subsets. Other signatures return a configuration error rather than
+silently changing the requested widths. Compact rows stack at narrow container
+widths, and their one-time header and ObjectForm use the same template. Without
+`fieldWidths`, the existing rows geometry and default profile remain unchanged.
+Both presentations use the same mounted fields and validation controller.
+Public labels and `className` can be supplied by the host.
+
+The standalone Console preview at `?sample=relationships` demonstrates a
+customer, contact, and contact-channel draft composition. Its outer **Check
+draft** action validates all included rows. It never saves records and is not
+evidence of an atomic server transaction or of authoring/publish acceptance.
+
+The runtime component scope is assembled once when a React page mounts. Import
+`@object-ui/plugin-form` in the host before mounting pages; late registrations do
+not refresh a mounted scope. Its React-only `children`, draft callbacks, and
+controller props are not declared by `@objectstack/spec` `REACT_BLOCKS`, so
+this runtime availability does not mean `os validate` or publish validation
+accepts the tag or its props.
+
 ## TypeScript Support
 
 `FormSchema` and `FormField` are protocol types, so they live in
@@ -1031,7 +1380,7 @@ The plugin includes these field components:
 
 ## Links
 
-- 📚 [Documentation](https://www.objectui.org/docs/plugins/plugin-form)
+- 📚 [Documentation](https://github.com/objectstack-ai/objectui/blob/main/content/docs/guide/react-pages.md#composing-relationship-drafts-in-a-native-react-host)
 - 📦 [npm package](https://www.npmjs.com/package/@object-ui/plugin-form)
 - 📝 [Changelog](./CHANGELOG.md)
 - 🐛 [Report an issue](https://github.com/objectstack-ai/objectui/issues)

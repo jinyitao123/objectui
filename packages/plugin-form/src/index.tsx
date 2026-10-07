@@ -15,11 +15,43 @@ import {
   useResolvedDataSource,
   type ElementDataSourceMapping,
 } from '@object-ui/react';
-import type { DataSource } from '@object-ui/types';
+import type { DataSource, ObjectFormSchema } from '@object-ui/types';
+import { CompositeDialog, DatePicker, DocumentWorkspace, DocumentSection, SegmentedRadioGroup, Switch, type ObjectFormController } from '@object-ui/components';
+import { GridField } from '@object-ui/fields';
 import { ObjectForm } from './ObjectForm';
+import { ExportConfigurationDialog } from './ExportConfigurationDialog';
+import { RelationshipCollectionEditor } from './RelationshipCollectionEditor';
+import { FormSectionContainer } from './FormSection';
 
 export { ObjectForm };
+export { ExportConfigurationDialog };
+export type {
+  ExportConfigurationDialogProps,
+  ExportConfigurationField,
+  ExportConfigurationFormat,
+  ExportConfigurationPreviewRow,
+  ExportConfigurationScope,
+} from './ExportConfigurationDialog';
 export type { ObjectFormComponentProps } from './ObjectForm';
+export type { ObjectFormController, ObjectFormValidationResult } from '@object-ui/components';
+export {
+  RelationshipCollectionEditor,
+  resolveRelationshipCollectionMetadata,
+  projectRelationshipDraftValues,
+} from './RelationshipCollectionEditor';
+export type {
+  RelationshipCollectionEditorProps,
+  RelationshipCollectionEditorController,
+  RelationshipCollectionValidationResult,
+  RelationshipCollectionValidationError,
+  RelationshipDraftRow,
+  RelationshipDraftRowContext,
+  ValidatedRelationshipCollectionDraft,
+  ValidatedRelationshipDraftRow,
+  RelationshipObjectSchemaLike,
+  RelationshipCollectionMetadata,
+  RelationshipCollectionMetadataError,
+} from './RelationshipCollectionEditor';
 
 /**
  * @deprecated Use `ObjectFormComponentProps`. Renamed in objectui#4650 because
@@ -29,7 +61,7 @@ export type { ObjectFormComponentProps } from './ObjectForm';
  * keep compiling.
  */
 export type { ObjectFormComponentProps as ObjectFormProps } from './ObjectForm';
-export { FormSectionContainer } from './FormSection';
+export { FormSectionContainer };
 export type { FormSectionContainerProps } from './FormSection';
 export {
   applyAutoLayout,
@@ -169,11 +201,33 @@ export type { ResolveSectionGroupsOptions } from './sectionGroups';
  */
 export type { FieldDefaultsSchemaLike } from './schemaDefaults';
 
-// Register object-form component
-const ObjectFormRenderer: React.FC<{ schema: any; dataSource?: unknown }> = elementDataSourceBlock(({
-  schema,
+// Register object-form component. These runtime-only props are intentionally
+// absent from `inputs`: they are React callbacks/values, not JSON metadata.
+interface ObjectFormRendererProps {
+  schema: ObjectFormSchema & Record<string, unknown>;
+  dataSource?: DataSource;
+  values?: Record<string, unknown>;
+  onValuesChange?: (values: Record<string, unknown>) => void;
+  onControllerReady?: (controller: ObjectFormController | null) => void;
+  [key: string]: unknown;
+}
+
+const ObjectFormRenderer: React.FC<ObjectFormRendererProps> = elementDataSourceBlock(({
+  schema: rawSchema,
   dataSource: dataSourceProp,
+  values: runtimeValues,
+  onValuesChange: runtimeOnValuesChange,
+  onControllerReady: runtimeOnControllerReady,
 }) => {
+  // React Page's public Block wrapper folds runtime JSX props into its
+  // transient SchemaRenderer node. Remove these three runtime slots before
+  // forwarding the authored form schema to ObjectForm/ElementDataSourceGate.
+  const {
+    values: schemaValues,
+    onValuesChange: schemaOnValuesChange,
+    onControllerReady: schemaOnControllerReady,
+    ...schema
+  } = rawSchema;
   // ObjectForm needs a dataSource to fetch the object schema and auto-generate
   // its fields. Without one, an `object-form` rendered straight through
   // SchemaRenderer (e.g. the Studio view preview) has no fields.
@@ -212,13 +266,21 @@ const ObjectFormRenderer: React.FC<{ schema: any; dataSource?: unknown }> = elem
       // so the two stay in step. A form with no `objectName` is a different
       // defect and is left to report itself.
       requiresDataSource={
-        !(schema?.customFields?.length > 0)
+        !((schema?.customFields?.length ?? 0) > 0)
         && typeof schema?.objectName === 'string'
         && schema.objectName.length > 0
       }
       noDataSourceMessage={noDataSourceMessage('object-form', schema?.objectName)}
     >
-      {(bound) => <ObjectForm schema={bound} dataSource={dataSource} />}
+      {(bound) => (
+        <ObjectForm
+          schema={bound}
+          dataSource={dataSource}
+          values={runtimeValues ?? schemaValues as Record<string, unknown> | undefined}
+          onValuesChange={runtimeOnValuesChange ?? schemaOnValuesChange as ObjectFormRendererProps['onValuesChange']}
+          onControllerReady={runtimeOnControllerReady ?? schemaOnControllerReady as ObjectFormRendererProps['onControllerReady']}
+        />
+      )}
     </ElementDataSourceGate>
   );
 });
@@ -259,7 +321,7 @@ ComponentRegistry.register('object-form', ObjectFormRenderer, {
     { name: 'recordId', type: 'string', description: 'The record to load in `edit` / `view` mode. Leave unset for `create`.' },
     { name: 'customFields', type: 'array', description: 'Field definitions merged over the set generated from object metadata. With inline definitions and no data source, this becomes the only field source.' },
     { name: 'initialValues', type: 'object', description: 'Values to prefill in `create` mode.' },
-    { name: 'initialData', type: 'object', description: 'Alternate spelling of `initialValues` that the drawer/modal presentations read FIRST (`schema.initialData || schema.initialValues`). Prefer `initialValues` in new schemas.' },
+    { name: 'initialData', type: 'object', description: 'Alternate spelling of `initialValues` that the drawer/modal presentations read FIRST — PER MEMBER (`{ ...initialValues, ...initialData }`), so a member this key says nothing about keeps its `initialValues` value. Prefer `initialValues` in new schemas.' },
     { name: 'readOnly', type: 'boolean', description: 'Render every field read-only, whatever `mode` says.' },
     // Buttons
     { name: 'submitText', type: 'string' },
@@ -427,13 +489,13 @@ ComponentRegistry.register('object-master-detail-form', MasterDetailFormRenderer
     // Declaring them would mint choices an authoring UI offers and this block
     // cannot honour.
     { name: 'formType', type: 'enum', enum: ['simple', 'tabbed'], description: 'How the PARENT half of the form is presented. The detail grids below it are unaffected.' },
-    { name: 'fields', type: 'array', description: 'Which parent fields to show, in order. Ignored when `sections` is given — sections carry their own field lists. Members are bare field names (`{ name }` tolerated); NOT the spec `FormFieldSchema` object `sections[].fields` accepts (identity key `field`) — that shape resolves to no name here and is silently skipped (the parent form renders through the same `ObjectForm` / `SimpleObjectForm` as `object-form` — see its `fields` description).' },
+    { name: 'fields', type: 'array', description: 'Which parent fields to show, in order — and it is NOT ignored when `sections` is given: the two INTERSECT. The parent field pool is built from this key first and every section then resolves its own members against that pool, so a section member this key does not list is dropped from the rendered form, and a section that loses EVERY member that way disappears with its heading. Each such drop is reported once via `console.warn` (objectui#9884); it is not repaired, because this key is also the parent pool for values, create defaults and the submitted set. Author one or the other, or list every section member here too. Members are bare field names (`{ name }` tolerated); NOT the spec `FormFieldSchema` object `sections[].fields` accepts (identity key `field`) — that shape resolves to no name here and is silently skipped (the parent form renders through the same `ObjectForm` / `SimpleObjectForm` as `object-form` — see its `fields` description).' },
     { name: 'title', type: 'string' },
     { name: 'submitText', type: 'string', description: 'Label of the button that saves the parent and every detail row in one batch.' },
     { name: 'cancelText', type: 'string' },
     { name: 'showSubmit', type: 'boolean' },
     { name: 'initialValues', type: 'object', description: 'Values to prefill on the PARENT record in `create` mode.' },
-    { name: 'initialData', type: 'object', description: 'Alternate spelling of `initialValues` the renderer also reads (MasterDetailForm.tsx:602). Prefer `initialValues` in new schemas.' },
+    { name: 'initialData', type: 'object', description: 'Alternate spelling of `initialValues` the renderer also reads: the `parentSchema` memo carries both keys onto the parent form, which merges them PER MEMBER with this one winning. Prefer `initialValues` in new schemas.' },
     { name: 'taxRateField', type: 'string', description: 'Name of the field ON THE CHILD object that holds each line’s tax rate. Feeds the line-items totals row; leave unset when the detail rows carry no tax.' },
   ],
 });
@@ -508,4 +570,52 @@ ComponentRegistry.register('line_items', LineItemsPanelRenderer, {
     { name: 'totalField', type: 'string' },
     { name: 'amountField', type: 'string' },
   ],
+});
+
+// Direct React-page components are code-registered runtime capabilities, not
+// serializable schema blocks. Register before any React page builds its stable
+// scope; this editor intentionally receives the host's authenticated adapter.
+ComponentRegistry.registerReactRuntimeComponent(
+  'RelationshipCollectionEditor',
+  RelationshipCollectionEditor,
+);
+ComponentRegistry.registerReactRuntimeComponent('CompositeDialog', CompositeDialog, {
+  injectDataSource: false,
+});
+ComponentRegistry.registerReactRuntimeComponent('ExportConfigurationDialog', ExportConfigurationDialog, {
+  injectDataSource: false,
+});
+ComponentRegistry.registerReactRuntimeComponent('DocumentWorkspace', DocumentWorkspace, { injectDataSource: false });
+ComponentRegistry.registerReactRuntimeComponent('DocumentSection', DocumentSection, { injectDataSource: false });
+ComponentRegistry.registerReactRuntimeComponent('Switch', Switch, { injectDataSource: false });
+ComponentRegistry.registerReactRuntimeComponent('FormSectionContainer', FormSectionContainer, { injectDataSource: false });
+ComponentRegistry.registerReactRuntimeComponent('SegmentedRadioGroup', SegmentedRadioGroup, { injectDataSource: false });
+ComponentRegistry.registerReactRuntimeComponent('DatePicker', DatePicker, { injectDataSource: false });
+ComponentRegistry.registerReactRuntimeComponent('GridField', GridField);
+
+// A development module replacement creates new component constructors. Release
+// only this module's registrations before replacement; production collisions
+// remain errors and another owner's registration must never be removed.
+const formHot = (import.meta as ImportMeta & {
+  hot?: { dispose(callback: () => void): void };
+}).hot;
+formHot?.dispose(() => {
+  for (const [name, component] of [
+    ['RelationshipCollectionEditor', RelationshipCollectionEditor],
+    ['CompositeDialog', CompositeDialog],
+    ['ExportConfigurationDialog', ExportConfigurationDialog],
+    ['DocumentWorkspace', DocumentWorkspace],
+    ['DocumentSection', DocumentSection],
+    ['Switch', Switch],
+    ['FormSectionContainer', FormSectionContainer],
+    ['SegmentedRadioGroup', SegmentedRadioGroup],
+    ['DatePicker', DatePicker],
+    ['GridField', GridField],
+  ] as const) {
+    const registration = ComponentRegistry.getReactRuntimeComponents()
+      .find((entry) => entry.name === name);
+    if (registration?.component === component) {
+      ComponentRegistry.unregisterReactRuntimeComponent(name);
+    }
+  }
 });

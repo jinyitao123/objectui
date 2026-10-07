@@ -127,7 +127,7 @@ describe('AppSchemaRenderer', () => {
     expect(dashLink?.getAttribute('href')).toBe('/apps/crm/dashboard/overview');
 
     const pageLink = screen.getByText('Settings').closest('a');
-    expect(pageLink?.getAttribute('href')).toBe('/apps/crm/page/settings');
+    expect(pageLink?.getAttribute('href')).toBe('/apps/crm/settings');
   });
 
   // #2918 — `type: 'component'` is part of the nav vocabulary; the sidebar

@@ -30,7 +30,7 @@ import { detectStatusField } from '@object-ui/types';
 // re-exports the same function; this module reads it from `@object-ui/core`
 // because that is the dependency this package's synth layer already carries
 // at this depth, and both spellings resolve to one table and one dedupe set.
-import { isRetiredFieldType, reportRetiredFieldType, resolveNameField } from '@object-ui/core';
+import { isDatabaseKeyField, isRetiredFieldType, reportRetiredFieldType, resolveNameField } from '@object-ui/core';
 import { inferDetailColumns } from '../autoLayout';
 
 /** Minimal shape of an object definition we read here. We deliberately
@@ -155,9 +155,13 @@ export interface BuildPageOptions {
    * Opt in to the Reference Rail (aside region with
    * `record:reference_rail`). The rail is OFF by default — it fans out a
    * collection query per related list, which is wasteful on records the
-   * author never intended to summarize. Set `showReferenceRail: true`
-   * (per object via `detail.showReferenceRail`) to surface it; it then
+   * author never intended to summarize. Set `showReferenceRail: true` on
+   * this options object to surface it — that is the only route: ADR-0085
+   * removed the per-object `detail` hints block, so no object definition
+   * can switch the rail on, and a per-page rail is an authored
+   * `record:reference_rail` node in an assigned Page schema. It then
    * emits only when `related` has at least 2 entries.
+   * Pinned by `__tests__/referenceRailRoute-9816.test.ts`.
    */
   showReferenceRail?: boolean;
   /**
@@ -455,7 +459,7 @@ export function deriveHighlightFields(
     // Filtering before the slice means the title never wastes a strip slot.
     const titleField = resolveTitleField(def);
     return declared
-      .filter((n): n is string => typeof n === 'string' && n.length > 0 && n !== titleField)
+      .filter((n): n is string => typeof n === 'string' && n.length > 0 && n !== titleField && !isDatabaseKeyField(n) && (def.fields as any)?.[n]?.hidden !== true)
       .slice(0, max);
   }
   // System fields and tenancy metadata never make useful highlights —
@@ -565,11 +569,11 @@ export function deriveHighlightFields(
     skip.add(h1Field);
   }
   for (const name of preferred) {
-    if (name in fields && !skip.has(name) && !refusedAsRetired(name)) out.push(name);
+    if (name in fields && (fields as any)[name]?.hidden !== true && !skip.has(name) && !refusedAsRetired(name)) out.push(name);
     if (out.length >= max) return out;
   }
   for (const name of Object.keys(fields)) {
-    if (out.includes(name) || skip.has(name)) continue;
+    if (out.includes(name) || skip.has(name) || (fields as any)[name]?.hidden === true) continue;
     if (refusedAsRetired(name)) continue;
     const fieldDef = (fields as any)[name];
     const ftype = fieldDef?.type;

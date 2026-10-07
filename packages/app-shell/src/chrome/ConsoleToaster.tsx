@@ -47,6 +47,7 @@ export function ConsoleToaster(props: ToasterProps) {
         loading: <LoaderCircle className="h-4 w-4 animate-spin" />,
       }}
       toastOptions={{
+        closeButtonAriaLabel: t('common.close', { defaultValue: 'Close' }),
         // 4s default keeps actionable toasts visible long enough to
         // click an Undo button without feeling sticky. objectui#7482 asked for
         // 3–5s on success toasts and this already sits in that band; it is

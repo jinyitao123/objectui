@@ -18,11 +18,18 @@ import { describe, it, expect, beforeEach, vi } from 'vitest';
 import { render, screen, fireEvent, waitFor } from '@testing-library/react';
 import React from 'react';
 
+const pageLookup = vi.hoisted(() => ({
+  activePackageId: undefined as string | undefined,
+  search: '',
+  page: { name: 'home', type: 'page', label: 'Home' },
+  getItem: vi.fn(),
+}));
+
 vi.mock('react-router-dom', () => ({
   useParams: () => ({ pageName: 'home' }),
-  useSearchParams: () => [new URLSearchParams(), vi.fn()],
+  useSearchParams: () => [new URLSearchParams(pageLookup.search), vi.fn()],
   useNavigate: () => vi.fn(),
-  useLocation: () => ({ pathname: '/apps/cloud/page/home', search: '' }),
+  useLocation: () => ({ pathname: '/apps/cloud/home', search: '' }),
 }));
 
 const authFetchSpy = vi.fn();
@@ -50,7 +57,13 @@ vi.mock('@object-ui/i18n', async (importOriginal) => ({
 }));
 
 vi.mock('../../providers/MetadataProvider', () => ({
-  useMetadata: () => ({ pages: [{ name: 'home', type: 'page', label: 'Home' }], objects: [] }),
+  useMetadataItem: pageLookup.getItem,
+}));
+
+vi.mock('../../providers/ExpressionProvider.js', () => ({
+  useExpressionContext: () => ({
+    app: pageLookup.activePackageId ? { _packageId: pageLookup.activePackageId } : undefined,
+  }),
 }));
 
 vi.mock('../MetadataInspector', () => ({
@@ -66,15 +79,18 @@ vi.mock('@object-ui/react', async (orig) => {
   return {
     ...actual,
     useAdapter: () => ({}),
-    SchemaRenderer: () => {
+    SchemaRenderer: ({ schema }: { schema: Record<string, unknown> }) => {
       const { execute } = actual.useAction();
       return (
-        <button
-          data-testid="page-api-action"
-          onClick={() => execute({ type: 'api', name: 'createEnv', target: '/api/v1/environments' })}
-        >
-          Create environment
-        </button>
+        <>
+          <div data-testid="resolved-page">{String(schema.label)}</div>
+          <button
+            data-testid="page-api-action"
+            onClick={() => execute({ type: 'api', name: 'createEnv', target: '/api/v1/environments' })}
+          >
+            Create environment
+          </button>
+        </>
       );
     },
   };
@@ -85,6 +101,14 @@ import { PageView } from '../PageView';
 beforeEach(() => {
   authFetchSpy.mockReset();
   authFetchSpy.mockResolvedValue({ ok: true, json: async () => ({ id: 'env_1' }) });
+  pageLookup.activePackageId = undefined;
+  pageLookup.search = '';
+  pageLookup.getItem.mockReset();
+  pageLookup.getItem.mockImplementation((_type: string, name?: string) => ({
+    item: name === 'home' ? pageLookup.page : null,
+    loading: false,
+    error: null,
+  }));
 });
 
 describe('PageView — console action runtime', () => {
@@ -96,5 +120,57 @@ describe('PageView — console action runtime', () => {
 
     await waitFor(() => expect(authFetchSpy).toHaveBeenCalled());
     expect(String(authFetchSpy.mock.calls[0][0])).toContain('/api/v1/environments');
+  });
+
+  it('resolves a same-name page from the active app package before the unscoped fallback', () => {
+    pageLookup.activePackageId = 'app.crm';
+    // A stale cross-app package filter in the URL must not override the app
+    // context selected by the navigation shell.
+    pageLookup.search = 'package=app.reports';
+    const packagePage = { ...pageLookup.page, label: 'CRM Home' };
+    pageLookup.getItem.mockImplementation((_type: string, name?: string, packageId?: string) => ({
+      item: name === 'home' && packageId === 'app.crm' ? packagePage : null,
+      loading: false,
+      error: null,
+    }));
+
+    render(<PageView />);
+
+    expect(screen.getByTestId('resolved-page').textContent).toBe('CRM Home');
+    expect(pageLookup.getItem).toHaveBeenCalledWith('page', 'home', 'app.crm');
+    expect(pageLookup.getItem).toHaveBeenCalledWith('page', undefined);
+  });
+
+  it('falls back to the unscoped page only after the package lookup returns not found', () => {
+    pageLookup.activePackageId = 'app.crm';
+    const fallbackPage = { ...pageLookup.page, label: 'Shared Home' };
+    pageLookup.getItem.mockImplementation((_type: string, name?: string, packageId?: string) => ({
+      item: name === 'home' && packageId === undefined ? fallbackPage : null,
+      loading: false,
+      error: null,
+    }));
+
+    render(<PageView />);
+
+    expect(screen.getByTestId('resolved-page').textContent).toBe('Shared Home');
+    expect(pageLookup.getItem).toHaveBeenCalledWith('page', 'home', 'app.crm');
+    expect(pageLookup.getItem).toHaveBeenCalledWith('page', 'home');
+  });
+
+  it('shows a load error and does not fall back when the package lookup fails', () => {
+    pageLookup.activePackageId = 'app.crm';
+    pageLookup.getItem.mockImplementation((_type: string, name?: string, packageId?: string) => ({
+      item: null,
+      loading: false,
+      error: name === 'home' && packageId === 'app.crm' ? new Error('503 unavailable') : null,
+    }));
+
+    render(<PageView />);
+
+    expect(screen.getByTestId('page-load-error')).toBeTruthy();
+    expect(screen.getByText('Unable to load page')).toBeTruthy();
+    expect(pageLookup.getItem).toHaveBeenCalledWith('page', 'home', 'app.crm');
+    expect(pageLookup.getItem).toHaveBeenCalledWith('page', undefined);
+    expect(pageLookup.getItem).not.toHaveBeenCalledWith('page', 'home');
   });
 });

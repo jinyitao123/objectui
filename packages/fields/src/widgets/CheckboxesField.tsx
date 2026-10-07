@@ -99,7 +99,7 @@ export function CheckboxesField({
   // No offered options is unfillable — surface a legible state instead of an
   // empty checkbox list: the host's `emptyHint` when it computed one, else this
   // widget's own translated copy. Shared with the select / multiselect / radio
-  // so the four cannot drift again (objectui#3231).
+  // so the fixed-option widgets cannot drift again (objectui#3231).
   if (options.length === 0) {
     return (
       <OptionsEmptyState

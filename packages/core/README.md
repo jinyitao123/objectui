@@ -37,7 +37,7 @@ import type {
 const mySchema: PageNodeSchema = {
   type: 'page',
   title: 'My Page',
-  body: []
+  children: []
 }
 ```
 
@@ -59,6 +59,24 @@ const renderer = ComponentRegistry.get('button')
 here is renderable from schema anywhere in the app. `register()`'s second
 argument is the component itself; registration metadata is its optional third
 argument, and `getMeta()` — not `get()` — reads that metadata back.
+
+Trusted hosts can also register a direct React component for a `kind:'react'`
+page scope:
+
+```typescript
+ComponentRegistry.registerReactRuntimeComponent('CustomerLookup', CustomerLookup)
+ComponentRegistry.registerReactRuntimeComponent('HostDialog', HostDialog, {
+  injectDataSource: false,
+})
+```
+
+These code-only entries are separate from schema registration: they do not add
+a schema type, component config, `PUBLIC_BLOCKS` member, or serializable author
+props. Register them during application startup, before React page scopes are
+built. The page scope intentionally does not subscribe to late changes, so
+registering later does not remount or update already-mounted pages. By default
+the scope forces its authenticated host `dataSource` onto the component;
+`injectDataSource: false` is for pure presentation components.
 
 ### Data Scope
 

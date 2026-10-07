@@ -58,6 +58,8 @@ import {
   pivotDimensionValue,
   pivotCellKey,
   compareToTrendLabelKey,
+  isDrillEnabled,
+  resolveDrillTitle,
   // The authored half of the same split — moved to core beside `buildChartSeries`
   // so this widget and the report's embedded chart lower one vocabulary once
   // (objectui#4877). Re-exported below under their original names.
@@ -75,9 +77,10 @@ import {
   type DatasetResultField,
   type DatasetDrillRange,
 } from '@object-ui/core';
+import type { DrillDownConfig } from '@object-ui/types';
 import { cn, Skeleton, ChartSkeleton, GridSkeleton } from '@object-ui/components';
 import { builtinAggregateLabels, useSafeFieldLabel, useSafeTranslate, useDisplayLocale, useObjectTranslation, pickLocalized } from '@object-ui/i18n';
-import { AlertTriangle, Download, ArrowUpIcon, ArrowDownIcon, MinusIcon, ChevronsUpDown, ChevronUp, ChevronDown } from 'lucide-react';
+import { AlertTriangle, Download, ArrowUpIcon, ArrowDownIcon, ArrowUpRight, MinusIcon, ChevronsUpDown, ChevronUp, ChevronDown } from 'lucide-react';
 // objectui#7063 — the default empty state is stated ONCE for the dashboard
 // surface (see that component's header for why it is dashboard-local).
 import { WidgetEmptyState } from './WidgetEmptyState';
@@ -464,6 +467,9 @@ export function DatasetWidget({ widget, dataSource, subCaption }: { widget: any;
     widget?.options && typeof widget.options === 'object' && !Array.isArray(widget.options)
       ? (widget.options as Record<string, unknown>)
       : {};
+  const drillDownConfig = options.drillDown && typeof options.drillDown === 'object' && !Array.isArray(options.drillDown)
+    ? options.drillDown as DrillDownConfig
+    : undefined;
   const dateGranularity = typeof options.dateGranularity === 'string' ? options.dateGranularity : undefined;
   const sortBy = typeof options.sortBy === 'string' && options.sortBy ? options.sortBy : undefined;
   // Only order by something this widget actually projects — the server rejects
@@ -566,7 +572,7 @@ export function DatasetWidget({ widget, dataSource, subCaption }: { widget: any;
 
   const [state, setState] = useState<{ status: 'idle' | 'loading' | 'ok' | 'error'; rows: Row[]; fields?: DatasetResultField[]; object?: string; dimensionFields?: Record<string, string>; drillRawRows?: Array<Record<string, unknown>>; drillRanges?: Array<Record<string, DatasetDrillRange>>; totals?: DatasetTotals[]; error?: string }>({ status: 'idle', rows: [] });
   // Drill-through (ADR-0021 D2): the clicked bucket's record-list filter + title.
-  const [drill, setDrill] = useState<{ filter: Record<string, unknown>; title: string } | null>(null);
+  const [drill, setDrill] = useState<{ filter: Record<string, unknown>; title: string; config?: DrillDownConfig } | null>(null);
   // ── The flat table's client-side sort (objectui#5827) ────────────────────
   // `null` = the dataset's own order. Declared up here with the other hooks
   // because the table branch sits AFTER this component's early returns, where a
@@ -763,7 +769,7 @@ export function DatasetWidget({ widget, dataSource, subCaption }: { widget: any;
   if (state.status === 'loading' || state.status === 'idle') {
     return (
       <div
-        className="h-full w-full p-2"
+        className="h-full w-full p-[var(--ui-dashboard-metric-inner-padding,0.5rem)]"
         data-testid="dataset-loading"
         role="status"
         aria-busy="true"
@@ -771,7 +777,7 @@ export function DatasetWidget({ widget, dataSource, subCaption }: { widget: any;
       >
         <span className="sr-only">{tt('dashboard.loading', 'Loading…')}</span>
         {isMetric ? (
-          <div className="flex h-full w-full flex-col items-start justify-center gap-2 p-2">
+          <div className="flex h-full w-full flex-col items-start justify-center gap-2 p-[var(--ui-dashboard-metric-inner-padding,0.5rem)]">
             <Skeleton className="h-8 w-32 rounded" />
             <Skeleton className="h-3 w-20 rounded" />
           </div>
@@ -858,16 +864,23 @@ export function DatasetWidget({ widget, dataSource, subCaption }: { widget: any;
   // #1752: a date-only widget has no equality drill dim but still drills by the
   // server's per-row date RANGE, so the presence of ranges makes it drillable too.
   const canDrill = !!drillObject && (drillDims.length > 0 || !!drillRanges?.length);
-  const openDrill = (index: number, title: string) => {
+  const metricDrillEnabled = isMetric && isDrillEnabled(drillDownConfig) && !!drillObject;
+  const openDrill = (index: number, title: string, config?: DrillDownConfig) => {
     if (!drillObject) return;
     const merged = buildDrillFilter(drillRawRows?.[index], drillDims, dimensionFields ?? {}, runtimeFilter, drillRanges?.[index]);
-    setDrill({ filter: merged, title: title || String(widget?.title ?? '') });
+    setDrill({ filter: merged, title: title || String(widget?.title ?? ''), config });
   };
   const drillDrawer = drill && drillObject ? (
     <DrillDownDrawer
       open
       onClose={() => setDrill(null)}
       title={drill.title || String(widget?.title ?? tt('dashboard.details', 'Details'))}
+      {...(drill.config ? {
+        target: drill.config.target,
+        columns: drill.config.columns,
+        maxRows: drill.config.maxRows,
+        report: drill.config.report as Record<string, unknown> | undefined,
+      } : {})}
       objectName={drillObject}
       filter={drill.filter}
       dataSource={dataSource}
@@ -954,11 +967,18 @@ export function DatasetWidget({ widget, dataSource, subCaption }: { widget: any;
     const resolvedSubCaption = subCaption === undefined
       ? (pickLocalized(options.description, language) || undefined)
       : (subCaption || undefined);
+    const resolvedMetricLabel = headerLabel(values[0]);
+    const metricDrillTitle = resolveDrillTitle(
+      drillDownConfig,
+      {},
+      pickLocalized(widget?.title, language) || resolvedMetricLabel || tt('dashboard.details', 'Details'),
+    );
     return (
-      <div className="flex h-full w-full flex-col items-start justify-center gap-1 p-2">
-        <span className={cn('text-2xl font-semibold tabular-nums', accentClass)}>{formatMeasure(value, f?.format, f?.currency, f?.percentScale, displayLocale)}</span>
+      <>
+      <div className="flex h-full w-full flex-col items-start justify-center gap-1 p-[var(--ui-dashboard-metric-inner-padding,0.5rem)]">
+        <span className={cn('mt-[var(--ui-dashboard-metric-value-margin-top,0px)] text-[length:var(--ui-dashboard-metric-value-font-size,1.5rem)] leading-[var(--ui-dashboard-metric-value-line-height,2rem)] [font-weight:var(--ui-dashboard-metric-value-font-weight,600)] tabular-nums', accentClass)}>{formatMeasure(value, f?.format, f?.currency, f?.percentScale, displayLocale)}</span>
         {delta && (
-          <div className="mt-0.5 flex min-w-0 flex-wrap items-center gap-x-2 gap-y-0.5 text-xs text-muted-foreground" data-testid="dataset-compare-trend">
+          <div className="mt-[var(--ui-dashboard-metric-delta-margin-top,0.125rem)] flex min-w-0 flex-wrap items-center gap-x-2 gap-y-0.5 text-xs text-muted-foreground" data-testid="dataset-compare-trend">
             <span className={cn(
               'flex shrink-0 items-center font-medium',
               delta.direction === 'up' && 'text-emerald-600 dark:text-emerald-400',
@@ -973,11 +993,32 @@ export function DatasetWidget({ widget, dataSource, subCaption }: { widget: any;
             <span className="min-w-0 truncate">{compareLabel}</span>
           </div>
         )}
-        <span className="text-xs text-muted-foreground">{headerLabel(values[0])}</span>
+        {metricDrillEnabled ? (
+          <div className="flex w-full min-w-0 items-center gap-[var(--ui-dashboard-metric-interaction-gap,0.5rem)]">
+            <span className="min-w-0 flex-1 truncate text-xs text-muted-foreground">{resolvedMetricLabel}</span>
+            <button
+              type="button"
+              data-testid="dataset-metric-drill-action"
+              aria-label={`${tt('dashboard.details', 'Details')}: ${resolvedMetricLabel}`}
+              className="inline-flex h-[var(--ui-dashboard-metric-drill-button-size,1.75rem)] w-[var(--ui-dashboard-metric-drill-button-size,1.75rem)] shrink-0 items-center justify-center rounded text-muted-foreground transition-colors hover:bg-muted hover:text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+              onClick={(event) => {
+                event.stopPropagation();
+                openDrill(0, metricDrillTitle, drillDownConfig);
+              }}
+              onKeyDown={(event) => event.stopPropagation()}
+            >
+              <ArrowUpRight aria-hidden="true" className="h-3.5 w-3.5" />
+            </button>
+          </div>
+        ) : (
+          <span className="text-xs text-muted-foreground">{resolvedMetricLabel}</span>
+        )}
         {resolvedSubCaption && (
           <span className="text-xs text-muted-foreground" data-testid="dataset-metric-subcaption">{resolvedSubCaption}</span>
         )}
       </div>
+      {drillDrawer}
+      </>
     );
   }
 
@@ -1640,7 +1681,7 @@ export function DatasetWidget({ widget, dataSource, subCaption }: { widget: any;
   // pass both so the segment click drills regardless of which is registered.
   const chartDrill = canDrill ? handleChartDrill : undefined;
   return (
-    <div className={cn('relative h-full w-full min-h-[220px]')}>
+    <div className={cn('relative h-full w-full min-h-[220px] [--ui-chart-height:var(--ui-dashboard-chart-height,350px)]')}>
       <SchemaRenderer
         // isAnimationActive: false — dashboard charts render at final geometry on
         // the FIRST committed frame. Recharts' entrance animation is a rAF tween

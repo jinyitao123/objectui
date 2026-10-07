@@ -356,49 +356,43 @@ export function LookupField({ value, onChange, field, readonly, error: fieldErro
     [dependsOn, dependsOnLabelsProp, t],
   );
 
-  // Resolve dependent field values from the explicit prop. See the resolver
-  // below for why the context leg of that chain cannot fire (objectui#7206).
+  // The record a dependent lookup gates on. The HOST supplies it on the
+  // `dependentValues` prop; there is no context fallback (objectui#7206) — see
+  // the resolver below.
   const dependentValuesProp = props.dependentValues;
 
   // Resolve DataSource: explicit prop > field-level > wrapper field > SchemaRendererContext > none
   const ctx = useContext(SchemaRendererContext);
   const contextDataSource = ctx?.dataSource ?? null;
-  /** A deliberately widened VIEW of the same context value, for the two reads
-   *  below that name members `SchemaRendererContextType` does not declare. It
-   *  exists so that widening cannot reach the `dataSource` read above; the
-   *  reads themselves are unchanged, and objectui#7206 still owns whether that
-   *  channel becomes real or is retired. */
-  const untypedCtx = ctx as unknown as
-    | { formValues?: Record<string, any>; data?: Record<string, any> }
-    | null;
   const dataSource: DataSource | null =
     (props.dataSource as DataSource | null | undefined) ?? lookupField?.dataSource ?? fieldMeta?.dataSource ?? contextDataSource;
 
-  /** Resolve dependent values from the explicit prop — today the ONLY channel
-   *  that can carry a record.
+  /** The record this picker gates and scopes itself by: the `dependentValues`
+   *  prop its HOST passes, and nothing else. There is NO context fallback.
    *
-   *  ⚠️ This comment used to call `ctx.data` the "record scope" channel and
+   *  This resolution used to end `?? ctx.formValues ?? ctx.data ?? {}`, and
+   *  this note used to call `ctx.data` the "record scope" channel and
    *  `ctx.formValues` a "form-data context provided by @object-ui/react".
-   *  Neither member exists. `SchemaRendererContextType`
+   *  Neither member ever existed: `SchemaRendererContextType`
    *  (`@object-ui/react`, `context/SchemaRendererContext.tsx`) declares exactly
    *  `dataSource`, `debug`, `debugFlags` and `apiFetch`, and
-   *  `SchemaRendererProvider` accepts no other prop — so the
-   *  `?? ctx?.formValues ?? ctx?.data` tail below is UNCONDITIONALLY `{}` in
-   *  production. Unsettable, not merely unset: no host can populate a member
-   *  the type does not declare. A widget reached without `dependentValues`
-   *  therefore resolves `{}`, which for a `dependsOn` lookup renders a
-   *  permanently gated picker — the shared root of objectui#7165 (the grid's
-   *  inline column) and objectui#7190 (the detail page), both of which were
-   *  first read as independent host bugs because this comment said a host
-   *  could supply the record through the context.
+   *  `SchemaRendererProvider` accepts no other prop — so those two links were
+   *  unsettable rather than merely unset, and the tail resolved `{}` for every
+   *  host that ever rendered this widget. Both were retired under ADR-0049
+   *  enforce-or-remove (objectui#7206, maintainer ruling 2026-09-18).
    *
-   *  ⛔ The tail is left exactly as it is. Whether the channel should be made
-   *  real or retired is OPEN on objectui#7206 and is not decided here; do not
-   *  read this note as either outcome. */
-  const resolvedDependentValues: Record<string, any> = useMemo(() => {
-    if (dependentValuesProp) return dependentValuesProp;
-    return (untypedCtx?.formValues ?? untypedCtx?.data ?? {}) as Record<string, any>;
-  }, [dependentValuesProp, untypedCtx?.formValues, untypedCtx?.data]);
+   *  ⇒ A widget reached without `dependentValues` resolves `{}`, which for a
+   *  `dependsOn` lookup renders a permanently gated picker. That failure is now
+   *  the whole diagnostic, and it is meant to be visible: the host holding the
+   *  record passes it (objectui#7165 for the grid's inline column,
+   *  objectui#7190 for the detail page). ⛔ Do not re-add a context leg here
+   *  — objectui#7165 and objectui#7190 were both first read as independent host
+   *  bugs precisely because this note claimed a host could supply the record
+   *  through the context. */
+  const resolvedDependentValues: Record<string, any> = useMemo(
+    () => dependentValuesProp ?? {},
+    [dependentValuesProp],
+  );
 
   /** True when at least one dependency is missing (empty). The picker is gated
    *  in that state so we never issue an unfiltered query that ignores the
@@ -1126,6 +1120,9 @@ export function LookupField({ value, onChange, field, readonly, error: fieldErro
   // INSIDE a borderless trigger on a single line — no chip stacked above a
   // separate "Select…" button (which double-stacks and wastes the row height).
   const compact = !!props.compact;
+  const compactSingle = !multiple && typeof document !== 'undefined' &&
+    document.documentElement.dataset.uiProfile === 'compact-enterprise';
+  const inlineSelected = compact || compactSingle;
   const singleSelectedLabel = selectedOptions[0]?.label || selectedOptions[0]?.[displayField];
 
   // Shared field trigger — the anchor for either the inline PeoplePicker
@@ -1148,7 +1145,8 @@ export function LookupField({ value, onChange, field, readonly, error: fieldErro
         // clip instead (objectui#3466). flex-1/min-w-0 keep handling the
         // flex-parent (form row) case.
         'min-w-0 max-w-full flex-1 justify-start text-left font-normal',
-        compact && 'h-8 rounded-none border-0 bg-transparent px-2 shadow-none focus-visible:ring-1 focus-visible:ring-ring/60',
+        compact && 'h-[var(--ui-control-height,2rem)] rounded-none border-0 bg-transparent px-[var(--ui-input-padding-x,0.5rem)] text-[length:var(--ui-control-font-size,0.875rem)] shadow-none focus-visible:ring-1 focus-visible:ring-ring/60',
+        compactSingle && 'w-full',
       )}
       type="button"
       disabled={dependenciesMissing || props.disabled}
@@ -1163,11 +1161,11 @@ export function LookupField({ value, onChange, field, readonly, error: fieldErro
     >
       {hydrating ? (
         <Loader2
-          className={cn('size-4 shrink-0 animate-spin text-muted-foreground', compact ? 'mr-1.5' : 'mr-2')}
+          className={cn('size-4 shrink-0 animate-spin text-muted-foreground', compact ? 'mr-[var(--ui-button-gap,0.375rem)]' : 'mr-2')}
           data-testid="lookup-hydrating"
         />
       ) : (
-        <Search className={cn('size-4 shrink-0 text-muted-foreground', compact ? 'mr-1.5' : 'mr-2')} />
+        <Search className={cn('size-4 shrink-0 text-muted-foreground', compact ? 'mr-[var(--ui-button-gap,0.375rem)]' : 'mr-2')} />
       )}
       <span className={cn('truncate', compact && selectedOptions.length === 0 && 'text-muted-foreground')}>
         {dependenciesMissing
@@ -1178,7 +1176,7 @@ export function LookupField({ value, onChange, field, readonly, error: fieldErro
             ? multiple
               ? t('table.selected', { count: rawSelectedCount })
               : t('lookup.loading')
-            : compact && !multiple && selectedOptions.length > 0
+            : inlineSelected && !multiple && selectedOptions.length > 0
               ? singleSelectedLabel
               : selectedOptions.length === 0
                 ? lookupField?.placeholder || t('common.select')
@@ -1187,10 +1185,26 @@ export function LookupField({ value, onChange, field, readonly, error: fieldErro
     </Button>
   );
 
+  /**
+   * Whether the selected-value chips offer their remove control.
+   *
+   * `readonly` already returned a display-only rendering far above, so the case
+   * this answers is the DISABLED one — and it is not a rare one: a field the
+   * object declares `readonly` arrives here as `disabled` (the form's section
+   * builder folds `field.readonly` into `disabled`), and so does a field the
+   * caller's field-level security marks `editable: false`. Both disabled the
+   * picker trigger and the browse button while leaving the chip's ✕ live, so
+   * the one control that could still CHANGE the value was the one control the
+   * gate had missed — a reporter could clear a master-detail parent the server
+   * would then refuse to unset (objectui#10120). ⭐ A refusal the UI invites is
+   * worse than a refusal it prevents: the chips stay, the affordance goes.
+   */
+  const chipsRemovable = !props.disabled;
+
   return (
-    <div className={compact ? '' : 'space-y-2'}>
+    <div className={inlineSelected ? 'min-w-0' : 'space-y-2'}>
       {/* Selected values display (full mode only — compact shows it in-trigger) */}
-      {selectedOptions.length > 0 && !compact && (
+      {selectedOptions.length > 0 && !inlineSelected && (
         <div className="flex flex-wrap gap-1">
           {selectedOptions.map((opt, idx) => {
             const chipLabel = opt?.label || opt?.[displayField];
@@ -1211,28 +1225,32 @@ export function LookupField({ value, onChange, field, readonly, error: fieldErro
                     </AvatarFallback>
                   </Avatar>
                   <span className="max-w-[10rem] truncate">{chipLabel}</span>
-                  <button
-                    onClick={() => handleRemove(opt?.value)}
-                    className="rounded-full p-0.5 text-muted-foreground transition-colors hover:bg-accent hover:text-foreground"
-                    type="button"
-                    aria-label={t('lookup.remove', { label: chipLabel })}
-                  >
-                    <X className="size-3" />
-                  </button>
+                  {chipsRemovable && (
+                    <button
+                      onClick={() => handleRemove(opt?.value)}
+                      className="rounded-full p-0.5 text-muted-foreground transition-colors hover:bg-accent hover:text-foreground"
+                      type="button"
+                      aria-label={t('lookup.remove', { label: chipLabel })}
+                    >
+                      <X className="size-3" />
+                    </button>
+                  )}
                 </span>
               );
             }
             return (
               <Badge key={idx} variant="outline" className="gap-1">
                 {chipLabel}
-                <button
-                  onClick={() => handleRemove(opt?.value)}
-                  className="ml-1 hover:text-destructive"
-                  type="button"
-                  aria-label={t('lookup.remove', { label: chipLabel })}
-                >
-                  <X className="size-3" />
-                </button>
+                {chipsRemovable && (
+                  <button
+                    onClick={() => handleRemove(opt?.value)}
+                    className="ml-1 hover:text-destructive"
+                    type="button"
+                    aria-label={t('lookup.remove', { label: chipLabel })}
+                  >
+                    <X className="size-3" />
+                  </button>
+                )}
               </Badge>
             );
           })}
@@ -1241,6 +1259,7 @@ export function LookupField({ value, onChange, field, readonly, error: fieldErro
 
       {/* Field control: search-first inline combobox (anchored dropdown / mobile
           sheet), else the classic quick-select popover. */}
+      <div className={compactSingle ? 'flex min-w-0 items-center gap-1.5' : undefined}>
       {pickerVariant === 'search' && hasDataSource && dataSource && referenceTo ? (
         <PeoplePicker
           inline
@@ -1263,7 +1282,7 @@ export function LookupField({ value, onChange, field, readonly, error: fieldErro
           baseFilter={dependentFilter}
         />
       ) : (
-      <div className="flex items-center gap-1.5">
+      <div className={cn('flex items-center gap-1.5', compactSingle && 'min-w-0 flex-1')}>
       <Popover
         open={isOpen}
         onOpenChange={(o) => {
@@ -1473,6 +1492,14 @@ export function LookupField({ value, onChange, field, readonly, error: fieldErro
       )}
       </div>
       )}
+      {compactSingle && selectedOptions.length > 0 && chipsRemovable && (
+        <Button type="button" variant="ghost" size="icon" className="shrink-0"
+          aria-label={t('lookup.remove', { label: singleSelectedLabel })}
+          onClick={() => handleRemove(selectedOptions[0]?.value)}>
+          <X className="size-3" aria-hidden="true" />
+        </Button>
+      )}
+      </div>
 
       {/* Level 2: classic table picker — search fields use the inline combobox above. */}
       {hasDataSource && dataSource && referenceTo && pickerVariant !== 'search' && (

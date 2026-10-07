@@ -28,10 +28,14 @@
  * not swallow the genuine first-run case or the author's own override.
  */
 
-import { describe, it, expect, vi } from 'vitest';
-import { render, waitFor } from '@testing-library/react';
+import { describe, it, expect, vi, beforeAll, afterAll } from 'vitest';
+import { fireEvent, render, waitFor } from '@testing-library/react';
+import '@testing-library/jest-dom/vitest';
+import React from 'react';
+import { ComponentRegistry } from '@object-ui/core';
 import { ListView } from '../ListView';
 import { SchemaRendererProvider } from '@object-ui/react';
+import { PermissionProvider } from '@object-ui/permissions';
 import type { ListViewSchema } from '@object-ui/types';
 
 /** A data source that answers every query with zero rows. */
@@ -45,17 +49,47 @@ function emptyDataSource() {
   };
 }
 
-async function emptyState(schema: ListViewSchema): Promise<HTMLElement> {
+let previousObjectGrid: any;
+
+beforeAll(() => {
+  previousObjectGrid = ComponentRegistry.get('object-grid');
+  ComponentRegistry.register('object-grid', ({ emptyStateContent }: { emptyStateContent?: React.ReactNode }) => (
+    <div data-testid="object-grid-stub">{emptyStateContent}</div>
+  ));
+});
+
+afterAll(() => {
+  if (previousObjectGrid) ComponentRegistry.register('object-grid', previousObjectGrid);
+  else ComponentRegistry.unregister('object-grid');
+});
+
+async function renderEmptyList(
+  schema: ListViewSchema,
+  options: { permissionLoaded?: boolean; onAddRecord?: () => void } = {},
+) {
   const ds = emptyDataSource();
+  const list = <ListView schema={schema} dataSource={ds as any} onAddRecord={options.onAddRecord} />;
+  const page = options.permissionLoaded === false
+    ? list
+    : (
+        <PermissionProvider roles={[]} permissions={[]} userRoles={[]}>
+          {list}
+        </PermissionProvider>
+      );
   const { container } = render(
     <SchemaRendererProvider dataSource={ds as any}>
-      <ListView schema={schema} dataSource={ds as any} />
+      {page}
     </SchemaRendererProvider>,
   );
   await waitFor(() => {
     expect(container.querySelector('[data-testid="empty-state"]')).not.toBeNull();
   });
-  return container.querySelector('[data-testid="empty-state"]') as HTMLElement;
+  return { container, panel: container.querySelector('[data-testid="empty-state"]') as HTMLElement };
+}
+
+async function emptyState(schema: ListViewSchema): Promise<HTMLElement> {
+  const { panel } = await renderEmptyList(schema);
+  return panel;
 }
 
 const BASE: ListViewSchema = {
@@ -107,6 +141,7 @@ describe('ListView empty state — a filtered view says it is filtered (#4155)',
 
     expect(panel.textContent).toMatch(/Nothing here yet/i);
     expect(panel.textContent).not.toMatch(/No matching records/i);
+    expect(panel.querySelector('[data-testid="empty-state-add-record"]')).toBeNull();
   });
 
   it('an empty filter array is not "filtered" — it imposes nothing', async () => {
@@ -126,5 +161,26 @@ describe('ListView empty state — a filtered view says it is filtered (#4155)',
 
     expect(panel.textContent).toMatch(/No open work orders/);
     expect(panel.textContent).not.toMatch(/No matching records/i);
+  });
+
+  it('keeps the existing empty-state callback behind the authored add-record capability', async () => {
+    const onAddRecord = vi.fn();
+    const { container, panel } = await renderEmptyList(
+      authored({ ...BASE, addRecord: { enabled: true } }),
+      { onAddRecord },
+    );
+    const action = container.querySelector('[data-testid="empty-state-add-record"]');
+
+    expect(action).not.toBeNull();
+    expect(panel).toContainElement(action as HTMLElement);
+    fireEvent.click(action as HTMLElement);
+    expect(onAddRecord).toHaveBeenCalledTimes(1);
+  });
+
+  it('does not mount a grid header while the field permission result is unresolved', async () => {
+    const { container, panel } = await renderEmptyList(BASE, { permissionLoaded: false });
+
+    expect(panel.textContent).toMatch(/Nothing here yet/i);
+    expect(container.querySelector('[data-testid="object-grid-stub"]')).toBeNull();
   });
 });

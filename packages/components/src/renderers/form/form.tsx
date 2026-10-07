@@ -10,17 +10,13 @@ import { ComponentRegistry, resolveFieldRuleState, evalFieldPredicate, resolveCa
 import type { FormSchema, FormField as FormFieldConfig, FormFieldTab, FormFieldPane, FieldCondition, SelectOption } from '@object-ui/types';
 import { useForm } from 'react-hook-form';
 import { Form, FormField, FormItem, FormLabel, FormControl, FormMessage, FormDescription } from '../../ui/form';
-import { Button } from '../../ui/button';
-import { Input } from '../../ui/input';
-import { Textarea } from '../../ui/textarea';
+import { Button, Input, Textarea, SelectTrigger, SelectItem } from '../../custom/profile-controls';
 import { Checkbox } from '../../ui/checkbox';
 import { Switch } from '../../ui/switch';
 import { 
   Select, 
-  SelectTrigger, 
   SelectValue, 
-  SelectContent, 
-  SelectItem 
+  SelectContent,
 } from '../../ui/select';
 import { renderChildren } from '../../lib/utils';
 import { toControlValue, matchOptionValue, type OptionValue } from './option-value';
@@ -34,6 +30,11 @@ import { AlertCircle, ChevronDown, ChevronRight, Loader2 } from 'lucide-react';
 // (objectui#3398). The icons and the `Dialog` family that used to be imported
 // here belonged to the hand-written copy this branch no longer carries.
 import { FullscreenEditor } from '../../custom/fullscreen-editor';
+import {
+  ObjectFormRuntimeContext,
+  type ObjectFormController,
+  type ObjectFormValidationResult,
+} from './objectFormRuntime';
 // The character counter both long-text render paths render (objectui#3439).
 // Hoisted here from `@object-ui/fields` for the same measured reason, and in
 // the same direction, as `FullscreenEditor` above (objectui#3398 / PR #4193):
@@ -45,35 +46,53 @@ import { SchemaRendererContext, usePredicateScope, isPermissionError, extractWri
 import { createSafeTranslation } from '@object-ui/i18n';
 
 /** Inline section header rendered as a virtual field inside a flat SchemaRenderer field list.
- *  Collapsibility is controlled externally (collapsed state lives in DrawerForm). */
-function SectionDivider({ label, description, collapsible, collapsed, onToggle, className }: {
+ *  Collapsibility is controlled by the hosting form. */
+function SectionDivider({ label, description, collapsible, collapsed, onToggle, className, filled, total }: {
   label?: string;
   description?: string;
   collapsible?: boolean;
   collapsed?: boolean;
   onToggle?: () => void;
   className?: string;
+  filled?: number;
+  total?: number;
 }) {
   if (!label && !description) return null;
   return (
     <div
+      data-form-section=""
       className={cn(
-        'col-span-full pt-4 pb-1 border-b border-border',
-        collapsible && 'cursor-pointer select-none',
+        'col-span-full pt-[var(--ui-section-padding-top,1rem)] pb-[var(--ui-section-padding-bottom,0.25rem)] border-b-[length:var(--ui-section-border-width,1px)] border-border',
+        collapsible && 'cursor-pointer select-none focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring',
         className
       )}
       onClick={collapsible ? onToggle : undefined}
       role={collapsible ? 'button' : undefined}
+      tabIndex={collapsible ? 0 : undefined}
       aria-expanded={collapsible ? !collapsed : undefined}
+      onKeyDown={collapsible ? (event) => {
+        if (event.key === 'Enter' || event.key === ' ') {
+          event.preventDefault();
+          onToggle?.();
+        }
+      } : undefined}
     >
       {label && (
-        <div className="flex items-center gap-1.5">
+        <div className="flex items-center gap-[var(--ui-section-heading-gap,0.375rem)] before:content-[''] before:[display:var(--ui-section-accent-display,none)] before:w-[var(--ui-section-accent-width,0px)] before:h-[var(--ui-section-accent-height,0px)] before:bg-primary">
           {collapsible && (
             collapsed
-              ? <ChevronRight className="h-3.5 w-3.5 text-muted-foreground" />
-              : <ChevronDown className="h-3.5 w-3.5 text-muted-foreground" />
+              ? <ChevronRight className="order-[var(--ui-section-chevron-order,0)] h-3.5 w-3.5 text-muted-foreground" />
+              : <ChevronDown className="order-[var(--ui-section-chevron-order,0)] h-3.5 w-3.5 text-muted-foreground" />
           )}
-          <span className="text-sm font-semibold text-foreground">{label}</span>
+          <span
+            aria-hidden="true"
+            data-form-section-step=""
+            className="order-0 shrink-0 items-center justify-center rounded-full bg-primary text-primary-foreground [display:var(--ui-section-step-display,none)] [counter-increment:object-ui-form-section] before:[content:counter(object-ui-form-section)] size-[var(--ui-section-step-size,var(--ui-document-section-step-size,1.25rem))] text-[length:var(--ui-section-step-font-size,var(--ui-document-section-step-font-size,0.75rem))] font-[number:var(--ui-section-step-font-weight,var(--ui-document-section-step-font-weight,700))] leading-none"
+          />
+          <span data-form-section-label="" className="order-1 text-[length:var(--ui-section-font-size,0.875rem)] font-semibold text-foreground">{label}</span>
+          {total != null && total > 0 && (
+            <span aria-hidden="true" className="order-3 ml-auto [display:var(--ui-section-count-display,none)] text-xs font-normal text-muted-foreground">{filled ?? 0}/{total}</span>
+          )}
         </div>
       )}
       {/* A section's authored blurb. Carried on the divider because a sectioned
@@ -317,6 +336,45 @@ const valuesEqualForDirty = (a: unknown, b: unknown): boolean => {
   }
 };
 
+/** Structural equality for the ObjectForm's runtime-controlled value channel. */
+const valuesEqualForControl = (a: unknown, b: unknown): boolean => {
+  if (Object.is(a, b)) return true;
+  if (a instanceof Date || b instanceof Date) {
+    return a instanceof Date && b instanceof Date && a.getTime() === b.getTime();
+  }
+  if (!a || !b || typeof a !== 'object' || typeof b !== 'object') return false;
+  if (Array.isArray(a) || Array.isArray(b)) {
+    return Array.isArray(a)
+      && Array.isArray(b)
+      && a.length === b.length
+      && a.every((value, index) => valuesEqualForControl(value, b[index]));
+  }
+  const prototype = Object.getPrototypeOf(a);
+  if (prototype !== Object.getPrototypeOf(b)) return false;
+  // File, Blob, Map, Set and other platform objects are identity values. Their
+  // own enumerable keys are not a meaningful representation of their content.
+  if (prototype !== Object.prototype && prototype !== null) return false;
+  const aRecord = a as Record<string, unknown>;
+  const bRecord = b as Record<string, unknown>;
+  const keys = Object.keys(aRecord);
+  return keys.length === Object.keys(bRecord).length
+    && keys.every((key) => Object.prototype.hasOwnProperty.call(bRecord, key)
+      && valuesEqualForControl(aRecord[key], bRecord[key]));
+};
+
+/** Remove fields this mounted form resolved as read-only before any host sees a payload. */
+function stripReadonlyFieldValues(
+  values: Record<string, unknown>,
+  readonlyFieldNames: ReadonlySet<string>,
+): Record<string, unknown> {
+  if (readonlyFieldNames.size === 0) return values;
+  const writable: Record<string, unknown> = {};
+  for (const [name, value] of Object.entries(values)) {
+    if (!readonlyFieldNames.has(name)) writable[name] = value;
+  }
+  return writable;
+}
+
 /** Own-property test — a field can legitimately be named `constructor`. */
 const hasOwn = (o: Record<string, unknown>, k: string): boolean =>
   Object.prototype.hasOwnProperty.call(o ?? {}, k);
@@ -433,11 +491,12 @@ const DATA_SOURCE_ONLY_WIDGET_TYPES = new Set([
  * its "select … first" hint — the very leak objectstack#5407 fixed for lookups.
  *
  * ⚠️ This used to credit `dependentValues` with a context fallback too. The
- * widgets spell one (`?? ctx.formValues ?? ctx.data`), but
+ * widgets spelled one (`?? ctx.formValues ?? ctx.data`) while
  * `SchemaRendererContextType` declares exactly `dataSource` / `debug` /
- * `debugFlags` / `apiFetch`, so it is unconditionally empty — unsettable, not
- * merely unset (objectui#7206). Of the three props above, only `dataSource` is
- * really served by the context.
+ * `debugFlags` / `apiFetch`, so it was unconditionally empty — unsettable, not
+ * merely unset — and it has since been retired (objectui#7206). Of the three
+ * props above, only `dataSource` is served by the context at all; the other two
+ * reach a widget only because this renderer passes them.
  * The widget contract has always named `user` among the types this renderer
  * injects `dataSource` for (`fields/src/widgets/types.ts`).
  *
@@ -470,6 +529,7 @@ function needsDataSourceWiring(widgetType: string): boolean {
 function stripRendererOnlyProps<T extends Record<string, any>>(props: T): T {
   const {
     dataSource: _dataSource,
+    objectName: _objectName,
     inputType: _inputType,
     options: _options,
     field: _field,
@@ -791,6 +851,7 @@ function withReadonlyHostGroup(labelId: string | undefined, node: React.ReactNod
 function stripRegisteredFieldProps(type: string, props: RenderFieldProps): RenderFieldProps {
   const {
     dataSource,
+    objectName,
     inputType: _inputType,
     showActions: _showActions,
     fieldContainerClass: _fieldContainerClass,
@@ -821,6 +882,10 @@ function stripRegisteredFieldProps(type: string, props: RenderFieldProps): Rende
 
   return {
     ...fieldProps,
+    // The label-stored text select and choice-card select need the current
+    // object's convention key to translate options. Keep it off every other
+    // registered widget's DOM pass-through surface.
+    ...((normalizedType === 'declared-label-select' || normalizedType === 'choice-cards') && objectName ? { objectName } : null),
     // `dependsOnLabels` rides with `dependentValues`: the widgets that gate on
     // a sibling field's VALUE are exactly the ones that have to NAME that field
     // in the gate hint (objectstack#5407). Stripped for everything else for the
@@ -1157,6 +1222,9 @@ function BuiltinTextarea({
 ComponentRegistry.register('form',
   ({ schema, className, onAction, disabled: hostDisabled, ...props }: { schema: FormSchema; className?: string; onAction?: (action: any) => void; disabled?: boolean; [key: string]: any }) => {
     const { t } = useSafeFormTranslation();
+    const objectFormRuntime = React.useContext(ObjectFormRuntimeContext);
+    const objectFormRuntimeRef = React.useRef(objectFormRuntime);
+    objectFormRuntimeRef.current = objectFormRuntime;
     // Prefix for the label ids the GROUP-labelled fields need (objectui#3961).
     // Owned here, not derived from `<FormItem>`'s own `useId()`: that id lives in
     // a context published INSIDE `FormItem`, and this renderer builds the label
@@ -1301,6 +1369,13 @@ ComponentRegistry.register('form',
       return added ? seeded : authoredDefaultValues;
     }, [authoredDefaultValues, fields]);
 
+    // ObjectForm's controlled values are runtime props carried through a
+    // context bridge, never keys on FormSchema. Model defaults remain the
+    // baseline; explicit controlled values override them for the first paint.
+    const initialFormValues = objectFormRuntime?.values === undefined
+      ? defaultValues
+      : { ...defaultValues, ...objectFormRuntime.values };
+
     // Initialize react-hook-form. `shouldFocusError: false` because RHF's
     // native focus-on-error only works for fields whose registered ref is a
     // focusable native input — it silently no-ops for custom widgets
@@ -1308,13 +1383,14 @@ ComponentRegistry.register('form',
     // own the scroll+focus explicitly in the onInvalid handler below so it
     // works for every field type and follows visual order.
     const form = useForm({
-      defaultValues,
+      defaultValues: initialFormValues,
       mode: validationMode,
       shouldFocusError: false,
     });
 
     // Scoped to this form so the error-scroll query never reaches a sibling form.
     const formRef = React.useRef<HTMLFormElement>(null);
+    const controllerMountedRef = React.useRef(false);
 
     const [isSubmitting, setIsSubmitting] = React.useState(false);
     const [submitError, setSubmitError] = React.useState<string | null>(null);
@@ -1625,6 +1701,17 @@ ComponentRegistry.register('form',
       }
       return hiddenNames;
     }, [fields, ruleRecord, previousRecord, isCreateForm, predicateScope]);
+
+    // Collapse is a presentation state, distinct from permission/predicate
+    // visibility. Keep collapsed controls mounted so required-field validation
+    // and draft values remain intact; only their layout is hidden.
+    const fieldByName = indexFieldsByName(fields as FormFieldConfig[]);
+    const collapsedSectionFieldNames = new Set<string>();
+    for (const field of fields as FormFieldConfig[]) {
+      const divider = field as FormFieldConfig & { fields?: unknown; collapsible?: boolean; collapsed?: boolean };
+      if (divider.type !== 'section-divider' || !divider.collapsible || !divider.collapsed || !Array.isArray(divider.fields)) continue;
+      for (const name of divider.fields) if (typeof name === 'string') collapsedSectionFieldNames.add(name);
+    }
 
     // --- Tabbed field layout (#2959) ---------------------------------------
     // `fieldTabs` spreads THIS form's fields across tab panels. Crucially there
@@ -2134,6 +2221,30 @@ ComponentRegistry.register('form',
       // eslint-disable-next-line react-hooks/exhaustive-deps
     }, [defaultValues]);
 
+    // Apply host-controlled updates in place. Echoes of values just emitted by
+    // the watch channel compare equal to RHF's current values and do nothing;
+    // genuine external changes update only changed paths, without reset()'ing
+    // dirty/touched state, focus, or section-collapse state.
+    React.useLayoutEffect(() => {
+      const externalValues = objectFormRuntimeRef.current?.values;
+      if (externalValues === undefined) return;
+      const incoming = { ...defaultValues, ...externalValues };
+      const current = form.getValues() as Record<string, unknown>;
+      const changed = Object.entries(incoming).filter(([name, value]) =>
+        !valuesEqualForControl(current[name], value),
+      );
+      if (changed.length === 0) return;
+
+      resetInFlightRef.current = true;
+      try {
+        for (const [name, value] of changed) {
+          form.setValue(name, value, { shouldValidate: true, shouldDirty: true });
+        }
+      } finally {
+        resetInFlightRef.current = false;
+      }
+    }, [form, defaultValues, objectFormRuntime?.values]);
+
     // Watch for form changes - only track changes when onAction is available.
     // LAYOUT effect to stay in the same phase as the `defaultValues` reset
     // above: a passive subscription is established one commit LATER than the
@@ -2196,16 +2307,24 @@ ComponentRegistry.register('form',
     // tear this subscription down. The teardown only happens when the
     // callback's identity changes, i.e. for callers who do not memoize; the
     // guarantee is not theirs alone (#2968, #5235).
+    const schemaOnChangeRef = React.useRef(onChangeProp);
+    schemaOnChangeRef.current = onChangeProp;
+    const runtimeOnValuesChangeRef = React.useRef(objectFormRuntime?.onValuesChange);
+    runtimeOnValuesChangeRef.current = objectFormRuntime?.onValuesChange;
+    const hasValuesChangeCallback = Boolean(onChangeProp || objectFormRuntime?.onValuesChange);
     React.useLayoutEffect(() => {
-      if (onChangeProp) {
-        const subscription = form.watch((values) => {
-          // The host's own record landing is not the user changing values.
-          if (resetInFlightRef.current) return;
-          onChangeProp(values as Record<string, any>);
-        });
-        return () => subscription.unsubscribe();
-      }
-    }, [form, onChangeProp]);
+      if (!hasValuesChangeCallback) return;
+      const subscription = form.watch((values) => {
+        // The host's own record landing is not the user changing values.
+        if (resetInFlightRef.current) return;
+        const record = values as Record<string, unknown>;
+        const schemaCallback = schemaOnChangeRef.current;
+        const runtimeCallback = runtimeOnValuesChangeRef.current;
+        schemaCallback?.(record as Record<string, any>);
+        if (runtimeCallback && runtimeCallback !== schemaCallback) runtimeCallback(record);
+      });
+      return () => subscription.unsubscribe();
+    }, [form, hasValuesChangeCallback]);
 
     /**
      * Scroll a field into view and focus a control inside it. The field wrapper
@@ -2267,6 +2386,15 @@ ComponentRegistry.register('form',
       // view to that tab whenever its predicate later re-admits it.
       const tabKey = tabKeyByFieldName.get(firstName);
       if (tabKey && hiddenFieldTabKeys.has(tabKey)) return;
+      if (conditionallyHiddenFieldNames.has(firstName) || hiddenSectionFieldNames.has(firstName)) return;
+      let openedSection = false;
+      for (const field of fields as FormFieldConfig[]) {
+        const divider = field as FormFieldConfig & { fields?: unknown; collapsed?: boolean; onToggle?: () => void };
+        if (divider.type === 'section-divider' && divider.collapsed && Array.isArray(divider.fields) && divider.fields.includes(firstName) && typeof divider.onToggle === 'function') {
+          divider.onToggle();
+          openedSection = true;
+        }
+      }
       if (tabKey && tabKey !== activeFieldTab) {
         setPickedFieldTab(tabKey);
         if (typeof requestAnimationFrame === 'function') {
@@ -2276,8 +2404,116 @@ ComponentRegistry.register('form',
         }
         return;
       }
-      revealField(firstName);
+      if (openedSection) {
+        if (typeof requestAnimationFrame === 'function') requestAnimationFrame(() => revealField(firstName));
+        else setTimeout(() => revealField(firstName), 0);
+      } else {
+        revealField(firstName);
+      }
     };
+
+    const controllerValidationRef = React.useRef<() => Promise<ObjectFormValidationResult>>(
+      async () => ({ valid: false, errors: {}, formError: 'The form is not ready.' }),
+    );
+    const controllerRef = React.useRef<ObjectFormController | null>(null);
+    if (!controllerRef.current) {
+      controllerRef.current = { validate: () => controllerValidationRef.current() };
+    }
+    const controllerReadyCallbackRef = React.useRef(objectFormRuntime?.onControllerReady);
+    controllerReadyCallbackRef.current = objectFormRuntime?.onControllerReady;
+    const hasControllerReadyCallback = Boolean(objectFormRuntime?.onControllerReady);
+    const publishedControllerCallbackRef = React.useRef<
+      ((controller: ObjectFormController | null) => void) | null
+    >(null);
+
+    controllerValidationRef.current = async () => {
+      if (!controllerMountedRef.current) {
+        return { valid: false, errors: {}, formError: 'The form is not mounted.' };
+      }
+      const runtime = objectFormRuntimeRef.current;
+      const unavailableReason = runtime?.unavailableReason;
+      if (unavailableReason) {
+        return { valid: false, errors: {}, formError: unavailableReason };
+      }
+      if (isSubmitting) {
+        return { valid: false, errors: {}, formError: 'The form is already submitting.' };
+      }
+
+      try {
+        // `trigger` runs this mounted RHF form's existing resolver and field
+        // rules without entering handleSubmit or changing submit counters.
+        const rhfValid = await form.trigger(undefined, { shouldFocus: false });
+        const errors: Record<string, string> = {};
+        for (const field of fields as FormFieldConfig[]) {
+          const name = field?.name;
+          if (typeof name !== 'string' || !name || field.type === 'section-divider') continue;
+          const message = form.getFieldState(name).error?.message;
+          if (message != null && message !== '') errors[name] = String(message);
+        }
+
+        // Native constraints and setCustomValidity live on the actual controls,
+        // outside RHF's resolver. Read them from this form only and fold their
+        // machine field name into the same error/reveal path.
+        const nativeErrors: Record<string, string> = {};
+        const nativeFormErrors: string[] = [];
+        const nativeForm = formRef.current;
+        if (nativeForm) {
+          for (const element of Array.from(nativeForm.elements)) {
+            if (!(element instanceof HTMLInputElement
+              || element instanceof HTMLSelectElement
+              || element instanceof HTMLTextAreaElement)) continue;
+            if (element.disabled || element.validity.valid) continue;
+            const name = element.name
+              || element.closest<HTMLElement>('[data-field]')?.dataset.field
+              || '';
+            const message = element.validationMessage || 'Invalid value.';
+            if (name) nativeErrors[name] = message;
+            else nativeFormErrors.push(message);
+          }
+        }
+        const combinedErrors = { ...nativeErrors, ...errors };
+        const invalidNames = Object.keys(combinedErrors);
+        if (!rhfValid || invalidNames.length > 0 || nativeFormErrors.length > 0) {
+          if (invalidNames.length > 0) announceFieldErrors(invalidNames);
+          return {
+            valid: false,
+            errors: combinedErrors,
+            ...(invalidNames.length === 0
+              ? { formError: nativeFormErrors[0] || 'Some values are invalid.' }
+              : {}),
+          };
+        }
+
+        const currentValues = stripReadonlyFieldValues(
+          form.getValues() as Record<string, unknown>,
+          readonlyFieldNames,
+        );
+        const values = runtime?.prepareValues
+          ? runtime.prepareValues(currentValues)
+          : currentValues;
+        return { valid: true, values };
+      } catch (error) {
+        return {
+          valid: false,
+          errors: {},
+          formError: error instanceof Error ? error.message : 'The form could not be validated.',
+        };
+      }
+    };
+
+    React.useLayoutEffect(() => {
+      controllerMountedRef.current = true;
+      const callback = controllerReadyCallbackRef.current;
+      if (callback && controllerRef.current) {
+        publishedControllerCallbackRef.current = callback;
+        callback(controllerRef.current);
+      }
+      return () => {
+        controllerMountedRef.current = false;
+        publishedControllerCallbackRef.current?.(null);
+        publishedControllerCallbackRef.current = null;
+      };
+    }, [form, hasControllerReadyCallback]);
 
     // Handle form submission
     const handleSubmit = form.handleSubmit(async (data) => {
@@ -2318,11 +2554,10 @@ ComponentRegistry.register('form',
       // and re-sending them only earns a server-side strip plus a "some fields
       // were not saved" warning on a save that changed none of them.
       if (readonlyFieldNames.size > 0 && formData && typeof formData === 'object') {
-        const kept: Record<string, unknown> = {};
-        for (const k of Object.keys(formData)) {
-          if (!readonlyFieldNames.has(k)) kept[k] = (formData as Record<string, unknown>)[k];
-        }
-        formData = kept as typeof formData;
+        formData = stripReadonlyFieldValues(
+          formData as Record<string, unknown>,
+          readonlyFieldNames,
+        );
       }
 
       try {
@@ -2452,8 +2687,8 @@ ComponentRegistry.register('form',
       'md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4';
     
     const gridClass = columns > 1
-      ? cn('grid gap-4', gridColsClass)
-      : 'space-y-4';
+      ? cn('grid gap-x-[var(--ui-form-column-gap,1rem)] gap-y-[var(--ui-form-row-gap,1rem)]', gridColsClass)
+      : 'space-y-[var(--ui-form-row-gap,1rem)]';
 
     // Every field container (flat, or one per tab panel) lays its fields out on
     // the same grid, so per-field `colSpan` means the same thing on every tab.
@@ -2585,6 +2820,13 @@ ComponentRegistry.register('form',
       // so all fields share the same form instance (enables cross-section conditions).
       if (type === 'section-divider') {
         const fp = fieldProps as any;
+        const members = Array.isArray(fp.fields)
+          ? fp.fields.filter((member: unknown): member is string => typeof member === 'string' && fieldByName.has(member) && !fieldByName.get(member)?.hidden && !conditionallyHiddenFieldNames.has(member) && !hiddenSectionFieldNames.has(member))
+          : [];
+        const filled = members.filter((member: string) => {
+          const value = ruleRecord[member];
+          return !isMissingForRequired(value) && (!Array.isArray(value) || value.length > 0);
+        }).length;
         return (
           <SectionDivider
             key={name}
@@ -2594,6 +2836,8 @@ ComponentRegistry.register('form',
             collapsed={fp.collapsed}
             onToggle={fp.onToggle}
             className={fp.className}
+            filled={filled}
+            total={members.length}
           />
         );
       }
@@ -2896,13 +3140,14 @@ ComponentRegistry.register('form',
           rules={rules}
           render={({ field: formField, fieldState }) => (
             <FormItem
-              className={colSpanClass || undefined}
+              className={cn(collapsedSectionFieldNames.has(name) ? 'hidden' : '[display:var(--ui-field-display,block)] gap-[var(--ui-field-stack-gap,0px)] space-y-[var(--ui-field-margin-gap,0.5rem)]', colSpanClass)}
+              hidden={collapsedSectionFieldNames.has(name)}
               data-testid={fieldTestId}
               data-field={name}
             >
               {label && (
                 <FormLabel
-                  className="text-xs font-normal text-muted-foreground"
+                  className="text-[length:var(--ui-label-font-size,0.75rem)] leading-[var(--ui-label-line-height,1rem)] font-normal text-muted-foreground"
                   // A group-labelled widget (objectui#3961) is named by IDREF:
                   // publish the label's own `id` and drop the `for`. `htmlFor:
                   // undefined` is not a no-op — `<FormLabel>` sets
@@ -2971,6 +3216,7 @@ ComponentRegistry.register('form',
                   // metadata was stashed (standalone forms).
                   field: field.field || field,
                   ...formField,
+                  objectName: schema.objectName,
                   inputType: fieldProps.inputType,
                   // The field's label, forwarded explicitly because the
                   // destructure above takes it OFF `fieldProps` (objectui#3393).
@@ -3079,7 +3325,7 @@ ComponentRegistry.register('form',
               {description && (
                 <FormDescription>{description}</FormDescription>
               )}
-              <FormMessage />
+              <FormMessage className="text-[length:var(--ui-control-font-size,0.875rem)]" />
             </FormItem>
           )}
         />
@@ -3157,8 +3403,17 @@ ComponentRegistry.register('form',
         <form
             ref={formRef}
             onSubmit={handleSubmit}
-            className={className}
+            className={cn('[counter-reset:object-ui-form-section]', className)}
             {...formProps}
+            onInvalidCapture={(event) => {
+              const control = event.target;
+              if ((control instanceof HTMLInputElement || control instanceof HTMLTextAreaElement || control instanceof HTMLSelectElement) && collapsedSectionFieldNames.has(control.name)) {
+                // Native validity runs before RHF receives a submit event.
+                // Reveal the registered control before focusing its error.
+                event.preventDefault();
+                announceFieldErrors([control.name]);
+              }
+            }}
             // Apply designer props
             data-obj-id={dataObjId}
             data-obj-type={dataObjType}
@@ -3188,7 +3443,7 @@ ComponentRegistry.register('form',
           {/* Form Fields */}
           {schema.children ? (
             // If children are provided directly, render them
-            <div className={schema.fieldContainerClass || 'space-y-4'}>
+            <div className={schema.fieldContainerClass || 'space-y-[var(--ui-form-row-gap,1rem)]'}>
               {renderChildren(schema.children)}
             </div>
           ) : fieldTabGroups && visibleFieldTabGroups ? (
@@ -3318,7 +3573,7 @@ ComponentRegistry.register('form',
           )}
 
           {/* Form Actions */}
-          {(schema.showActions !== false) && (
+          {(schema.showActions !== false && (showCancel || showSubmit)) && (
             <div
               className={cn(
                 `flex flex-col sm:flex-row gap-2 ${layout === 'horizontal' ? 'sm:justify-end' : 'sm:justify-start'} mt-6`,
@@ -3427,6 +3682,7 @@ ComponentRegistry.register('form',
 // Helper function to render field components with proper typing
 interface RenderFieldProps {
   inputType?: string;
+  objectName?: string;
   options?: SelectOption[];
   placeholder?: string;
   value?: any;

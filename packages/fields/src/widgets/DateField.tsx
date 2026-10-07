@@ -1,7 +1,8 @@
 import React from 'react';
-import { Input, EmptyValue } from '@object-ui/components';
+import { DatePicker, EmptyValue, Input, cn } from '@object-ui/components';
 import { useDisplayLocale } from '@object-ui/i18n';
 import { formatDate } from '@object-ui/core';
+import type { DateFieldMetadata } from '@object-ui/types';
 import { FieldWidgetComponentProps } from './types.js';
 import { toDomProps } from './toDomProps.js';
 import { openNativePicker } from './openNativePicker.js';
@@ -9,7 +10,7 @@ import { toDateInputValue } from './nativeDateValue.js';
 
 /**
  * DateField - Date picker input widget
- * Uses native date input and displays locale-formatted date in readonly mode
+ * Uses native date input by default, with an opt-in shared calendar for compact hosts.
  */
 export function DateField({ value, onChange, field, readonly, error, ...props }: FieldWidgetComponentProps<string>) {
   // Before the readonly early return: the hook count must not depend on a prop
@@ -65,6 +66,33 @@ export function DateField({ value, onChange, field, readonly, error, ...props }:
   }
 
   const domProps = toDomProps(props);
+  const dateMetadata = field as DateFieldMetadata;
+  const minDate = toDateInputValue(dateMetadata.min_date);
+  const maxDate = toDateInputValue(dateMetadata.max_date);
+
+  // The regular path keeps the browser's native date control. The compact
+  // enterprise profile opts into ObjectUI's shared calendar trigger instead.
+  // Guard the document read so this widget remains safe during server render.
+  const useCalendarPicker =
+    typeof document !== 'undefined' &&
+    document.documentElement.dataset.uiProfile === 'compact-enterprise';
+
+  if (useCalendarPicker) {
+    return (
+      <DatePicker
+        {...domProps}
+        value={value ?? ''}
+        onValueChange={onChange}
+        label={dateMetadata.label}
+        placeholder={dateMetadata.placeholder}
+        minDate={minDate || undefined}
+        maxDate={maxDate || undefined}
+        className={cn('w-full', domProps.className)}
+        disabled={readonly || domProps.disabled}
+        aria-invalid={!!error}
+      />
+    );
+  }
 
   /**
    * `aria-invalid` after the DOM spread below, the objectui#3222 idiom shared
@@ -97,6 +125,8 @@ export function DateField({ value, onChange, field, readonly, error, ...props }:
       // would leave this control empty too (objectui#3127). The written-back
       // shape is unchanged: the control's own plain `YYYY-MM-DD`.
       value={toDateInputValue(value)}
+      min={minDate || undefined}
+      max={maxDate || undefined}
       onChange={(e) => onChange(e.target.value)}
       onClick={(e) => {
         openNativePicker(e.currentTarget);

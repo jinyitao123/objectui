@@ -8,8 +8,8 @@
  * The Page renderer interprets PageSchema into structured layouts.
  * It supports four page types (record, home, app, utility) and
  * renders named regions (header, sidebar, main, footer, aside) with
- * configurable widths. When no regions are defined, it falls back to
- * body/children for backward compatibility.
+ * configurable widths. When no regions are defined, it falls back to the
+ * node's `children` list (objectui#6771 retired the `body` spelling).
  */
 
 import React, { useMemo } from 'react';
@@ -92,6 +92,13 @@ function getRemainingRegions(regions: PageNodeRegion[] | undefined, exclude: str
  * type that resolves to PageHeaderRenderer — no bare `header` alias to match.
  */
 const PAGE_HEADER_TYPE = 'page:header';
+const REACT_SOURCE_TEMPLATE = 'react-source';
+
+/** `react-source` is a full-page template: the source owns both the visible
+ * page introduction and layout. The normal renderer shell remains the default. */
+function isReactSourceTemplate(schema: PageNodeSchema): boolean {
+  return schema.kind === 'react' && schema.template === REACT_SOURCE_TEMPLATE;
+}
 
 /** Text a header title contributes once `{token}` interpolation is stripped. */
 function literalTitleText(value: unknown): string {
@@ -123,9 +130,9 @@ function isTitledPageHeader(node: any): boolean {
 /**
  * Depth-bounded walk over the component shapes a page can nest.
  *
- * Takes ONE node or a LIST of them, and judges both by the same rule. `body`
- * and `children` are declared `SchemaNode | SchemaNode[]` on `PageNodeSchema`
- * and on `BaseSchema`, and `FlatContent` below has always rendered the bare-node
+ * Takes ONE node or a LIST of them, and judges both by the same rule.
+ * `children` is declared `SchemaNode | SchemaNode[]` on `PageNodeSchema` and on
+ * `BaseSchema`, and `FlatContent` below has always rendered the bare-node
  * form, so a single node is a first-class authored shape — at the top level and
  * at every nested level the recursion re-enters (objectui#8923). This used to
  * open with `if (!Array.isArray(nodes)) return false`, so every bare-node
@@ -148,8 +155,7 @@ function containsTitledPageHeader(nodes: unknown, depth = 0): boolean {
       typeof n === 'object' &&
       (isTitledPageHeader(n) ||
         containsTitledPageHeader(n.components, depth + 1) ||
-        containsTitledPageHeader(n.children, depth + 1) ||
-        containsTitledPageHeader(n.body, depth + 1)),
+        containsTitledPageHeader(n.children, depth + 1)),
   );
 }
 
@@ -176,7 +182,6 @@ function pageHeaderOwnsTitle(schema: PageNodeSchema): boolean {
   const regionNodes = (schema.regions ?? []).flatMap((r: any) => r?.components ?? []);
   return (
     containsTitledPageHeader(regionNodes) ||
-    containsTitledPageHeader(schema.body) ||
     containsTitledPageHeader(schema.children)
   );
 }
@@ -278,11 +283,11 @@ const RegionLayout: React.FC<{
 };
 
 // ---------------------------------------------------------------------------
-// FlatContent — legacy body/children fallback
+// FlatContent — the `children` fallback when a page declares no regions
 // ---------------------------------------------------------------------------
 
 const FlatContent: React.FC<{ schema: PageNodeSchema }> = ({ schema }) => {
-  const content = schema.body || schema.children;
+  const content = schema.children;
   const nodes: SchemaNode[] = Array.isArray(content)
     ? content
     : content
@@ -508,6 +513,7 @@ export const PageRenderer: React.FC<{
   // spelling. Dual-read so a spec-authored page still renders its header
   // (framework#1878 §3 naming-drift recheck).
   const pageTitle = schema.title ?? (schema as any).label;
+  const sourceOwnsPage = isReactSourceTemplate(schema);
 
   // What may become an attribute on the wrapper <div>, and nothing else.
   //
@@ -613,18 +619,21 @@ export const PageRenderer: React.FC<{
   // delegate to `page:header`; every other page type delegates too as soon as
   // the author put a titled `page:header` in a region.
   const headerOwnsTitle = React.useMemo(
-    () => pageType === 'record' || pageHeaderOwnsTitle(schema),
-    [schema, pageType],
+    () => sourceOwnsPage || pageType === 'record' || pageHeaderOwnsTitle(schema),
+    [schema, pageType, sourceOwnsPage],
   );
   const showPageTitle = !!pageTitle && !headerOwnsTitle;
   // The description is the page's own prose, not a duplicate of the header's
-  // `subtitle`, so delegating the heading does not delete it.
-  const showPageDescription = !!schema.description && pageType !== 'record';
+  // `subtitle`, so delegating a structured page:header does not delete it. A
+  // `react-source` page owns the complete introduction, including its subtitle.
+  const showPageDescription = !!schema.description && pageType !== 'record' && !sourceOwnsPage;
 
   const pageContent = (
     <div
       className={cn(
-        'min-h-full w-full bg-background p-3 md:p-4 lg:p-6',
+        sourceOwnsPage
+          ? 'min-h-full w-full bg-background'
+          : 'min-h-full w-full bg-background p-3 md:p-4 lg:p-6',
         className,
       )}
       data-page-type={pageType}
@@ -633,7 +642,7 @@ export const PageRenderer: React.FC<{
       style={style}
       {...pageProps}
     >
-      <div className={cn(fullBleed ? 'space-y-6' : 'mx-auto space-y-6', maxWidthClass)}>
+      <div className={sourceOwnsPage ? 'w-full' : cn(fullBleed ? 'space-y-6' : 'mx-auto space-y-6', maxWidthClass)}>
         {/* Implicit page title — the fallback heading for a page that does NOT
             author its own `page:header`. Suppressed whenever that component
             owns the h1 (always on record pages, and on any page carrying a
@@ -701,16 +710,59 @@ const pageMeta: any = {
       itemType: 'object',
     },
     {
-      name: 'body',
+      // The flat content list `FlatContent` renders when a page declares no
+      // regions. Published as `body` until objectui#6771 retired that
+      // spelling; `pageMeta` backs five registrations, so this one line is
+      // the authoring face of `page` / `app` / `utility` / `home` / `record`.
+      name: 'children',
       type: 'array',
       itemType: 'component',
     },
   ],
 };
 
+/**
+ * ⭐ THESE KEYS ARE PAGE KINDS, NOT A COMPONENT FAMILY — read this before
+ * auditing them (objectui#9642).
+ *
+ * A stored page document's `type` field is the spec's page KIND, enumerated by
+ * `PageTypeSchema` in `@objectstack/spec/ui`. `PageView` (`@object-ui/app-shell`)
+ * hands that document to `SchemaRenderer` with the kind written VERBATIM into
+ * `type` — the SchemaNode discriminator `ComponentRegistry` dispatches on —
+ * plus a copy on `pageType`. ⇒ The registrations below exist BECAUSE of that
+ * line. They are the renderer half of `PageTypeSchema`, which is why they carry
+ * "… Page" labels rather than component names, and `'page'` is the fallback the
+ * same mapping writes for a document carrying no `type` at all.
+ *
+ * ⛔ **They are therefore NOT the "registered but never declared" defect** this
+ * repository files elsewhere. They ARE declared — upstream, in a different
+ * vocabulary, by an enum this package cannot edit. `@object-ui/types`'
+ * `SchemaRegistry` map has no key for them on purpose, because `keyof` that map
+ * is the published `ComponentType` union and widening it is a ruling; that map
+ * carries the other half of this note at its `'page'` entry.
+ *
+ * ⚠️ Removing one of these registrations stops every stored page of that kind
+ * rendering — OBJUI-001 in place of the page. objectui#9263 reached a draft PR
+ * doing exactly that and was re-ruled letter E, "⛔ not a defect"; objectui#9576
+ * proposed the same for the remaining kinds.
+ *
+ * ⭐ **`app` is one token carrying two vocabularies.** `AppComponentSchema`
+ * (`@object-ui/types`) declares the type literal `'app'` for the APP-LEVEL
+ * DOCUMENT (`app.json`: tabs, navigation, areas), which the runner / layout path
+ * reads STRUCTURALLY and never resolves through this registry. The key below
+ * answers only for the spec PAGE KIND `app` — a stored page document with
+ * regions, reached through `PageView`'s passthrough. ⛔ Neither is a collision
+ * to be resolved by removing the other.
+ *
+ * ⚠️ Not every page kind appears below, and the absence is not an omission: an
+ * INTERFACE-MODE kind is short-circuited before this registry, because `PageView`
+ * branches on `interfaceConfig?.source` and renders `InterfaceListPage`
+ * directly. The live split — which kind is served here, which is short-circuited
+ * — is re-derived by `page-kind-node-type-channel-9642` in this package's
+ * `__tests__`, ⛔ not by this comment.
+ */
 ComponentRegistry.register('page', PageRenderer, pageMeta);
 ComponentRegistry.register('app', PageRenderer, { ...pageMeta, label: 'App Page' });
 ComponentRegistry.register('utility', PageRenderer, { ...pageMeta, label: 'Utility Page' });
 ComponentRegistry.register('home', PageRenderer, { ...pageMeta, label: 'Home Page' });
 ComponentRegistry.register('record', PageRenderer, { ...pageMeta, label: 'Record Page' });
-

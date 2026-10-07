@@ -84,6 +84,8 @@ export interface FormViewDefinition {
    * others still render their curated sections, just stacked.
    */
   type?: string;
+  /** Explicit form column count, independent of whether sections are curated. */
+  columns?: number;
   /** Curated field sections — the selection, order, and grouping to render. */
   sections?: any[];
   /** Inline child collections (master-detail). */
@@ -104,6 +106,7 @@ export interface ObjectDefinitionForFormView {
  * into a `<ModalForm>` schema.
  */
 export interface FormViewModalLayout {
+  columns?: number;
   /** Curated sections to render (omitted when the form view declares none). */
   sections?: any[];
   /** `'tabbed'` when the form view is tabbed; omitted otherwise (stacked). */
@@ -137,6 +140,10 @@ export function resolveFormViewLayout(
   if (!formView) return {};
 
   const layout: FormViewModalLayout = {};
+
+  if (typeof formView.columns === 'number' && Number.isInteger(formView.columns) && formView.columns > 0) {
+    layout.columns = formView.columns;
+  }
 
   if (Array.isArray(formView.sections) && formView.sections.length > 0) {
     layout.sections = formView.sections;

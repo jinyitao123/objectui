@@ -52,7 +52,8 @@
     "test": "vitest run --root ../.. --project @object-ui/console --no-passWithNoTests",
     "test:watch": "vitest --root ../.. --project @object-ui/console --no-passWithNoTests",
     "test:ui": "vitest --ui --root ../.. --project @object-ui/console --no-passWithNoTests",
-    "prepublishOnly": "pnpm build"
+    "prepublishOnly": "pnpm build",
+    "preview:geometry": "vite --config preview/vite.config.ts"
   },
   "devDependencies": {
     "@dnd-kit/core": "^6.3.1",

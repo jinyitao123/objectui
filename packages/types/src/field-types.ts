@@ -16,7 +16,7 @@
  * @packageDocumentation
  */
 
-import type { Field as SpecField } from '@objectstack/spec/data';
+import type { Field as SpecField, InlineGridColumn as SpecInlineGridColumn } from '@objectstack/spec/data';
 
 /**
  * A field's `dependsOn` in the shape `@objectstack/spec` declares at FIELD
@@ -407,6 +407,23 @@ export interface NumberFieldMetadata extends BaseFieldMetadata {
   precision?: number;
   /** Number of decimal places to display (the `s` in a `decimal(p, s)` column). */
   scale?: number;
+  /**
+   * Explicit input granularity, overriding the value `NumberField` derives from
+   * `scale`. ⛔ NOT a renderer-only invention (objectui#9875): `step` is a
+   * member of `@objectstack/spec`'s own FIELD surface — a flat member of
+   * `FieldSchema`, reachable from every field type — so an author who writes it
+   * on a platform field has it preserved, not stripped and not refused, at both
+   * doors this repo uses: the `ObjectSchema` parse `saveMetaItem` performs on a
+   * metadata item of type `object`, and the served document's
+   * `stripReadDecorations`. Measured with a lit control and a strictness control
+   * in `__tests__/number-field-step-spec-parity-9875.test.ts`, which is also
+   * what goes red if a spec release moves either answer.
+   *
+   * The spec's prose for the member reads "Step increment for slider", which is
+   * documentation of its intended use and ⛔ not a structural fence — reading
+   * that wording as a nested slider node is what made objectui#9875 report an
+   * asymmetry that does not exist.
+   */
   step?: number;
 }
 
@@ -427,6 +444,8 @@ export interface CurrencyFieldMetadata extends BaseFieldMetadata {
 export interface PercentFieldMetadata extends BaseFieldMetadata {
   type: 'percent';
   precision?: number;
+  /** Number of decimal places to display (the `s` in a `decimal(p, s)` column). */
+  scale?: number;
   min?: number;
   max?: number;
 }
@@ -928,38 +947,11 @@ export interface GridFieldMetadata extends BaseFieldMetadata {
 }
 
 /**
- * Grid column definition
+ * Grid column definition, shared with ObjectStack's strict inline-grid schema.
+ * That schema mirrors GridField's live reads, including `computed` / `expr` /
+ * `scale`, `prefix`, lookup/file options and per-cell predicates.
  */
-export interface GridColumnDefinition {
-  /**
-   * Column field name
-   */
-  name: string;
-  /**
-   * Column label
-   */
-  label?: string;
-  /**
-   * Field type
-   */
-  type: string;
-  /**
-   * Whether column is required
-   */
-  required?: boolean;
-  /**
-   * Default value for new rows
-   */
-  defaultValue?: any;
-  /**
-   * Column width
-   */
-  width?: number;
-  /**
-   * Validation rules
-   */
-  validate?: FieldConstraints;
-}
+export type GridColumnDefinition = SpecInlineGridColumn;
 
 export interface ColorFieldMetadata extends BaseFieldMetadata {
   type: 'color';

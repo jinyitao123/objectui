@@ -44,7 +44,7 @@
  */
 
 import '@testing-library/jest-dom/vitest';
-import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
+import { describe, it, expect, vi, beforeAll, beforeEach, afterEach } from 'vitest';
 import { render, screen, cleanup, fireEvent, waitFor, within } from '@testing-library/react';
 import { MemoryRouter, Routes, Route } from 'react-router-dom';
 import {
@@ -137,7 +137,7 @@ const { adapterFind, approvalsApiStub, ADAPTER, AUTH, I18N } = vi.hoisted(() => 
   });
 
   const approvalsApiStub = {
-    listRequests: vi.fn(async () => ({ data: rows, total: rows.length })),
+    listRequests: vi.fn(async (_params?: Record<string, unknown>) => ({ data: rows, total: rows.length })),
     getRequest: vi.fn(async (id: string) => ({ data: rows.find((r) => r.id === id) })),
     listActions: vi.fn(async () => ({ data: [] })),
     approve: vi.fn(async () => ({ data: rows[0], finalized: true })),
@@ -200,7 +200,9 @@ function renderInbox() {
 /** Land on "All" — the tab a `cancelled` request actually appears in. */
 async function renderAllTab(): Promise<void> {
   renderInbox();
-  fireEvent.click(await screen.findByRole('tab', { name: 'All' }));
+  // Radix Tabs selects on mousedown; a click-only event leaves My Pending active.
+  fireEvent.mouseDown(await screen.findByRole('tab', { name: 'All' }), { button: 0, ctrlKey: false });
+  await waitFor(() => expect(screen.getByRole('tab', { name: 'All' })).toHaveAttribute('aria-selected', 'true'));
   // `findAllByText`: each request renders twice (desktop table + mobile card),
   // and the singular query THROWS on the second match instead of waiting.
   await screen.findAllByText('Liv Live');
@@ -212,6 +214,32 @@ function rowFor(text: string): HTMLElement {
   if (!found) throw new Error(`no row for ${text}`);
   return found;
 }
+
+async function selectStatus(label: string): Promise<void> {
+  const trigger = screen.getAllByRole('combobox').find((el) => el.textContent?.includes('All statuses'));
+  expect(trigger, 'the status filter is visible outside My Pending').toBeTruthy();
+  fireEvent.pointerDown(trigger!, { button: 0, ctrlKey: false, pointerType: 'mouse' });
+  fireEvent.click(await screen.findByRole('option', { name: label }));
+}
+
+beforeAll(() => {
+  // Radix Select uses pointer events, which happy-dom does not implement.
+  class MockPointerEvent extends Event {
+    button: number;
+    ctrlKey: boolean;
+    pointerType: string;
+    constructor(type: string, props: any = {}) {
+      super(type, props);
+      this.button = props.button ?? 0;
+      this.ctrlKey = props.ctrlKey ?? false;
+      this.pointerType = props.pointerType ?? 'mouse';
+    }
+  }
+  (window as any).PointerEvent = MockPointerEvent;
+  (HTMLElement.prototype as any).hasPointerCapture = vi.fn();
+  (HTMLElement.prototype as any).releasePointerCapture = vi.fn();
+  (HTMLElement.prototype as any).scrollIntoView = vi.fn();
+});
 
 beforeEach(() => {
   adapterFind.mockClear();
@@ -351,5 +379,35 @@ describe('Approvals Inbox — dead record reference tombstone (objectui#7108)', 
     expect(within(drawer).getAllByText(TOMBSTONE).length).toBeGreaterThan(0);
     expect(drawer.innerHTML).not.toContain('9SEmly');
     expect(within(drawer).queryByRole('link', { name: /LR-00007/ })).toBeNull();
+  });
+
+  it('filters cancelled requests in submitted/all scopes while My Pending stays server-pending scoped', async () => {
+    await renderAllTab();
+    await selectStatus(APPROVAL_STATUS_LABELS.cancelled);
+
+    await waitFor(() => {
+      expect(approvalsApiStub.listRequests.mock.calls.some(([params]) =>
+        params?.status === 'cancelled' && params?.limit === 50 && params?.offset === 0 && !params?.submitterId,
+      )).toBe(true);
+    });
+
+    const beforePending = approvalsApiStub.listRequests.mock.calls.length;
+    fireEvent.mouseDown(screen.getByRole('tab', { name: /My Pending/ }), { button: 0, ctrlKey: false });
+    await waitFor(() => {
+      expect(approvalsApiStub.listRequests.mock.calls.slice(beforePending).some(([params]) =>
+        params?.status === 'pending' && Array.isArray(params?.approverId) && !params?.submitterId,
+      )).toBe(true);
+    });
+    expect(screen.getAllByRole('combobox').some((el) => el.textContent?.includes('All statuses'))).toBe(false);
+
+    const beforeSubmitted = approvalsApiStub.listRequests.mock.calls.length;
+    fireEvent.mouseDown(screen.getByRole('tab', { name: 'Submitted by me' }), { button: 0, ctrlKey: false });
+    await waitFor(() => expect(screen.getByRole('tab', { name: 'Submitted by me' })).toHaveAttribute('aria-selected', 'true'));
+    await selectStatus(APPROVAL_STATUS_LABELS.cancelled);
+    await waitFor(() => {
+      expect(approvalsApiStub.listRequests.mock.calls.slice(beforeSubmitted).some(([params]) =>
+        params?.status === 'cancelled' && params?.submitterId === 'u_1' && params?.limit === 50,
+      )).toBe(true);
+    });
   });
 });

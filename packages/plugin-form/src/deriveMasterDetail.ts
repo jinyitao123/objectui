@@ -414,8 +414,9 @@ const AMOUNT_LIKE_FIELDS = ['amount', 'total', 'subtotal', 'line_total', 'line_a
 /**
  * Choose which numeric column feeds the running total. The line total is, in
  * order of preference: a computed numeric column (e.g. amount = qty × price),
- * an `amount`/`total`-named numeric column, the last currency column, then the
- * last numeric column. Preferring the LAST currency over the first stops a
+ * an `amount`/`total`-named numeric column, then the last currency column.
+ * Other scalar columns require an explicit amountField override. Preferring
+ * the LAST currency over the first stops a
  * grid from accidentally summing `quantity` or `unit_price`.
  */
 function pickAmountField(columns: GridColumn[]): string | undefined {
@@ -427,7 +428,7 @@ function pickAmountField(columns: GridColumn[]): string | undefined {
   if (named) return named.name;
   const lastCurrency = [...numeric].reverse().find((c) => c.type === 'currency');
   if (lastCurrency) return lastCurrency.name;
-  return numeric[numeric.length - 1].name;
+  return undefined;
 }
 
 export interface DerivedDetail {

@@ -53,6 +53,7 @@
 import { useMemo, type ReactNode } from 'react';
 import { useInRouterContext, useNavigate } from 'react-router-dom';
 import { HostNavigationProvider, type HostNavigationValue } from '@object-ui/react';
+import { normalizeConsoleRouterPath } from './organizations/resolveHomeUrl.js';
 
 export function HostNavigationBridge({ children }: { children: ReactNode }) {
   // Rules-of-hooks safe: the branch is on whether a Router sits ABOVE this
@@ -75,7 +76,7 @@ function RouterNavigationBridge({ children }: { children: ReactNode }) {
       // judged by the caller. Keeping the adapter here means widening the
       // router's surface cannot silently widen the seam's.
       navigate: (to: string, options?: { replace?: boolean }) =>
-        navigate(to, { replace: options?.replace ?? false }),
+        navigate(normalizeConsoleRouterPath(to), { replace: options?.replace ?? false }),
     }),
     [navigate],
   );

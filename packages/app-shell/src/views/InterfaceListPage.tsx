@@ -25,8 +25,10 @@ import { useObjectTranslation } from '@object-ui/i18n';
 import { isSystemManagedField } from '@object-ui/types';
 import { leadWithNameField } from '@object-ui/core';
 import type { ListViewSchema } from '@object-ui/types';
-import { useMetadata } from '../providers/MetadataProvider.js';
+import { mergeViewsIntoObjects, useMetadata } from '../providers/MetadataProvider.js';
 import { useTenancyPosture } from '../hooks/useTenancyPosture.js';
+import { useApplicationObjects } from '../hooks/useApplicationObjects.js';
+import { useExpressionContext } from '../providers/ExpressionProvider.js';
 import { parseUserFilterParams, applyUserFilterParams } from './userFilterUrlState.js';
 import { RecordDetailView } from './RecordDetailView.js';
 
@@ -260,13 +262,21 @@ export function defaultMapFromObject(objectDef: any): { locationField: string } 
 
 export function InterfaceListPage({ page, className, onConfigChange, reserveEditAffordance }: InterfaceListPageProps) {
   const { t } = useObjectTranslation();
-  const { objects } = useMetadata();
+  const metadata = useMetadata();
+  const { app } = useExpressionContext();
   const dataSource = useAdapter();
   const navigate = useNavigate();
   const [searchParams, setSearchParams] = useSearchParams();
   // ADR-0105: group posture appends a trailing organization_id attribution
   // column to the object-derived default column set (reads span all orgs).
   const orgAttribution = useTenancyPosture() === 'group';
+  const cfg = page?.interfaceConfig || {};
+  const sourceName = typeof cfg.source === 'string' ? cfg.source : '';
+  const objectDirectory = useApplicationObjects(app, [sourceName], [sourceName]);
+  const objects = React.useMemo(
+    () => mergeViewsIntoObjects(objectDirectory.objects, metadata.getItemsByType?.('view') ?? []),
+    [metadata, objectDirectory.objects],
+  );
 
   // ADR-0047 filter persistence: restore `uf_*` URL params once at mount,
   // mirror every selection change back (replace — no history spam).
@@ -280,9 +290,8 @@ export function InterfaceListPage({ page, className, onConfigChange, reserveEdit
     [setSearchParams],
   );
 
-  const cfg = page?.interfaceConfig || {};
   const objectDef = React.useMemo(
-    () => (objects || []).find((o: any) => o.name === cfg.source),
+    () => objects.find((o: any) => o.name === cfg.source),
     [objects, cfg.source],
   );
   const resolvedView = React.useMemo(
@@ -344,8 +353,9 @@ export function InterfaceListPage({ page, className, onConfigChange, reserveEdit
   // hollow.
   //
   // IMPORTANT: the deps are SCALARS, not the objectDef/resolvedView object
-  // identities. `useMetadata().objects` is rebuilt per render, so identity
-  // deps re-fire this effect on every render — and the unconditional
+  // identities. The app-scoped object/view directory is rebuilt when its
+  // named metadata reads settle, so identity deps would re-fire this effect
+  // on every render — and the unconditional
   // `setHydratedView(null)` then ping-pongs with the async `setHydratedView
   // (full)` into an infinite render/refetch loop the moment anything (e.g.
   // a `uf_*` URL write) re-renders this component after hydration settled.

@@ -64,6 +64,9 @@ registerPlaceholders();
 // Change the spelling here and that script has to change with it;
 // `src/__tests__/runtimeConfigBootDedup.test.ts` fails when the two stop agreeing.
 const SERVER_BASE = (import.meta.env.VITE_SERVER_URL || '').replace(/\/+$/, '');
+if (import.meta.env.VITE_UI_PROFILE === 'compact-enterprise') {
+  document.documentElement.dataset.uiProfile = 'compact-enterprise';
+}
 // The third entry seeds the UI language from the tenant's server-side locale
 // (objectui#4035). It joins this existing gate rather than adding one of its
 // own, which is what keeps it off the critical path: it runs CONCURRENTLY with

@@ -11,11 +11,11 @@
 import { useState, useEffect, useCallback, useMemo, useRef } from 'react';
 import { useParams, useNavigate, useLocation, useSearchParams, Link } from 'react-router-dom';
 import { activityRowToFeedItem, InlineEditSaveBar, buildDefaultPageSchema, deriveFieldGroupDetailSections, extractMentions, resolveTitleField, useRecordEditable } from '@object-ui/plugin-detail';
-import { Empty, EmptyTitle, EmptyDescription } from '@object-ui/components';
+import { Button, Empty, EmptyTitle, EmptyDescription } from '@object-ui/components';
 import { useAuth, createAuthenticatedFetch } from '@object-ui/auth';
-import { usePermissions } from '@object-ui/permissions';
+import { hasReportedCapabilities, usePermissions } from '@object-ui/permissions';
 import { ActionProvider, useObjectTranslation, useObjectLabel, useActionTextLocalizer, usePageAssignment, RecordContextProvider, SchemaRenderer, DiscussionContextProvider, HighlightFieldsProvider, InlineEditProvider, useGlobalUndo, useDataInvalidation, notifyDataChanged, useRowPredicate } from '@object-ui/react';
-import { buildExpandFields, resolveRecordIdParamSeed, userActionPredicates } from '@object-ui/core';
+import { buildExpandFields, isDatabaseKeyDisplay, resolveRecordIdParamSeed, userActionPredicates } from '@object-ui/core';
 import { toast } from 'sonner';
 import { useRecordPresence, PresenceAvatars } from '@object-ui/collaboration';
 import { Database, ChevronLeft } from 'lucide-react';
@@ -35,6 +35,7 @@ import { RECORD_DETAIL_TAB_PARAM, RECORD_TRAIL_PARAM, decodeRecordTrail, buildRe
 import { resolveActionParams } from '../utils/resolveActionParams.js';
 import { createConsoleServerActionHandler } from '../utils/consoleServerAction.js';
 import { modalTargetRefusalMessage } from '../utils/modalTargetDiagnostics.js';
+import { useConsoleActionNavigation } from '../hooks/useConsoleActionNavigation.js';
 import { interpretFlowResponse } from '../utils/flowResponse.js';
 import { useRecordBreadcrumbTitle } from '../context/NavigationContext.js';
 // Audit provenance renders as the one-line <RecordMetaFooter>; the other
@@ -211,14 +212,14 @@ function mergeFeedRows(prev: readonly FeedItem[], incoming: readonly FeedItem[])
  * inline-edit session) and the `sys_delete` overflow item.
  *
  * [#3546] Each bit is the object's resolved CRUD affordance (lifecycle bucket +
- * `userActions`) INTERSECTED with the server-resolved effective API operation
- * set (`/me/permissions` `apiOperations`) — never a union. So a server grant can
- * never re-open an affordance the object's bucket closed, and a permissive
- * bucket default never survives the server denying `update` / `delete`. This is
- * the detail-surface end of the same intersection the list/toolbar surface
- * applies (objectui#2823). Passing `undefined` for `effectiveApiOperations`
- * (unrestricted object / old backend / no `PermissionProvider`) leaves the
- * bucket + `userActions` decision untouched — backward-compatible.
+ * `userActions`) intersected with the server-resolved effective API operation
+ * set (`/me/permissions` `apiOperations`) — never a union. The edit bit also
+ * intersects the resolved principal's base object `allowEdit` permission,
+ * because `apiOperations` only narrows API methods and may be absent. Unknown
+ * contexts pass `objectUpdateAllowed: true` to preserve standalone behavior.
+ * Passing `undefined` for `effectiveApiOperations` leaves the bucket +
+ * `userActions` decision untouched, while the independent base object gate
+ * still applies when supplied.
  *
  * Exported so the gate can be unit-tested directly: the record page itself is
  * wired into routing, auth, presence and data fetching too deeply to render in
@@ -228,9 +229,24 @@ function mergeFeedRows(prev: readonly FeedItem[], incoming: readonly FeedItem[])
 export function resolveRecordHeaderActionGates(
   objectDef: unknown,
   effectiveApiOperations?: readonly string[] | null,
+  objectUpdateAllowed = true,
 ): { edit: boolean; delete: boolean } {
   const affordances = resolveEffectiveCrudAffordances(objectDef as any, effectiveApiOperations);
-  return { edit: affordances.edit, delete: affordances.delete };
+  return { edit: affordances.edit && objectUpdateAllowed, delete: affordances.delete };
+}
+
+/**
+ * Apply the base object-update verdict whenever a permission provider has
+ * reported its state. `userId` may remain null for the role-based
+ * `PermissionProvider`, which still has an authoritative loaded role matrix.
+ * With no reported context, preserve standalone-host behavior.
+ */
+export function resolveObjectUpdatePermissionGate(
+  permissionsLoaded: boolean,
+  objectName: string | undefined,
+  canUpdate: (objectName: string) => boolean,
+): boolean {
+  return !permissionsLoaded || (!!objectName && canUpdate(objectName));
 }
 
 export function RecordDetailView({ dataSource, objects, onEdit, objectNameOverride, recordIdOverride, embedded }: RecordDetailViewProps) {
@@ -254,6 +270,8 @@ export function RecordDetailView({ dataSource, objects, onEdit, objectNameOverri
   const [tabSearchParams, setTabSearchParams] = useSearchParams();
   const activeTabParam = tabSearchParams.get(RECORD_DETAIL_TAB_PARAM) ?? undefined;
   const location = useLocation();
+  const { t, language } = useObjectTranslation();
+  const { objectLabel, viewLabel: _vLabel, sectionLabel, actionParamText, actionParamOptionLabel, actionDescription, actionResultDialog, fieldLabel, fieldOptionLabel } = useObjectLabel();
   const handleTabChange = useCallback((value: string) => {
     const sp = new URLSearchParams(window.location.search);
     if (sp.get(RECORD_DETAIL_TAB_PARAM) === value) return;
@@ -270,19 +288,31 @@ export function RecordDetailView({ dataSource, objects, onEdit, objectNameOverri
   // affordance; the full clickable path lives in the top-bar breadcrumb.
   const originFromState = (location.state as any)?.from as { pathname?: string; label?: string } | undefined;
   const originFrom = useMemo<{ pathname?: string; label?: string } | undefined>(() => {
-    if (originFromState?.pathname && originFromState?.label) return originFromState;
+    if (originFromState?.pathname && originFromState?.label) {
+      const originRecord = originFromState.pathname.match(/\/([^/]+)\/record\/([^/]+)$/);
+      if (!originRecord || !isDatabaseKeyDisplay(originFromState.label, originRecord[2])) return originFromState;
+      const originObject = objects.find((o: any) => o.name === originRecord[1]);
+      return {
+        ...originFromState,
+        label: originObject ? objectLabel(originObject) : t('common.record', { defaultValue: 'Record' }),
+      };
+    }
     const trail = decodeRecordTrail(new URLSearchParams(location.search).get(RECORD_TRAIL_PARAM));
     const parent = trail[trail.length - 1];
     if (!parent) return undefined;
     const baseAppUrl = appName ? `/apps/${appName}` : '';
-    const shortId = parent.i.length > 12 ? `${parent.i.slice(0, 8)}…` : parent.i;
+    const parentTitle = parent.t?.trim();
+    const parentTitleIsId = isDatabaseKeyDisplay(parentTitle, parent.i);
+    const parentObject = objects.find((o: any) => o.name === parent.o);
     return {
       pathname: buildRecordTrailHref(baseAppUrl, parent, trail.slice(0, -1)),
-      label: parent.t || `#${shortId}`,
+      label: parentTitle && !parentTitleIsId
+        ? parentTitle
+        : parentObject
+          ? objectLabel(parentObject)
+          : t('common.record', { defaultValue: 'Record' }),
     };
-  }, [originFromState, location.search, appName]);
-  const { t, language } = useObjectTranslation();
-  const { objectLabel, viewLabel: _vLabel, sectionLabel, actionParamText, actionParamOptionLabel, actionDescription, actionResultDialog, fieldLabel, fieldOptionLabel } = useObjectLabel();
+  }, [originFromState, location.search, appName, objects, objectLabel, t]);
   // label + confirmText + successMessage through ONE call (objectui#4265) —
   // the three keys of an `_actions.<name>` bundle entry can no longer be
   // localized apart from one another on this surface.
@@ -355,11 +385,11 @@ export function RecordDetailView({ dataSource, objects, onEdit, objectNameOverri
     if (!objectName || !pureRecordId) return null;
     return {
       id: `record:${objectName}:${pureRecordId}`,
-      label: recordTitle || pureRecordId || '',
+      label: recordTitle || (objectDef ? objectLabel(objectDef) : t('common.record', { defaultValue: 'Record' })),
       href: `/apps/${appName}/${objectName}/record/${pureRecordId}`,
       type: 'record' as const,
     };
-  }, [appName, objectName, pureRecordId, recordTitle]);
+  }, [appName, objectDef, objectLabel, objectName, pureRecordId, recordTitle, t]);
   const isRecordFavorite = favoriteRecord ? isFavorite(favoriteRecord.id) : false;
   const handleToggleRecordFavorite = useCallback(() => {
     if (favoriteRecord) toggleFavorite(favoriteRecord);
@@ -501,7 +531,8 @@ export function RecordDetailView({ dataSource, objects, onEdit, objectNameOverri
   useEffect(() => {
     if (!pageRecord || typeof pageRecord !== 'object' || !objectDef) return;
     const resolved = getRecordDisplayName(objectDef, pageRecord);
-    if (resolved && resolved !== 'Untitled' && resolved !== recordTitle) {
+    const recordId = pageRecord.id ?? pageRecord._id;
+    if (resolved && resolved !== 'Untitled' && !isDatabaseKeyDisplay(resolved, recordId) && resolved !== recordTitle) {
       setRecordTitle(resolved);
     }
   }, [pageRecord, objectDef, recordTitle]);
@@ -515,9 +546,14 @@ export function RecordDetailView({ dataSource, objects, onEdit, objectNameOverri
     if (!recordTitle) return;
     const favId = `record:${objectName}:${pureRecordId}`;
     const href = `/apps/${appName}/${objectName}/record/${pureRecordId}`;
-    addRecentItem({ id: favId, label: recordTitle, href, type: 'record' });
+    addRecentItem({
+      id: favId,
+      label: recordTitle || (objectDef ? objectLabel(objectDef) : t('common.record', { defaultValue: 'Record' })),
+      href,
+      type: 'record',
+    });
     refreshFavoriteLabel(favId, recordTitle);
-  }, [appName, objectName, pureRecordId, recordTitle, addRecentItem, refreshFavoriteLabel]);
+  }, [appName, objectDef, objectLabel, objectName, pureRecordId, recordTitle, addRecentItem, refreshFavoriteLabel, t]);
 
   // ─── Action Provider Handlers ───────────────────────────────────────
 
@@ -657,13 +693,7 @@ export function RecordDetailView({ dataSource, objects, onEdit, objectNameOverri
     toast.success(message, { duration: options?.duration });
   }, [undoCtl]);
 
-  const navigateHandler = useCallback((url: string, options?: { external?: boolean; newTab?: boolean }) => {
-    if (options?.external || options?.newTab) {
-      window.open(url, '_blank', 'noopener,noreferrer');
-    } else {
-      navigate(url);
-    }
-  }, [navigate]);
+  const navigateHandler = useConsoleActionNavigation(navigate);
 
   // Authenticated fetch for direct backend calls (absolute `type:'api'`
   // targets below + the flow trigger). Declared before apiHandler.
@@ -952,8 +982,8 @@ export function RecordDetailView({ dataSource, objects, onEdit, objectNameOverri
   // `action.recordId`; header/more actions carry none and use this page's id.
   // The env ref keeps the handler instance stable across renders (authFetch is
   // memoized once) while the thunks read the live record/object.
-  const serverActionEnvRef = useRef({ objectName, pureRecordId, notifyRecordChanged, t, navigate });
-  serverActionEnvRef.current = { objectName, pureRecordId, notifyRecordChanged, t, navigate };
+  const serverActionEnvRef = useRef({ objectName, pureRecordId, notifyRecordChanged, t, navigate: navigateHandler });
+  serverActionEnvRef.current = { objectName, pureRecordId, notifyRecordChanged, t, navigate: navigateHandler };
   const serverActionHandler = useMemo(
     () => createConsoleServerActionHandler({
       fetch: authFetch,
@@ -1058,17 +1088,21 @@ export function RecordDetailView({ dataSource, objects, onEdit, objectNameOverri
   // entirely, so the "approver may fill in the missing detail" case the flag
   // exists for was unreachable from the console.
   //
-  // The record's own `approval_status` field stays a fallback for backends
-  // that mirror status onto the record but expose no approvals API. It carries
-  // no node granularity, so it can only mean "locked" — the conservative read,
-  // and the same one `recordLockedByApproval` applies to a pre-framework#3814 backend.
+  // The record's own `approval_status` field is a fallback only until the
+  // Native request list succeeds for this exact record. It carries no node
+  // granularity, so it can only mean "locked" — the conservative read for an
+  // unsupported endpoint or an unsuccessful request.
   const approvalStatusPending =
     (pageRecord as any)?.approval_status === 'pending' ||
     (pageRecord as any)?.approval_status === 'in_approval';
-  const approvalPending = approvalStatusPending || !!approvals.pendingRequest;
+  const approvalPending = approvals.resolved
+    ? !!approvals.pendingRequest
+    : approvalStatusPending || !!approvals.pendingRequest;
   const approvalLocked = approvals.pendingRequest
     ? recordLockedByApproval(approvals.pendingRequest)
-    : approvalStatusPending;
+    : approvals.resolved
+      ? false
+      : approvalStatusPending;
   // How far the pending node's tally has got (objectstack#4478). Multi-approver
   // nodes — `quorum`, `unanimous`, `per_group` — do not finalize on one
   // decision, so an approver standing on the record needs the count to know
@@ -1082,14 +1116,16 @@ export function RecordDetailView({ dataSource, objects, onEdit, objectNameOverri
   // `isSubmitterOf` for both, so the two levers cannot disagree about who
   // submitted.
   //
-  // `undefined` when there is no pending request to consult: the band is then
-  // running off the record's `approval_status` mirror alone (a backend with no
-  // approvals API), the host has resolved no identity, and the DetailView keeps
-  // its pre-#6464 behaviour rather than hiding on absent information.
+  // `undefined` when no pending request is available and the Native request
+  // list did not resolve: the band is then running off the record mirror alone,
+  // and the DetailView keeps its legacy behaviour rather than hiding recall
+  // when approval identity is unavailable.
   //
   // This gates the AFFORDANCE only. `canEdit` / `approvalLocked` below are
   // untouched by it, and the recall endpoint authorizes the recall itself.
-  const approvalIsSubmitter = isSubmitterOf(approvals.pendingRequest, user?.id);
+  const approvalIsSubmitter = approvals.resolved && !approvals.pendingRequest
+    ? false
+    : isSubmitterOf(approvals.pendingRequest, user?.id);
 
   // A decision landed through the declared-action bar (objectui#3055). The
   // action itself already POSTed and the runtime already toasted; what the HOST
@@ -1128,17 +1164,36 @@ export function RecordDetailView({ dataSource, objects, onEdit, objectNameOverri
   // are still loading (`isLoaded === false`, e.g. no PermissionProvider in a
   // standalone embed) the gate stays open — fail-open is safe because the
   // server enforces data access regardless; this is purely a UI/DX filter.
-  const { can: canOnObject, isLoaded: permissionsLoaded, getObjectApiOperations, systemPermissions } = perms;
+  const {
+    can: canOnObject,
+    isLoaded: permissionsLoaded,
+    getObjectApiOperations,
+    systemPermissions,
+  } = perms;
+  const canCopyRecordId =
+    hasReportedCapabilities(perms, ['studio.access']) ||
+    hasReportedCapabilities(perms, ['setup.access']);
   // [#3546] Server-resolved effective API operation set for this object
   // (`/me/permissions` `apiOperations`). Threaded as the 2nd arg into
   // `resolveRecordHeaderActionGates` for the detail header's Edit/Delete and
   // the record-body inline-edit gate, so the detail surface never offers an
   // operation the server would 405 — the same intersection the list/toolbar
-  // surface already applies (objectui#2823). `undefined` (unrestricted object
-  // / old backend) leaves the bucket affordances untouched (backward-compatible).
+  // surface already applies (objectui#2823). This is separate from the base
+  // object `allowEdit` grant below.
   const effectiveApiOperations = useMemo(
     () => (objectDef ? getObjectApiOperations(objectDef.name) : undefined),
     [objectDef, getObjectApiOperations],
+  );
+  // `apiOperations` narrows the object's apiMethods; it does not replace the
+  // permission set's base allowEdit decision. Require that grant when the
+  // endpoint resolved this principal, while preserving standalone hosts whose
+  // permission context has not reported a state. A role-based provider may
+  // report an authoritative matrix without a userId, so identity is not the
+  // signal.
+  const objectUpdateAllowed = resolveObjectUpdatePermissionGate(
+    permissionsLoaded,
+    objectDef?.name,
+    (name) => canOnObject(name, 'update'),
   );
   const childRelations = useMemo(
     () => deriveRelatedLists(objectDef, objects, {
@@ -2193,7 +2248,11 @@ export function RecordDetailView({ dataSource, objects, onEdit, objectNameOverri
   // menu permanently — Delete must never surface as an inline red button
   // just because an object has few actions.
   const synthSystemActions: ActionDef[] = (() => {
-    const objectAffordances = resolveRecordHeaderActionGates(objectDef, effectiveApiOperations);
+    const objectAffordances = resolveRecordHeaderActionGates(
+      objectDef,
+      effectiveApiOperations,
+      objectUpdateAllowed,
+    );
     // Object-level gate AND the record-level verdict (objectstack#3821) AND the
     // object's per-record `userActions` predicate (objectui#4213 — see the
     // evaluation block beside `recordDeleteAllowed` above).
@@ -2391,6 +2450,7 @@ export function RecordDetailView({ dataSource, objects, onEdit, objectNameOverri
         refresh={headerRefresh}
         headerSystemActions={synthSystemActions}
         isFavorite={isRecordFavorite}
+        canCopyRecordId={canCopyRecordId}
         onToggleFavorite={favoriteRecord ? handleToggleRecordFavorite : undefined}
       >
         {/* objectui#2407 P2 — ONE record-level inline-edit session spanning
@@ -2421,7 +2481,11 @@ export function RecordDetailView({ dataSource, objects, onEdit, objectNameOverri
             same reason `approvalLocked` does — a draft Save would reject. */}
         <InlineEditProvider
           canEdit={
-            resolveRecordHeaderActionGates(objectDef, effectiveApiOperations).edit
+            resolveRecordHeaderActionGates(
+              objectDef,
+              effectiveApiOperations,
+              objectUpdateAllowed,
+            ).edit
             && recordWriteAllowed
             && !approvalLocked
             && editVisible
@@ -2429,6 +2493,7 @@ export function RecordDetailView({ dataSource, objects, onEdit, objectNameOverri
           }
           locked={approvalLocked}
           approvalPending={approvalPending}
+          approvalResolved={approvals.resolved}
           approvalProgress={approvalProgress}
           approvalIsSubmitter={approvalIsSubmitter}
           lockedReason={t('detail.lockedTooltip', {
@@ -2468,6 +2533,25 @@ export function RecordDetailView({ dataSource, objects, onEdit, objectNameOverri
                   <ChevronLeft className="h-4 w-4" />
                   <span>{originFrom.label}</span>
                 </Link>
+              )}
+              {(approvals.error || (approvals.loading && !approvals.resolved)) && (
+                <div
+                  role={approvals.error ? 'alert' : 'status'}
+                  className="mb-4 flex items-center justify-between gap-3 rounded-md border border-destructive/30 bg-destructive/5 px-3 py-2 text-sm text-destructive"
+                  data-testid="record-approvals-read-state"
+                >
+                  <span>{approvals.error ? t('detail.approvalsReadFailed') : t('detail.loading')}</span>
+                  {approvals.error && (
+                    <Button
+                      type="button"
+                      variant="outline"
+                      size="sm"
+                      onClick={() => { void approvals.refresh(); }}
+                    >
+                      {t('detail.retryApprovals')}
+                    </Button>
+                  )}
+                </div>
               )}
               {/* The pending approval's DECISION ACTIONS (objectui#3055).
                   `sys_approval_request` declares them as object metadata —

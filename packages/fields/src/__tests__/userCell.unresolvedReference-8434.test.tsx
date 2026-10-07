@@ -146,17 +146,15 @@ describe('objectui#8434 — THE DEFECT: an unresolved `user` reference must say 
       `${label}: the cell must carry exactly one unresolved-reference affordance`,
     ).toHaveLength(1);
 
-    // ⛔ The raw value stays VISIBLE. It is the only clue for diagnosing an
-    // existing dirty row, and the strong arm's cost was destroying it.
-    expect(
-      textOf(container),
-      `${label}: the raw value must remain readable on screen`,
-    ).toBe(String(value));
+    // The product UI must not expose internal keys. A localized marker names
+    // the unresolved state without repeating the stored value.
+    expect(textOf(container)).toBe((en as any).detail.unresolvedReference);
+    expect(textOf(container)).not.toContain(String(value));
 
     // The signal is STATED, not merely styled: a sentence a person can read.
     const stated = marks(container)[0]!.getAttribute('title') ?? '';
     expect(stated.length, `${label}: the affordance must state something`).toBeGreaterThan(0);
-    expect(stated, `${label}: the sentence must name the value it is about`).toContain(String(value));
+    expect(stated, `${label}: the sentence must not expose the stored value`).not.toContain(String(value));
   });
 });
 
@@ -208,18 +206,19 @@ describe('objectui#8434 — THE SENTENCE: honest about WHICH population it canno
       stated,
       `${label}: this renderer cannot know the record is absent — it only knows it did not resolve it`,
     ).not.toMatch(/not found|does not exist|no such|invalid|missing/i);
-    expect(stated, `${label}: it must say what it DOES know`).toMatch(/unresolved/i);
+    expect(stated, `${label}: it must say what it DOES know`).toMatch(/unresolved|not resolved/i);
   });
 
   // The English fallback lives in code (the provider-less path) and the `en`
   // pack serves the same sentence. `check:i18n-keys` compares an inline
   // `defaultValue` against the pack, but this call site's fallback is not that
   // shape, so the gate cannot see it — this pin is the comparison instead.
-  it('the provider-less sentence is byte-equal to the `en` pack value', () => {
+  it('the provider-less sentence is byte-equal to the `en` pack value and contains no stored key', () => {
     const { container } = renderCell('user', 'Ada Lovelace');
     const stated = marks(container)[0]!.getAttribute('title');
-    const packed = (en as any).detail.unresolvedReference.replace('{{value}}', 'Ada Lovelace');
+    const packed = (en as any).detail.unresolvedReference;
     expect(stated, 'the code fallback and the en pack must not drift apart').toBe(packed);
+    expect(stated).not.toContain('Ada Lovelace');
   });
 });
 
@@ -247,6 +246,7 @@ describe('objectui#8434 — ADDITIVE, NOT SUBTRACTIVE: the sentence that graded 
     const { container } = renderCell('user', ['Ada Lovelace', { id: 'u_2', name: 'Grace Hopper' }]);
     expect(marks(container), 'the unresolved entry says so').toHaveLength(1);
     expect(avatars(container), 'the resolved entry still draws its avatar').toHaveLength(1);
-    expect(marks(container)[0]!.textContent, 'and keeps its raw value').toBe('Ada Lovelace');
+    expect(marks(container)[0]!.textContent).toBe((en as any).detail.unresolvedReference);
+    expect(container.textContent).not.toContain('Ada Lovelace');
   });
 });

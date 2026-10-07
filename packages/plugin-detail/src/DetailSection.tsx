@@ -27,7 +27,9 @@ import {
 } from '@object-ui/components';
 import { ChevronDown, ChevronRight, Copy, Check, Eye, EyeOff, Pencil } from 'lucide-react';
 import { SchemaRenderer, toRenderableSchema, useInlineEdit } from '@object-ui/react';
+import { usePermissions } from '@object-ui/permissions';
 import { getCellRenderer, resolveCellRendererType } from '@object-ui/fields';
+import { isDatabaseKeyField } from '@object-ui/core';
 import type { DetailViewSection as DetailViewSectionType, DetailViewField, FieldMetadata } from '@object-ui/types';
 import { applyDetailAutoLayout } from './autoLayout';
 import { useDetailTranslation } from './useDetailTranslation';
@@ -146,6 +148,14 @@ export const DetailSection: React.FC<DetailSectionProps> = ({
   const [showEmptyOverride, setShowEmptyOverride] = React.useState(false);
   const { t } = useDetailTranslation();
   const { fieldLabel, translateOptions } = useSafeFieldLabel();
+  const permissions = usePermissions();
+  const hasResolvedPermissions = permissions.isLoaded;
+  const objectAllowsInlineUpdate =
+    !hasResolvedPermissions || (!!objectName && permissions.can(objectName, 'update'));
+  const displayFields = React.useMemo(
+    () => section.fields.filter((field) => !isDatabaseKeyField(field.name)),
+    [section.fields],
+  );
   /**
    * The SERVER's per-field refusals from the last rejected inline save
    * (objectui#6868), read straight off the shared edit session so the reason
@@ -226,24 +236,22 @@ export const DetailSection: React.FC<DetailSectionProps> = ({
   }, [data]);
 
   const emptyCount = React.useMemo(
-    () => section.fields.filter(isEmptyValue).length,
-    [section.fields, isEmptyValue]
+    () => displayFields.filter(isEmptyValue).length,
+    [displayFields, isEmptyValue]
   );
 
-  // Auto-hide-empty heuristic — the WHOLE contract for section emptiness
-  // (objectui#7129, maintainer 2026-09-01). When a section has empty rows AND
+  // Auto-hide-empty heuristic — the whole contract for the empty ROWS of a
+  // section that still has a filled one (objectui#7129 Q2-C, maintainer
+  // 2026-09-01, untouched by objectui#8603). When a section has empty rows AND
   // at least one filled row, hide the empties so the page does not become a
-  // label-graveyard. The user can still reveal them with the toggle. If a
-  // section is entirely empty (e.g., loading state, brand-new record), do NOT
-  // auto-hide — the labels themselves are useful as a structural skeleton.
+  // label-graveyard. The user can still reveal them with the toggle. An
+  // authored `hideEmpty` does NOT override this branch in either polarity —
+  // it never could: the read was `!section.hideEmpty`, so a written `false`
+  // was indistinguishable from unauthored, which is the paradox Q2-C settled.
   //
-  // ⛔ There is deliberately no authored override. `DetailViewSection` used to
-  // declare `hideEmpty`, and this heuristic tested `!section.hideEmpty` — so
-  // an authored `false` was indistinguishable from unauthored and overrode
-  // nothing, while `@objectstack/spec` refused the key outright on a
-  // spec-validated page. The declaration is retired; do not reintroduce a read
-  // of it here (see `packages/types/src/views.ts` for the full four-party
-  // measurement).
+  // The ALL-EMPTY case is the other domain, and it is `hideEmpty`'s — see
+  // `allFieldsEmpty` below. The two are disjoint by construction: this
+  // heuristic requires `filledCount > 0`, that one requires `filledCount === 0`.
   //
   // Thresholds were tightened in Phase N (2026-05): smaller sections (≥4
   // fields) and a lower empty ratio (≥25%) now trigger auto-hide so pages
@@ -252,18 +260,52 @@ export const DetailSection: React.FC<DetailSectionProps> = ({
   const isMobile = useIsMobile();
   const AUTO_HIDE_MIN_FIELDS = isMobile ? 3 : 4;
   const AUTO_HIDE_RATIO = isMobile ? 0.2 : 0.25;
-  const filledCount = section.fields.length - emptyCount;
+  const filledCount = displayFields.length - emptyCount;
   const shouldAutoHideEmpty =
     !isEditing &&
-    section.fields.length >= AUTO_HIDE_MIN_FIELDS &&
-    emptyCount / section.fields.length >= AUTO_HIDE_RATIO &&
+    displayFields.length >= AUTO_HIDE_MIN_FIELDS &&
+    emptyCount / displayFields.length >= AUTO_HIDE_RATIO &&
     filledCount > 0;
-  const hideEmptyEffective = !showEmptyOverride && shouldAutoHideEmpty;
 
-  // Filter out empty fields when the auto-hide heuristic kicked in.
+  // The authored `record:details` section key, restored under objectui#8603
+  // (director seat batch #137 item 3, maintainer 2026-09-15) after
+  // objectui#7129 retired it on the premise that `@objectstack/spec` refused
+  // the key — a premise the 17.3.0 pin move made false. The spec declares it
+  // on `RecordDetailsProps.sections[]` and its describe() promises exactly
+  // this: hiding is the renderer default, an all-empty section then renders
+  // nothing at all (no heading, no skeleton), and `false` keeps the heading
+  // and the label skeleton on an all-empty record.
+  //
+  // ⚠️ `=== true`, and the DEFAULT IS NOT HERE. `RecordDetailsRenderer`
+  // resolves it (`hideEmpty: s.hideEmpty ?? true` on the authored section),
+  // because "the renderer default" in that describe() is the default of the
+  // renderer the key is DECLARED on. This component also receives sections
+  // nobody could write the key on — the `record:details` direct-`fields`
+  // fallback body and the `detail-section` node both synthesize one, and
+  // neither surface declares `hideEmpty` — and hiding those would be a hide
+  // with no declarable spelling to ask the skeleton back, which is the exact
+  // defect upstream declared the key to fix. A truthiness test
+  // (`!section.hideEmpty`) is banned for the mirror-image reason: it is what
+  // made an authored `false` indistinguishable from unauthored before #7129.
+  //
+  // ⚠️ `!isEditing` is this renderer's boundary on the contract, and it is
+  // deliberate: inline-edit mode is the surface where those empty rows are the
+  // INPUTS. Hiding an all-empty section there would put its fields out of the
+  // author's and the user's reach entirely, which no describe() asks for and
+  // which would be a new defect rather than a restored behaviour. What the
+  // contract governs is what a READER sees, and that is what this leaves
+  // unchanged.
+  const allFieldsEmpty = displayFields.length > 0 && filledCount === 0;
+  const hideAllEmptySection = section.hideEmpty === true && allFieldsEmpty && !isEditing;
+
+  const hideEmptyEffective =
+    !showEmptyOverride && (shouldAutoHideEmpty || hideAllEmptySection);
+
+  // Filter out empty fields when the auto-hide heuristic kicked in, or when an
+  // all-empty section is hiding itself (its early return is below every hook).
   const visibleFields = hideEmptyEffective
-    ? section.fields.filter((field) => !isEmptyValue(field))
-    : section.fields;
+    ? displayFields.filter((field) => !isEmptyValue(field))
+    : displayFields;
 
   // Apply auto-layout: infer columns and auto-span wide fields
   const { fields: layoutFields, columns: rawColumns } = applyDetailAutoLayout(
@@ -332,7 +374,16 @@ export const DetailSection: React.FC<DetailSectionProps> = ({
     // (objectui#4221) already holds the WRITE direction of it.
     const isMaskedField = isMaskedDetailFieldType(field.type, objectDefField?.type);
     const fieldEditable = !isReadonly && !isComputedField && !isSystemField && !isInlineExcluded;
-    const canInlineEditField = fieldEditable && !!onEnterInlineEdit;
+    // Field metadata may make a value available to a controlled action form;
+    // generic record editing still needs the resolved principal's object and
+    // field-write grants below.
+    const fieldAllowsInlineWrite =
+      !hasResolvedPermissions ||
+      (!!objectName &&
+        objectAllowsInlineUpdate &&
+        permissions.checkField(objectName, field.name, 'write'));
+    const canEditField = fieldEditable && fieldAllowsInlineWrite;
+    const canInlineEditField = canEditField && !!onEnterInlineEdit;
 
     const displayValue = (() => {
       // Per-field widget override (ADR-0056 P1) — a facet designed in Studio
@@ -419,7 +470,7 @@ export const DetailSection: React.FC<DetailSectionProps> = ({
     // hairline-separated rows inside the section card. The native-feeling
     // settings/detail form for the mobile target. Editing falls back to the
     // stacked layout below so inputs have room.
-    if (isMobile && !(isEditing && fieldEditable)) {
+    if (isMobile && !(isEditing && canEditField)) {
       return (
         <div
           key={field.name}
@@ -450,7 +501,7 @@ export const DetailSection: React.FC<DetailSectionProps> = ({
         <div className="text-xs font-medium text-muted-foreground uppercase tracking-wide">
           {fieldLabel(objectName || '', field.name, field.label || field.name)}
         </div>
-        {isEditing && fieldEditable ? (
+        {isEditing && canEditField ? (
           <div className="min-h-[44px] sm:min-h-0">
             <InlineFieldInput
               field={enrichedField}
@@ -578,7 +629,10 @@ export const DetailSection: React.FC<DetailSectionProps> = ({
   }, [vsEnabled, layoutFields.length, vsBatchSize]);
 
   // Hide entire section when all fields are empty AND the user has not asked to
-  // reveal them. This early return MUST come AFTER every hook above (including
+  // reveal them. Who decides this is the authored `hideEmpty` (`hideEmptyEffective`
+  // above, default on, `false` to keep the skeleton); this line is the mechanism
+  // it reaches, which is why restoring the read there needed no new exit here.
+  // This early return MUST come AFTER every hook above (including
   // the virtual-scroll useEffect) — never before. When a section is all-empty
   // on one render (early return, N hooks) but has data on the next render (the
   // useEffect runs, N+1 hooks) of the SAME reconciled fiber, the hook count
@@ -587,7 +641,7 @@ export const DetailSection: React.FC<DetailSectionProps> = ({
   // crash: navigating account → project reuses this DetailSection fiber, and
   // its sections flip from empty to populated. Keeping the guard below all
   // hooks makes the hook count invariant.
-  if (visibleFields.length === 0 && emptyCount === section.fields.length) return null;
+  if (visibleFields.length === 0 && emptyCount === displayFields.length) return null;
 
   const renderedFields = visibleCount !== undefined
     ? layoutFields.slice(0, visibleCount)

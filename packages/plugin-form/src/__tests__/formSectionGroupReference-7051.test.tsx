@@ -119,8 +119,8 @@ function formOutline(form: HTMLElement): string[] {
   form.querySelectorAll('input[name], .col-span-full').forEach((el) => {
     if (el.tagName === 'INPUT') {
       out.push(`F:${el.getAttribute('name')}`);
-    } else if (el.classList.contains('border-b')) {
-      out.push(`H:${(el.textContent ?? '').trim()}`);
+    } else if (el.hasAttribute('data-form-section')) {
+      out.push(`H:${(el.querySelector('[data-form-section-label]')?.textContent ?? '').trim()}`);
     }
   });
   return out;

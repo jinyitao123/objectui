@@ -70,6 +70,7 @@ const MEMO_DEP_KEYS = [
   'embedded',
   'headerSystemActions',
   'isFavorite',
+  'canCopyRecordId',
   'onToggleFavorite',
 ] as const;
 
@@ -97,6 +98,7 @@ const BASE: RecordContextValue = {
   embedded: false,
   headerSystemActions: [],
   isFavorite: false,
+  canCopyRecordId: false,
   onToggleFavorite: () => {},
 };
 

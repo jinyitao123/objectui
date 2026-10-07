@@ -14,8 +14,48 @@ The standard runtime UI for ObjectStack applications. This package provides the 
 - **Command Palette**: `⌘+K` for quick navigation across apps and objects
 - **Dark/Light Theme**: System-aware theme with per-app branding (logo, colors, favicon)
 - **Developer Tools**: Built-in metadata inspector with collapsible sections and copy-to-clipboard support
+- **Native Approvals**: Pending, submitted and all-request queues share governed request data and declared actions. Submitted/all queues can filter every native terminal status, including cancelled; pending always stays scoped to the current approver's pending requests.
 
 ## Quick Start
+
+### Optional compact geometry
+
+Set `VITE_UI_PROFILE=compact-enterprise` when building or running the Console.
+The profile sets host CSS tokens in `src/index.css` for control, form, modal,
+toolbar and table geometry. It does not replace field metadata, validation,
+permissions or business actions. Without that build option, the token
+fallbacks keep the existing Console dimensions.
+Dialogs accept a host-scoped `--ui-modal-radius`; its fallback remains
+`1.25rem`. Set it on the portaled dialog itself or on an ancestor that contains
+the portal, rather than only on the page's main content.
+The compact profile sets the AppShell top bar to `68px` at widths of `768px` and
+above, and `60px` below `768px`, through `--ui-app-topbar-height`.
+
+The opt-in `WorkspaceHeader` workspace variant reads
+`--ui-workspace-header-*` tokens for its frame, breadcrumb and icon geometry.
+Its minimum height is a presentation baseline; content can grow when a title
+or action wraps. The regular header variant remains unchanged.
+
+The profile is a presentation baseline rather than a claim of page parity.
+Compare concrete controls and states at a fixed viewport before declaring a
+sample aligned. Color calibration is independent of these geometry tokens.
+
+The profile also lists RISEMAP measurements in `--ui-page-*` and
+`--ui-surface-*` custom properties. Shared control and typography tokens are
+consumed by existing renderers. Forge's host-scoped contact list and profile
+dialog already read selected surface values; generic ObjectUI renderers do not
+infer a page from them. Quote and project measurements remain available for
+future consumers. Keep each measured row, header and tab size attached to its
+surface instead of applying one table density to every list. See the
+[Console guide](/docs/guide/console#optional-geometry-profile) for component
+boundaries and current gaps.
+
+The standalone component preview uses local in-memory fixtures and no platform
+login or business database: run `pnpm --filter @object-ui/console preview:geometry`
+and open the local address printed by Vite. It exercises the shared control,
+form, modal, list and dashboard renderers. Fixture interactions are presentation
+checks, not business acceptance evidence; the default Console imports no preview
+route.
 
 ```bash
 # From the repository root

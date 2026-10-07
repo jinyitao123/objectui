@@ -53,6 +53,8 @@ import {
 
 import { useState, useEffect, useCallback } from 'react';
 import { useOffline } from '@object-ui/react';
+import { isDatabaseKeyDisplay } from '@object-ui/core';
+import { collectAppNavigationObjectNames } from '../utils/appNavigationObjects.js';
 import { PresenceAvatars, useTenantPresence, type PresenceUser } from '@object-ui/collaboration';
 import { ModeToggle } from './ModeToggle.js';
 import { WorkspaceSwitcher } from './WorkspaceSwitcher.js';
@@ -68,7 +70,7 @@ import { useAdapter } from '../providers/AdapterProvider.js';
 import { useObjectTranslation, useObjectLabel } from '@object-ui/i18n';
 import type { BreadcrumbItem as BreadcrumbItemType } from '@object-ui/types';
 import { useAuth, getUserInitials, useWorkspaceAdminStatus } from '@object-ui/auth';
-import { useMetadata } from '../providers/MetadataProvider.js';
+import { useMetadata, useMetadataItem } from '../providers/MetadataProvider.js';
 import { resolveKeyedI18nLabel, preferLocal, matchAppBySegment, appRouteSegment, appStudioRoutePath, resolveAppNavigationContext } from '../utils/index.js';
 import { getIcon } from '../utils/getIcon.js';
 import { useMobileViewSwitcher } from './MobileViewSwitcherContext.js';
@@ -179,7 +181,7 @@ export function AppHeader({
   const { isAdmin: isWorkspaceAdmin } = useWorkspaceAdminStatus();
   const { t } = useObjectTranslation();
   const { objectLabel, dashboardLabel, pageLabel, reportLabel, viewLabel, appLabel } = useObjectLabel();
-  const { apps: metadataApps, dashboards: metadataDashboards, pages: metadataPages, reports: metadataReports } = useMetadata();
+  const { apps: metadataApps, dashboards: metadataDashboards, reports: metadataReports } = useMetadata();
   const { currentAppName, recordTitle } = useNavigationContext();
   const mobileSwitcher = useMobileViewSwitcher();
 
@@ -309,15 +311,15 @@ export function AppHeader({
   const appNameKey = activeAppName || currentAppName || appNameFromRoute;
   // ADR-0048 (A) — appNameKey may be a package id (route segment); match by it.
   const currentApp = matchAppBySegment(metadataApps || [], appNameKey);
-  const appNavObjectNames = new Set<string>();
-  const collectNavObjects = (items: any[]) => {
-    for (const item of items || []) {
-      if (item.type === 'object' && item.objectName) appNavObjectNames.add(item.objectName);
-      if (item.children) collectNavObjects(item.children);
-    }
-  };
-  collectNavObjects(currentApp?.navigation || []);
-  for (const area of currentApp?.areas || []) collectNavObjects(area.navigation || []);
+  const currentAppPackageId = typeof (currentApp as any)?._packageId === 'string'
+    ? (currentApp as any)._packageId as string
+    : undefined;
+  const bareEntryName = pathParts.length === 3 ? pathParts[2] : undefined;
+  const scopedPageEntry = useMetadataItem('page', bareEntryName, currentAppPackageId);
+  const scopedObjectEntry = useMetadataItem('object', bareEntryName, currentAppPackageId);
+  const isBarePageEntry = !!scopedPageEntry.item && !scopedObjectEntry.item;
+  const isAmbiguousBareEntry = !!scopedPageEntry.item && !!scopedObjectEntry.item;
+  const appNavObjectNames = new Set(collectAppNavigationObjectNames(currentApp));
   const appObjects = appNavObjectNames.size > 0
     ? safeObjects.filter((o: any) => appNavObjectNames.has(o.name))
     : safeObjects.filter((o: any) => !o.name.startsWith('sys_') && !o.name.startsWith('auth_'));
@@ -325,7 +327,6 @@ export function AppHeader({
   // Help menu — docs owned by the current app (matched by package id, the
   // precise owner link; ADR-0048). Empty when not inside an app, the app
   // ships no docs, or the lazy fetch hasn't run yet.
-  const currentAppPackageId = (currentApp as any)?._packageId as string | undefined;
   const currentAppDocs = currentAppPackageId
     ? (helpDocs ?? []).filter((d) => d._packageId === currentAppPackageId)
     : [];
@@ -333,14 +334,20 @@ export function AppHeader({
   // App → Studio reverse bridge (ADR-0080): admins jump from the running app
   // to its owning package's design surface. Null when there is nothing to open
   // (non-admin, or no owning package). When the current route names a specific
-  // interface (a dashboard, page, or report), deep-link straight to THAT surface
-  // in the Interfaces pillar instead of the package's generic Data tab — the
-  // surface's design page replaces the retired in-page inline editor. The route
-  // type doubles as the surface type and `pathParts[3]` is the surface name
-  // (absent on the interface list routes, which fall back to the Data tab); the
-  // mapping lives in `appStudioRoutePath`.
+  // interface, deep-link straight to that surface in Studio. A page is
+  // identified by a package-scoped named read on the bare entry route;
+  // dashboard/report routes keep their typed segments. The mapping lives in
+  // `appStudioRoutePath`.
   const studioDesignPath = isApp
-    ? appStudioRoutePath(currentApp, isWorkspaceAdmin, { type: routeType, name: pathParts[3] })
+    ? appStudioRoutePath(
+      currentApp,
+      isWorkspaceAdmin,
+      isBarePageEntry
+        ? { type: 'page', name: bareEntryName }
+        : isAmbiguousBareEntry
+          ? undefined
+          : { type: routeType, name: pathParts[3] },
+    )
     : null;
 
   const objectSiblings = appObjects.map((o: any) => ({
@@ -391,16 +398,12 @@ export function AppHeader({
           label: activeNavigationLabel || dashboardLabel({ name: dashboardName, label: fallback }),
         });
       }
-    } else if (routeType === 'page') {
-      if (!hasNavigationContext) extraSegments.push({ label: t('console.breadcrumb.pages'), href: baseHref });
-      if (pathParts[3]) {
-        const pageName = pathParts[3];
-        const pageDef = preferLocal(metadataPages as any[], pageName, (currentApp as any)?._packageId);
-        const fallback = pageDef?.label || humanizeSlug(pageName);
-        extraSegments.push({
-          label: activeNavigationLabel || pageLabel({ name: pageName, label: fallback }),
-        });
-      }
+    } else if (isBarePageEntry && bareEntryName) {
+      const pageDef = scopedPageEntry.item as any;
+      const fallback = pageDef?.label || humanizeSlug(bareEntryName);
+      extraSegments.push({ label: activeNavigationLabel || pageLabel({ name: bareEntryName, label: fallback }) });
+    } else if (isAmbiguousBareEntry && bareEntryName) {
+      extraSegments.push({ label: humanizeSlug(bareEntryName) });
     } else if (routeType === 'report') {
       if (!hasNavigationContext) extraSegments.push({ label: t('console.breadcrumb.reports'), href: baseHref });
       if (pathParts[3]) {
@@ -430,9 +433,12 @@ export function AppHeader({
               label: ancObj ? objectLabel(ancObj) : humanizeSlug(entry.o),
               href: `${baseHref}/${entry.o}`,
             });
-            const ancShortId = entry.i.length > 12 ? `${entry.i.slice(0, 8)}…` : entry.i;
             extraSegments.push({
-              label: entry.t || `#${ancShortId}`,
+              label: entry.t && !isDatabaseKeyDisplay(entry.t, entry.i)
+                ? entry.t
+                : ancObj
+                  ? objectLabel(ancObj)
+                  : humanizeSlug(entry.o),
               href: buildRecordTrailHref(baseHref, entry, trail.slice(0, k)),
             });
           });
@@ -443,12 +449,12 @@ export function AppHeader({
           siblings: objectSiblings,
         });
         if (pathParts[3] === 'record' && pathParts[4]) {
-          const shortId = pathParts[4].length > 12 ? `${pathParts[4].slice(0, 8)}…` : pathParts[4];
           const trimmedTitle = recordTitle?.trim();
           const displayTitle = trimmedTitle && trimmedTitle.length > 48
             ? `${trimmedTitle.slice(0, 45)}…`
             : trimmedTitle;
-          extraSegments.push({ label: displayTitle || `#${shortId}` });
+          const titleIsDatabaseKey = isDatabaseKeyDisplay(displayTitle, pathParts[4]);
+          extraSegments.push({ label: displayTitle && !titleIsDatabaseKey ? displayTitle : objectLabel(currentObject) });
         } else if (pathParts[3] === 'view' && pathParts[4]) {
           // Prefer the view's metadata label (e.g. "Lead Pipeline") over a
           // humanized slug ("Kanban By Status") so the breadcrumb matches the

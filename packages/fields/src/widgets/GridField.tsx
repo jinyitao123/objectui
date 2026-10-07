@@ -16,10 +16,12 @@ import {
   Label,
 } from '@object-ui/components';
 import { Plus, Trash2, SlidersHorizontal, Maximize2, Copy, GripVertical } from 'lucide-react';
-import { formatDate, resolveFieldRuleState } from '@object-ui/core';
+import { formatDate, formatDateTime, resolveFieldRuleState } from '@object-ui/core';
 import { useDisplayLocale } from '@object-ui/i18n';
+import { useFieldTranslation } from './useFieldTranslation.js';
 import { LookupField } from './LookupField.js';
 import { FileCell } from './FileField.js';
+import { DateField } from './DateField.js';
 import { toDateInputValue, toDateTimeInputValue, fromDateTimeInputValue } from './nativeDateValue.js';
 import { toDomProps } from './toDomProps.js';
 import { toHostGroupProps } from './toHostGroupProps.js';
@@ -161,6 +163,54 @@ export interface GridColumn {
    * {@link readonlyWhen}.
    */
   requiredWhen?: string | { dialect?: string; source: string };
+}
+
+/** JSON-safe row data exposed to React-only GridField toolbar adapters. */
+export type GridSelectionRow = Record<string, unknown>;
+
+/** Stable, unique key returned by a host's React-only row-key callback. */
+export type GridSelectionRowKey = string | number;
+
+export type GridSelectionPatch =
+  | Partial<GridSelectionRow>
+  | ((row: Readonly<GridSelectionRow>, index: number) => Partial<GridSelectionRow>);
+
+/** Context supplied to the direct React toolbar slot; none of these are schema properties. */
+export interface GridSelectionToolbarContext {
+  selectedRows: readonly GridSelectionRow[];
+  /** Current array positions, recalculated after insert, delete, and reorder. */
+  selectedIndices: readonly number[];
+  totalRows: number;
+  disabled: boolean;
+  canPatchSelected: boolean;
+  canRemoveSelected: boolean;
+  patchSelected: (patch: GridSelectionPatch) => void;
+  removeSelected: () => void;
+  clearSelection: () => void;
+}
+
+/** A React-only host slot for composing a toolbar above the selected rows. */
+export type GridSelectionToolbarRenderer = (
+  context: GridSelectionToolbarContext,
+) => React.ReactNode;
+
+/**
+ * Runtime-only GridField affordances. Keep this separate from GridColumn and
+ * field metadata: a React callback cannot be authored in ObjectStack JSON.
+ */
+export interface GridFieldRuntimeProps {
+  /** Code-derived columns for direct React composition, separate from field metadata. */
+  columns?: GridColumn[];
+  /** Host-resolved field-level read result for the running amount footer. */
+  totalUnavailable?: boolean;
+  /**
+   * Stable, unique identity for rows that may be cloned by a controlled host.
+   * Without it, GridField keeps selection through its own edits/reorders using
+   * sidecar identities and clears it when an external replacement is unknown.
+   */
+  getRowKey?: (row: Readonly<GridSelectionRow>) => GridSelectionRowKey;
+  /** Direct React slot; ObjectForm hosts may expose it through a code wrapper. */
+  renderSelectionToolbar?: GridSelectionToolbarRenderer;
 }
 
 type Row = Record<string, any>;
@@ -341,9 +391,13 @@ const isTemporal = (t?: string) => t === 'date' || t === 'datetime' || t === 'ti
  *   handed to `formatDate` as a `Date` INSTANCE, which the shared function uses
  *   verbatim — passing the raw string instead would re-introduce exactly the
  *   UTC-midnight parse this branch exists to avoid.
- * - `datetime` — an instant. Rendered as local day + local time, the same basis
- *   `toDateTimeInputValue` uses for the editor, so the two never disagree (and
- *   matching `DateTimeField`'s own read-only rendering).
+ * - `datetime` — an instant, rendered on `formatDateTime`'s `'compact'` face:
+ *   local day + local time, the same basis `toDateTimeInputValue` uses for the
+ *   editor, so the two never disagree. ⚠️ It no longer matches
+ *   `DateTimeField`'s readonly rendering, and that is the RULING on
+ *   objectui#8209 rather than a drift: both sites went to the one home
+ *   `formatDateTime`, each on the face of its register — a dense grid cell is
+ *   `'compact'`, a readonly form / detail field is the verbose default.
  * - `time` — a zone-less wall clock (`HH:mm[:ss]`); it is already display-ready.
  *
  * An unparseable value falls through to its raw string rather than rendering
@@ -376,21 +430,50 @@ function temporalText(type: string | undefined, value: any, locale: string): str
   }
   const dt = value instanceof Date ? value : new Date(raw);
   if (Number.isNaN(dt.getTime())) return raw;
-  return `${dt.toLocaleDateString(locale)} ${dt.toLocaleTimeString(locale)}`;
+  // `formatDateTime`'s `'compact'` face — the one home for the `datetime`
+  // display convention (objectui#7443), on the face the maintainer ruled for
+  // THIS register on objectui#8209. A sub-grid cell sits beside `datetime`
+  // cells, and `DateTimeCellRenderer`'s own default face is `'compact'`, so
+  // that is the register's face here. This branch used to compose
+  // `toLocaleDateString(locale)` and `toLocaleTimeString(locale)` with NO
+  // options bag, which put seconds in a dense cell that the `datetime` cell
+  // one component over never showed.
+  //
+  // ⛔ The style is a LITERAL, not an authored read, and that departs from the
+  // call shape the ruling wrote (`field.format ?? 'compact'`). It has to:
+  // `temporalText` is handed a column `type`, and the `GridColumn` its caller
+  // holds — like the published `GridColumnDefinition` it mirrors — declares no
+  // `format` key at all, so there is nothing here to reuse the way
+  // `DateTimeCellRenderer` reuses `DateTimeFieldMetadata.format`. Spelling the
+  // read anyway would mean DECLARING that key, which the same ruling forbids
+  // in the same breath ("reuse, not a new declaration"). The ruled FACE is
+  // delivered; only the read that would have selected it is absent, because
+  // the vocabulary it would read does not exist on this surface.
+  //
+  // The `Number.isNaN` guard above still owns the unparseable case, so this
+  // branch never reaches `formatDateTime`'s `—`: an unreadable stored value
+  // keeps showing what is actually stored (objectui#3569), exactly as the
+  // `date` branch's `!ymd` guard does.
+  return formatDateTime(dt, { style: 'compact', locale });
 }
 
 /** Read-only display text for a cell in list mode (select → option label,
  *  currency/number → formatted, date/datetime/time → localized, empty → em
  *  dash). Lookups render separately. */
-function displayText(c: GridColumn, value: any, locale: string): string {
+function displayText(
+  c: GridColumn,
+  value: any,
+  locale: string,
+  t: ReturnType<typeof useFieldTranslation>['t'],
+): string {
   if (value === null || value === undefined || value === '') return '—';
   if (isTemporal(c.type)) return temporalText(c.type, value, locale);
   if (c.type === 'file') {
     const files = Array.isArray(value) ? value : [value];
     if (files.length === 0) return '—';
-    if (files.length > 1) return `${files.length} files`;
+    if (files.length > 1) return t('detail.attachmentCountPlural', { count: files.length });
     const f = files[0];
-    return typeof f === 'string' ? f : f?.name || f?.original_name || 'File';
+    return typeof f === 'string' ? f : f?.name || f?.original_name || t('fields.file.fileFallback');
   }
   if (c.type === 'select' && Array.isArray(c.options)) {
     const opt = c.options.find((o) => String(o.value) === String(value));
@@ -398,6 +481,14 @@ function displayText(c: GridColumn, value: any, locale: string): string {
   }
   if (isNumeric(c.type)) {
     const n = Number(value);
+    if (Number.isFinite(n) && c.type === 'currency' && typeof document !== 'undefined' &&
+      document.documentElement.dataset.uiProfile === 'compact-enterprise') {
+      const digits = c.scale ?? 2;
+      return `${c.prefix || '¥'}${n.toLocaleString(locale, {
+        minimumFractionDigits: digits,
+        maximumFractionDigits: digits,
+      })}`;
+    }
     if (Number.isFinite(n)) return c.type === 'currency' ? `${c.prefix || '¥'}${n.toLocaleString()}` : n.toLocaleString();
   }
   if (Array.isArray(value)) return value.join(', ');
@@ -441,8 +532,12 @@ export function GridField({
   onRowExpand,
   displayMode,
   onAdd,
+  columns: runtimeColumns,
+  totalUnavailable = false,
+  getRowKey,
+  renderSelectionToolbar,
   ...props
-}: FieldWidgetComponentProps<Row[]> & {
+}: FieldWidgetComponentProps<Row[]> & GridFieldRuntimeProps & {
   /** When provided, each row shows an "expand" button that opens the row in a
    *  full form (the host — e.g. MasterDetailForm — renders the drawer/modal and
    *  writes the edited values back). Lets a "fat" child be edited in a real form
@@ -460,9 +555,49 @@ export function GridField({
    *  the header (`parent.status == 'paid'`). Supplied by MasterDetailForm. */
   contextRecord?: Record<string, unknown>;
 }) {
+  const { t } = useFieldTranslation();
   const cfg = (field || {}) as any;
-  const allColumns: GridColumn[] = cfg.columns || [];
+  const allColumns: GridColumn[] = runtimeColumns ?? cfg.columns ?? [];
   const rows: Row[] = Array.isArray(value) ? value : [];
+  // Keep the rows parent-owned, but derive formula cells for display on every
+  // render. Initial data and async controlled replacements should not need an
+  // unrelated user edit before read-only computed values become visible.
+  const computedRows = rows.map((row) => computeRow(allColumns, row));
+  const [selectedRowKeys, setSelectedRowKeys] = React.useState<Set<string>>(() => new Set());
+  const localRowKeys = useRef(new WeakMap<Row, string>());
+  const nextLocalRowKey = useRef(1);
+  const localRowKey = useCallback((row: Row): string => {
+    const existing = localRowKeys.current.get(row);
+    if (existing) return existing;
+    const created = `local:${nextLocalRowKey.current++}`;
+    localRowKeys.current.set(row, created);
+    return created;
+  }, []);
+  const resolveRowKeys = useCallback((sourceRows: readonly Row[]): string[] => {
+    if (!getRowKey) return sourceRows.map(localRowKey);
+
+    const suppliedKeys = sourceRows.map((row) => getRowKey(row as GridSelectionRow));
+    const normalizedKeys = suppliedKeys.map((key) => `host:${typeof key}:${String(key)}`);
+    const counts = new Map<string, number>();
+    for (const key of normalizedKeys) counts.set(key, (counts.get(key) ?? 0) + 1);
+
+    // A duplicate or invalid host key is not safe identity. Fall back to the
+    // sidecar token so duplicate rows stay distinct through our own operations.
+    return sourceRows.map((row, index) => {
+      const key = suppliedKeys[index];
+      const normalized = normalizedKeys[index];
+      return (typeof key === 'string' || typeof key === 'number') && counts.get(normalized) === 1
+        ? normalized
+        : localRowKey(row);
+    });
+  }, [getRowKey, localRowKey]);
+  const preserveLocalRowKey = useCallback((source: Row, target: Row) => {
+    const key = localRowKeys.current.get(source);
+    if (key) localRowKeys.current.set(target, key);
+  }, []);
+  const rowKeys = resolveRowKeys(rows);
+  const selectedIndices = rowKeys.flatMap((key, index) => selectedRowKeys.has(key) ? [index] : []);
+  const selectedRows: GridSelectionRow[] = selectedIndices.map((index) => rows[index]);
   const contextRecord = props.contextRecord;
   // The one locale channel every field renderer resolves through: tenant
   // regional default → active UI language → 'en' (objectui#4468). Read here
@@ -528,10 +663,29 @@ export function GridField({
 
   const emit = useCallback(
     (next: Row[]) => {
-      onChange?.(sortField ? next.map((r, i) => ({ ...r, [sortField]: i })) : next);
+      const output = sortField ? next.map((row, index) => ({ ...row, [sortField]: index })) : next;
+      if (sortField) next.forEach((row, index) => preserveLocalRowKey(row, output[index]));
+      const remainingKeys = new Set(resolveRowKeys(output));
+      setSelectedRowKeys((previous) => {
+        const kept = new Set([...previous].filter((key) => remainingKeys.has(key)));
+        return kept.size === previous.size ? previous : kept;
+      });
+      onChange?.(output);
     },
-    [onChange, sortField],
+    [onChange, sortField, preserveLocalRowKey, resolveRowKeys],
   );
+
+  // External value replacement may produce new row objects. A host key lets
+  // selection follow those rows; without one, unknown replacements lose their
+  // selection rather than transferring it to a different row at the same index.
+  const rowKeySignature = JSON.stringify(rowKeys);
+  React.useEffect(() => {
+    const availableKeys = new Set<string>(JSON.parse(rowKeySignature) as string[]);
+    setSelectedRowKeys((previous) => {
+      const kept = new Set([...previous].filter((key) => availableKeys.has(key)));
+      return kept.size === previous.size ? previous : kept;
+    });
+  }, [rowKeySignature]);
 
   const blankRow = useCallback((): Row => {
     const blank: Row = {};
@@ -553,9 +707,14 @@ export function GridField({
         emit([...rows, computeRow(columns, { ...blankRow(), ...patch })]);
         return;
       }
-      emit(rows.map((r, i) => (i === rowIdx ? computeRow(columns, { ...r, ...patch }) : r)));
+      emit(rows.map((row, index) => {
+        if (index !== rowIdx) return row;
+        const updated = computeRow(columns, { ...row, ...patch });
+        preserveLocalRowKey(row, updated);
+        return updated;
+      }));
     },
-    [rows, columns, maxRows, blankRow, emit],
+    [rows, columns, maxRows, blankRow, emit, preserveLocalRowKey],
   );
 
   const applyCell = useCallback(
@@ -657,11 +816,98 @@ export function GridField({
   );
   const dragIndex = useRef<number | null>(null);
 
+  const selectionDisabled = !!disabled || !!readonly || isList;
+  const selectionEnabled = typeof renderSelectionToolbar === 'function' && !readonly && !isList;
+  const canPatchSelected = !selectionDisabled && selectedIndices.length > 0;
+  const canRemoveSelected =
+    !selectionDisabled && allowDelete && rows.length > minRows && selectedIndices.length > 0;
+
+  const toggleRowSelection = useCallback((rowKey: string, selected: boolean) => {
+    setSelectedRowKeys((previous) => {
+      const next = new Set(previous);
+      if (selected) next.add(rowKey);
+      else next.delete(rowKey);
+      return next;
+    });
+  }, []);
+
+  const toggleAllRowSelection = useCallback((selected: boolean) => {
+    setSelectedRowKeys((previous) => {
+      const next = new Set(previous);
+      for (const rowKey of rowKeys) {
+        if (selected) next.add(rowKey);
+        else next.delete(rowKey);
+      }
+      return next;
+    });
+  }, [rowKeys]);
+
+  const clearSelection = useCallback(() => setSelectedRowKeys(new Set()), []);
+
+  const patchSelected = useCallback((patch: GridSelectionPatch) => {
+    if (!canPatchSelected) return;
+
+    const selected = new Set(selectedIndices);
+    let changed = false;
+    const next = rows.map((row, index) => {
+      if (!selected.has(index)) return row;
+      const requested = typeof patch === 'function'
+        ? patch(row as GridSelectionRow, index)
+        : patch;
+      const writablePatch: Row = {};
+
+      for (const [name, value] of Object.entries(requested)) {
+        const column = allColumns.find((candidate) => candidate.name === name);
+        if (!column || column.computed) continue;
+        // Check both the current and proposed row. This prevents a batch that
+        // changes a gate field and a newly read-only value together from
+        // bypassing the same cell rule used by the normal editor.
+        if (cellRules(column, row).readonly) continue;
+        if (cellRules(column, { ...row, ...requested }).readonly) continue;
+        writablePatch[name] = value;
+      }
+
+      if (Object.keys(writablePatch).length === 0) return row;
+      const updated = computeRow(allColumns, { ...row, ...writablePatch });
+      preserveLocalRowKey(row, updated);
+      changed = true;
+      return updated;
+    });
+
+    if (changed) emit(next);
+  }, [canPatchSelected, selectedIndices, rows, allColumns, cellRules, preserveLocalRowKey, emit]);
+
+  const removeSelected = useCallback(() => {
+    if (!canRemoveSelected) return;
+    const removableCount = rows.length - minRows;
+    const removed = new Set(selectedIndices.slice(0, removableCount));
+    emit(rows.filter((_, index) => !removed.has(index)));
+  }, [canRemoveSelected, rows, minRows, selectedIndices, emit]);
+
+  const selectionToolbarContext: GridSelectionToolbarContext = {
+    selectedRows,
+    selectedIndices,
+    totalRows: rows.length,
+    disabled: selectionDisabled,
+    canPatchSelected,
+    canRemoveSelected,
+    patchSelected,
+    removeSelected,
+    clearSelection,
+  };
+  const selectionToolbar = renderSelectionToolbar
+    ? (
+        <div className="flex min-w-0 items-center justify-between gap-2" data-testid="line-items-selection-toolbar">
+          {renderSelectionToolbar(selectionToolbarContext)}
+        </div>
+      )
+    : null;
+
   const hasRowActions = showExpand || allowDelete || allowDuplicate;
   const actionColWidth = ((showExpand ? 1 : 0) + (allowDuplicate ? 1 : 0) + (allowDelete ? 1 : 0)) * 34 + 12;
 
   const showTotal = !!totalField;
-  const total = showTotal ? sumColumn(rows, totalField!) : 0;
+  const total = showTotal ? sumColumn(computedRows, totalField!) : 0;
   // Align the running total under the column it sums (not blindly under the
   // last column). The label sits right-aligned immediately to its left.
   const totalColIndex = showTotal ? Math.max(0, columns.findIndex((c) => c.name === totalField)) : -1;
@@ -675,11 +921,11 @@ export function GridField({
           type="button"
           variant="ghost"
           size="sm"
-          className="h-7 gap-1.5 text-xs text-muted-foreground"
+          className="h-[var(--ui-control-small-height,1.75rem)] gap-[var(--ui-button-gap,0.375rem)] text-xs text-muted-foreground"
           data-testid="line-items-columns"
         >
           <SlidersHorizontal className="h-3.5 w-3.5" />
-          Columns
+          {t('table.columns', { defaultValue: 'Columns' })}
           {extraShown.size > 0 && (
             <span className="rounded-full bg-primary/10 px-1.5 text-[10px] font-medium text-primary">
               +{extraShown.size}
@@ -688,7 +934,7 @@ export function GridField({
         </Button>
       </PopoverTrigger>
       <PopoverContent align="end" className="w-56 p-2">
-        <div className="px-1 pb-1.5 text-xs font-medium text-muted-foreground">Optional columns</div>
+        <div className="px-1 pb-1.5 text-xs font-medium text-muted-foreground">{t('table.optionalColumns')}</div>
         <div className="max-h-64 space-y-0.5 overflow-y-auto">
           {optionalColumns.map((c) => {
             const id = `col-toggle-${c.name}`;
@@ -724,19 +970,20 @@ export function GridField({
         className={cn('space-y-2', className)}
       >
         {columnChooser && <div className="flex justify-end">{columnChooser}</div>}
-        <div className="border border-border rounded-lg overflow-x-auto" data-testid="line-items-readonly">
-        <table className="w-full text-sm">
+        {selectionToolbar}
+        <div className="border border-border rounded-[var(--ui-card-radius,0.5rem)] overflow-x-auto" data-testid="line-items-readonly">
+        <table className="w-full text-[length:var(--ui-table-font-size,0.875rem)]">
           <thead className="bg-muted border-b border-border">
             <tr>
               {showLineNumbers && (
-                <th className="w-10 px-2 py-2 text-right text-xs font-medium text-muted-foreground">#</th>
+                <th className="w-10 px-[var(--ui-table-cell-padding-x,0.5rem)] py-2 text-right text-xs font-medium text-muted-foreground">#</th>
               )}
               {columns.map((c) => (
                 <th
                   key={c.name}
                   style={{ minWidth: minWidthFor(c) }}
                   className={cn(
-                    'px-3 py-2 text-xs font-medium text-muted-foreground whitespace-nowrap',
+                    'px-[var(--ui-table-cell-padding-x,0.75rem)] py-2 text-xs font-medium text-muted-foreground whitespace-nowrap',
                     isNumeric(c.type) ? 'text-right' : 'text-left',
                   )}
                 >
@@ -752,56 +999,64 @@ export function GridField({
                   colSpan={Math.max(columns.length + (showLineNumbers ? 1 : 0), 1)}
                   className="px-3 py-6 text-center text-muted-foreground"
                 >
-                  No items
+                  {t('common.noData')}
                 </td>
               </tr>
             ) : (
-              rows.map((row, rowIdx) => (
-                <tr key={rowIdx}>
-                  {showLineNumbers && (
-                    <td className="px-2 py-2 text-right text-muted-foreground tabular-nums">{rowIdx + 1}</td>
-                  )}
-                  {columns.map((c) => (
-                    <td
-                      key={c.name}
-                      className={cn('px-3 py-2 text-foreground', isNumeric(c.type) && 'text-right tabular-nums')}
-                    >
-                      {c.type === 'lookup' && row[c.name] != null && row[c.name] !== '' ? (
-                        <LookupField
-                          value={row[c.name]}
-                          onChange={() => {}}
-                          readonly
-                          field={{ reference: c.reference, displayField: c.displayField, idField: c.idField } as any}
-                        />
-                      ) : c.type === 'file' || isTemporal(c.type) ? (
-                        // A temporal column printed with `String(value)` puts
-                        // the raw stored ISO on screen — `2026-06-17T00:00:00.000Z`
-                        // for a date, and for a datetime it would ALSO have been
-                        // wrong to render as a bare day (objectui#3569). Now that
-                        // the three types are distinct, each formats as itself.
-                        displayText(c, row[c.name], displayLocale)
-                      ) : row[c.name] != null && row[c.name] !== '' ? (
-                        String(row[c.name])
-                      ) : (
-                        '—'
-                      )}
-                    </td>
-                  ))}
-                </tr>
-              ))
+              rows.map((row, rowIdx) => {
+                const computedRow = computedRows[rowIdx] ?? row;
+                return (
+                  <tr key={rowIdx}>
+                    {showLineNumbers && (
+                      <td className="px-[var(--ui-table-cell-padding-x,0.5rem)] py-2 text-right text-muted-foreground tabular-nums">{rowIdx + 1}</td>
+                    )}
+                    {columns.map((c) => {
+                      const displayValue = c.computed ? computedRow[c.name] : row[c.name];
+                      return (
+                        <td
+                          key={c.name}
+                          className={cn('px-[var(--ui-table-cell-padding-x,0.75rem)] py-2 text-foreground', isNumeric(c.type) && 'text-right tabular-nums')}
+                        >
+                          {c.type === 'lookup' && row[c.name] != null && row[c.name] !== '' ? (
+                            <LookupField
+                              value={row[c.name]}
+                              onChange={() => {}}
+                              readonly
+                              field={{ reference: c.reference, displayField: c.displayField, idField: c.idField } as any}
+                            />
+                          ) : c.type === 'file' || isTemporal(c.type) ||
+                            (c.type === 'currency' && typeof document !== 'undefined' &&
+                              document.documentElement.dataset.uiProfile === 'compact-enterprise') ? (
+                            // A temporal column printed with `String(value)` puts
+                            // the raw stored ISO on screen — `2026-06-17T00:00:00.000Z`
+                            // for a date, and for a datetime it would ALSO have been
+                            // wrong to render as a bare day (objectui#3569). Now that
+                            // the three types are distinct, each formats as itself.
+                            displayText(c, displayValue, displayLocale, t)
+                          ) : displayValue != null && displayValue !== '' ? (
+                            String(displayValue)
+                          ) : (
+                            '—'
+                          )}
+                        </td>
+                      );
+                    })}
+                  </tr>
+                );
+              })
             )}
           </tbody>
           {showTotal && (
             <tfoot className="border-t border-border bg-muted/40">
               <tr>
                 <td
-                  colSpan={Math.max((showLineNumbers ? 1 : 0) + totalColIndex, 1)}
-                  className="px-3 py-2 text-right text-xs font-medium text-muted-foreground"
+                  colSpan={Math.max((selectionEnabled ? 1 : 0) + (showLineNumbers ? 1 : 0) + totalColIndex, 1)}
+                  className="px-[var(--ui-table-cell-padding-x,0.75rem)] py-2 text-right text-xs font-medium text-muted-foreground"
                 >
-                  Total
+                  {t('report.total')}
                 </td>
-                <td className="px-3 py-2 text-right font-semibold text-foreground tabular-nums">
-                  {total.toLocaleString()}
+                <td className="px-[var(--ui-table-cell-padding-x,0.75rem)] py-2 text-right font-semibold text-foreground tabular-nums">
+                  {totalUnavailable ? '—' : total.toLocaleString()}
                 </td>
                 {columns.length - totalColIndex - 1 > 0 && (
                   <td colSpan={columns.length - totalColIndex - 1} />
@@ -858,8 +1113,9 @@ export function GridField({
     rowIdx: number,
     row: Row,
     invalid = false,
+    computedRow: Row = row,
   ) => {
-    const val = row?.[c.name];
+    const val = (c.computed ? computedRow : row)?.[c.name];
     // A readonlyWhen-TRUE cell is locked: treat like the form-wide `disabled`.
     const locked = disabled || cellRules(c, row).readonly;
     // List (form-factor) mode → read-only at-a-glance display.
@@ -871,8 +1127,8 @@ export function GridField({
         );
       }
       return (
-        <span className={cn('px-2 text-sm text-foreground', isNumeric(c.type) && 'tabular-nums', (val == null || val === '') && 'text-muted-foreground')}>
-          {displayText(c, val, displayLocale)}
+        <span className={cn('px-2 text-[length:var(--ui-table-font-size,0.875rem)] text-foreground', isNumeric(c.type) && 'tabular-nums', (val == null || val === '') && 'text-muted-foreground')}>
+          {displayText(c, val, displayLocale, t)}
         </span>
       );
     }
@@ -880,11 +1136,11 @@ export function GridField({
     if (c.computed) {
       return (
         <span
-          className={cn('block px-2 text-sm tabular-nums', isNumeric(c.type) ? 'text-right' : 'text-left', (val == null || val === '') ? 'text-muted-foreground' : 'text-foreground')}
-          title="Computed"
+          className={cn('block px-2 text-[length:var(--ui-table-font-size,0.875rem)] tabular-nums', isNumeric(c.type) ? 'text-right' : 'text-left', (val == null || val === '') ? 'text-muted-foreground' : 'text-foreground')}
+          title={t('grid.computed')}
           data-computed={c.name}
         >
-          {displayText(c, val, displayLocale)}
+          {displayText(c, val, displayLocale, t)}
         </span>
       );
     }
@@ -899,7 +1155,7 @@ export function GridField({
           disabled={locked}
           // The published `error` slot, not a hand-rolled attribute: LookupField
           // already puts `aria-invalid` on its own focusable trigger from it.
-          error={invalid ? `${c.label || c.name} is required` : undefined}
+          error={invalid ? t('validation.required', { field: c.label || c.name }) : undefined}
         />
       );
     }
@@ -919,7 +1175,7 @@ export function GridField({
           // wiring as the lookup branch above: FileCell puts `aria-invalid` on
           // its own focusable picker button from it (objectui#5431, closing
           // the one cell type #3318 left out).
-          error={invalid ? `${c.label || c.name} is required` : undefined}
+          error={invalid ? t('validation.required', { field: c.label || c.name }) : undefined}
         />
       );
     }
@@ -927,7 +1183,7 @@ export function GridField({
       return (
         <Select value={val != null ? String(val) : ''} onValueChange={(v) => setCell(rowIdx, c, v)} disabled={locked}>
           <SelectTrigger
-            className="h-8 rounded-none border-0 bg-transparent px-2 shadow-none focus:ring-1 focus:ring-ring/60"
+            className="h-[var(--ui-control-height,2rem)] rounded-none border-0 bg-transparent px-[var(--ui-input-padding-x,0.5rem)] text-[length:var(--ui-control-font-size,0.875rem)] shadow-none focus:ring-1 focus:ring-ring/60"
             aria-label={c.label || c.name}
             aria-invalid={invalid || undefined}
           >
@@ -941,17 +1197,32 @@ export function GridField({
         </Select>
       );
     }
+    if (c.type === 'date' && typeof document !== 'undefined' &&
+      document.documentElement.dataset.uiProfile === 'compact-enterprise') {
+      return (
+        <DateField
+          value={toDateInputValue(val)}
+          onChange={(next) => setCellValue(rowIdx, c.name, next)}
+          field={{ name: c.name, type: 'date', label: c.label || c.name }}
+          disabled={locked}
+          error={invalid ? t('validation.required', { field: c.label || c.name }) : undefined}
+          aria-label={c.label || c.name}
+          data-cell={`${rowIdx}-${colIdx}`}
+          className="h-[var(--ui-control-height,2rem)] rounded-none border-0 bg-transparent shadow-none"
+        />
+      );
+    }
     return (
       <div className="relative">
         {c.type === 'currency' && (
-          <span className="pointer-events-none absolute left-2 top-1/2 -translate-y-1/2 text-xs text-muted-foreground">{c.prefix || '¥'}</span>
+          <span className="pointer-events-none absolute left-[var(--ui-input-padding-x,0.5rem)] top-1/2 -translate-y-1/2 text-xs text-muted-foreground">{c.prefix || '¥'}</span>
         )}
         <Input
           data-cell={`${rowIdx}-${colIdx}`}
           aria-invalid={invalid || undefined}
           onKeyDown={(e) => onCellKeyDown(e, rowIdx, colIdx)}
           className={cn(
-            'h-8 rounded-none border-0 bg-transparent px-2 shadow-none focus-visible:ring-1 focus-visible:ring-ring/60',
+            'h-[var(--ui-control-height,2rem)] rounded-none border-0 bg-transparent px-[var(--ui-input-padding-x,0.5rem)] text-[length:var(--ui-control-font-size,0.875rem)] shadow-none focus-visible:ring-1 focus-visible:ring-ring/60',
             c.type === 'currency' && 'pl-6',
             isNumeric(c.type) && 'text-right tabular-nums',
           )}
@@ -1018,18 +1289,32 @@ export function GridField({
       data-testid="line-items"
     >
       {columnChooser && <div className="flex justify-end">{columnChooser}</div>}
-      <div className="border border-border rounded-lg overflow-x-auto">
-        <table ref={gridRef} className="w-full text-sm">
+      {selectionToolbar}
+      <div className="border border-border rounded-[var(--ui-card-radius,0.5rem)] overflow-x-auto">
+        <table ref={gridRef} className="w-full text-[length:var(--ui-table-font-size,0.875rem)]">
           <thead className="bg-muted/60 border-b border-border">
             <tr>
+              {selectionEnabled && (
+                <th className="w-9 px-1 py-2 text-center">
+                  <Checkbox
+                    checked={rows.length > 0 && selectedIndices.length === rows.length
+                      ? true
+                      : selectedIndices.length > 0 ? 'indeterminate' : false}
+                    onCheckedChange={(checked) => toggleAllRowSelection(checked === true)}
+                    disabled={selectionDisabled || rows.length === 0}
+                    aria-label={t('table.selectAllRows')}
+                    data-testid="line-items-select-all"
+                  />
+                </th>
+              )}
               {showLineNumbers && (
-                <th className={cn('px-2 py-2 text-right text-xs font-medium text-muted-foreground', allowReorder ? 'w-14' : 'w-10')}>#</th>
+                <th className={cn('px-[var(--ui-table-cell-padding-x,0.5rem)] py-2 text-right text-xs font-medium text-muted-foreground', allowReorder ? 'w-14' : 'w-10')}>#</th>
               )}
               {columns.map((c) => (
                 <th
                   key={c.name}
                   className={cn(
-                    'px-2 py-2 text-xs font-medium text-muted-foreground whitespace-nowrap',
+                    'px-[var(--ui-table-cell-padding-x,0.5rem)] py-2 text-xs font-medium text-muted-foreground whitespace-nowrap',
                     isNumeric(c.type) ? 'text-right' : 'text-left',
                   )}
                   style={widthStyle(c)}
@@ -1048,13 +1333,14 @@ export function GridField({
                   colSpan={columns.length + (hasRowActions ? 1 : 0) + (showLineNumbers ? 1 : 0)}
                   className="px-3 py-6 text-center text-muted-foreground"
                 >
-                  No items yet — click “{cfg.add_label || 'Add'}” to begin.
+                  {t('common.noData')}
                 </td>
               </tr>
             ) : (
               displayRows.map((row, rowIdx) => {
                 const isGhost = hasGhost && rowIdx === rows.length;
                 const reorderable = allowReorder && !isGhost && !isList;
+                const computedRow = computedRows[rowIdx] ?? row;
                 return (
                   <tr
                     key={rowIdx}
@@ -1069,6 +1355,19 @@ export function GridField({
                         }
                       : {})}
                   >
+                    {selectionEnabled && (
+                      <td className="w-9 px-1 py-1 text-center align-middle">
+                        {!isGhost && (
+                          <Checkbox
+                            checked={selectedRowKeys.has(rowKeys[rowIdx])}
+                            onCheckedChange={(checked) => toggleRowSelection(rowKeys[rowIdx], checked === true)}
+                            disabled={selectionDisabled}
+                            aria-label={t('grid.selectRowNumber', { row: rowIdx + 1 })}
+                            data-testid={`line-items-select-${rowIdx}`}
+                          />
+                        )}
+                      </td>
+                    )}
                     {showLineNumbers && (
                       <td className="px-1 py-1 text-right align-middle text-xs text-muted-foreground tabular-nums">
                         <span className="inline-flex items-center justify-end gap-0.5">
@@ -1078,8 +1377,8 @@ export function GridField({
                               onDragStart={() => { dragIndex.current = rowIdx; }}
                               onDragEnd={() => { dragIndex.current = null; }}
                               className="cursor-grab text-muted-foreground/40 opacity-0 transition-opacity group-hover:opacity-100"
-                              title="Drag to reorder"
-                              aria-label="Drag to reorder"
+                              title={t('view.dragToReorder')}
+                              aria-label={t('view.dragToReorder')}
                               data-testid={`line-items-drag-${rowIdx}`}
                             >
                               <GripVertical className="h-3.5 w-3.5" />
@@ -1115,7 +1414,7 @@ export function GridField({
                           // exists to forbid (objectui#3318 / #5223). The td
                           // keeps the VISUAL ring and the test hook; the state
                           // travels with `invalid` into `renderCellInput`.
-                          title={invalid ? `${c.label || c.name} is required` : undefined}
+                          title={invalid ? t('validation.required', { field: c.label || c.name }) : undefined}
                           data-testid={invalid ? `line-items-invalid-${rowIdx}-${c.name}` : undefined}
                           className={cn(
                             'border-r border-border/40 px-1 py-0.5 align-middle last:border-r-0',
@@ -1123,7 +1422,7 @@ export function GridField({
                             invalid && 'bg-destructive/5 ring-1 ring-inset ring-destructive/50',
                           )}
                         >
-                          {renderCellInput(c, colIdx, rowIdx, row, invalid)}
+                          {renderCellInput(c, colIdx, rowIdx, row, invalid, computedRow)}
                         </td>
                       );
                     })}
@@ -1135,9 +1434,9 @@ export function GridField({
                               type="button"
                               variant="ghost"
                               size="icon"
-                              className="h-8 w-8 text-muted-foreground hover:text-foreground"
-                              aria-label="Open row"
-                              title="Open full form"
+                              className="h-[var(--ui-icon-button-size,2rem)] w-[var(--ui-icon-button-size,2rem)] text-muted-foreground hover:text-foreground"
+                              aria-label={t('grid.openRow')}
+                              title={t('grid.openFullForm')}
                               data-testid={`line-items-expand-${rowIdx}`}
                               onClick={() => onRowExpand!(rowIdx)}
                             >
@@ -1153,9 +1452,9 @@ export function GridField({
                               // discoverable and reachable on touch/coarse-pointer devices,
                               // which have no hover. The action column width is reserved
                               // regardless, so this adds no layout shift.
-                              className="h-8 w-8 text-muted-foreground hover:text-foreground"
-                              aria-label="Duplicate row"
-                              title="Duplicate line"
+                              className="h-[var(--ui-icon-button-size,2rem)] w-[var(--ui-icon-button-size,2rem)] text-muted-foreground hover:text-foreground"
+                              aria-label={t('grid.duplicateRow')}
+                              title={t('grid.duplicateRow')}
                               data-testid={`line-items-duplicate-${rowIdx}`}
                               onClick={() => duplicateRow(rowIdx)}
                               disabled={disabled || (maxRows != null && rows.length >= maxRows)}
@@ -1169,8 +1468,8 @@ export function GridField({
                               variant="ghost"
                               size="icon"
                               // Always visible — see the duplicate button above.
-                              className="h-8 w-8 text-muted-foreground hover:text-destructive"
-                              aria-label="Remove row"
+                              className="h-[var(--ui-icon-button-size,2rem)] w-[var(--ui-icon-button-size,2rem)] text-muted-foreground hover:text-destructive"
+                              aria-label={t('grid.removeRow')}
                               data-testid={`line-items-remove-${rowIdx}`}
                               onClick={() => removeRow(rowIdx)}
                               disabled={disabled || rows.length <= minRows}
@@ -1190,13 +1489,13 @@ export function GridField({
             <tfoot className="border-t border-border bg-muted/40">
               <tr>
                 <td
-                  colSpan={Math.max((showLineNumbers ? 1 : 0) + totalColIndex, 1)}
-                  className="px-3 py-2 text-right text-xs font-medium text-muted-foreground"
+                  colSpan={Math.max((selectionEnabled ? 1 : 0) + (showLineNumbers ? 1 : 0) + totalColIndex, 1)}
+                  className="px-[var(--ui-table-cell-padding-x,0.75rem)] py-2 text-right text-xs font-medium text-muted-foreground"
                 >
-                  Total
+                  {t('report.total')}
                 </td>
-                <td className="px-3 py-2 text-right font-semibold text-foreground tabular-nums" data-testid="line-items-total">
-                  {total.toLocaleString()}
+                <td className="px-[var(--ui-table-cell-padding-x,0.75rem)] py-2 text-right font-semibold text-foreground tabular-nums" data-testid="line-items-total">
+                  {totalUnavailable ? '—' : total.toLocaleString()}
                 </td>
                 {(columns.length - totalColIndex - 1 + (hasRowActions ? 1 : 0)) > 0 && (
                   <td colSpan={columns.length - totalColIndex - 1 + (hasRowActions ? 1 : 0)} />
@@ -1216,8 +1515,8 @@ export function GridField({
           disabled={maxRows != null && rows.length >= maxRows}
           data-testid="line-items-add"
         >
-          <Plus className="mr-1.5 h-4 w-4" />
-          {cfg.add_label || 'Add line'}
+          <Plus className="mr-[var(--ui-button-gap,0.375rem)] h-4 w-4" />
+          {cfg.add_label || t('grid.addLine')}
         </Button>
       )}
     </div>

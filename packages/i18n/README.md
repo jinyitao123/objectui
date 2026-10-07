@@ -1,10 +1,10 @@
 # @object-ui/i18n
 
-Internationalization for Object UI — 11 built-in locales, RTL support, and date/currency formatting.
+Internationalization for Object UI — 10 built-in locales, RTL support, and date/currency formatting.
 
 ## Features
 
-- 🌍 **11 Built-in Locales** - English, Chinese, Japanese, Korean, German, French, Spanish, Portuguese, Russian, Arabic, and more
+- 🌍 **10 Built-in Locales** - English, Chinese, Japanese, Korean, German, French, Spanish, Portuguese, Russian, Arabic
 - 🔄 **RTL Support** - Automatic right-to-left layout for Arabic and other RTL languages
 - 📅 **Date Formatting** - Locale-aware date, datetime, and relative time formatting
 - 💰 **Currency & Number Formatting** - Locale-aware currency and number formatting
@@ -174,6 +174,10 @@ await loadBuiltInLocale('tlh');     // null — not a code this package ships
 `I18nProvider` does this for you: it fetches the catalogue for whatever language
 it boots into, and `changeLanguage()` awaits the new catalogue before switching,
 so a switcher needs no extra wiring.
+
+Shared field controls use the `table.columns` and `table.optionalColumns` keys
+for grid column choosers. The built-in packs carry both labels; a custom locale
+may omit the optional label and rely on the configured English fallback.
 
 #### Resolving before the first render
 

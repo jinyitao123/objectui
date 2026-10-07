@@ -53,6 +53,7 @@ import '@testing-library/jest-dom';
 import React from 'react';
 import { ComponentRegistry } from '@object-ui/core';
 import { PredicateScopeProvider, SchemaRenderer } from '@object-ui/react';
+import { DataEmptyState } from '../../../custom/view-states';
 import '../data-table';
 
 /**
@@ -66,7 +67,11 @@ ComponentRegistry.register(CTA_TYPE, () => (
 ));
 
 /** The empty state renders only with no rows, no loading and no error. */
-function renderEmptyTable(emptyAction: unknown, canCreate: boolean) {
+function renderEmptyTable(
+  emptyAction: unknown,
+  canCreate: boolean,
+  emptyStateContent?: React.ReactNode,
+) {
   return render(
     <PredicateScopeProvider scope={{ features: { can_create: canCreate } }}>
       <SchemaRenderer
@@ -80,6 +85,7 @@ function renderEmptyTable(emptyAction: unknown, canCreate: boolean) {
           rowActions: false,
           emptyAction,
         } as never}
+        emptyStateContent={emptyStateContent}
       />
     </PredicateScopeProvider>,
   );
@@ -122,6 +128,26 @@ describe('data-table emptyAction — the central visibleWhen gate applies', () =
   it('DOES render an emptyAction that declares no `visibleWhen` at all', () => {
     renderEmptyTable({ type: CTA_TYPE }, /* canCreate */ false);
     expectEmptyStateReached();
+    expect(screen.getByTestId('empty-action-cta')).toBeInTheDocument();
+  });
+
+  it('keeps the independent visibleWhen gate when a host supplies the ListView empty state', () => {
+    const emptyStateContent = (
+      <DataEmptyState data-testid="host-list-empty-state" title="Nothing here yet" />
+    );
+    const action = {
+      type: CTA_TYPE,
+      visibleWhen: { dialect: 'cel', source: 'features.can_create == true' },
+    };
+
+    const denied = renderEmptyTable(action, false, emptyStateContent);
+    expect(screen.getByTestId('host-list-empty-state')).toBeInTheDocument();
+    expect(screen.queryByText(/No results found/i)).not.toBeInTheDocument();
+    expect(screen.queryByTestId('empty-action-cta')).toBeNull();
+    denied.unmount();
+
+    renderEmptyTable(action, true, emptyStateContent);
+    expect(screen.getByTestId('host-list-empty-state')).toBeInTheDocument();
     expect(screen.getByTestId('empty-action-cta')).toBeInTheDocument();
   });
 

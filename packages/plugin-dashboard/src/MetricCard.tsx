@@ -85,9 +85,9 @@ export const MetricCard: React.FC<MetricCardProps & SchemaHostProps> = ({
   const { language } = useObjectTranslation();
 
   return (
-    <Card className={cn("h-full", className)} {...domProps}>
-      <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-        <CardTitle className="text-sm font-medium">
+    <Card data-dashboard-metric-card="" className={cn("h-full min-h-[var(--ui-dashboard-metric-card-min-height,auto)]", className)} {...domProps}>
+      <CardHeader className="flex flex-row items-center justify-between space-y-0 pt-[var(--ui-dashboard-metric-padding-y,1.5rem)] px-[var(--ui-dashboard-metric-padding-x,1.5rem)] pb-[var(--ui-dashboard-metric-header-padding-bottom,0.5rem)] [--ui-card-divider-display:none]">
+        <CardTitle className="text-[length:var(--ui-dashboard-metric-title-font-size,0.875rem)] leading-[var(--ui-dashboard-metric-title-line-height,1.25rem)] [font-weight:var(--ui-dashboard-metric-title-font-weight,500)]">
           {pickLocalized(title, language)}
         </CardTitle>
         {IconComponent && (
@@ -95,7 +95,7 @@ export const MetricCard: React.FC<MetricCardProps & SchemaHostProps> = ({
           <IconComponent className="h-4 w-4 text-muted-foreground" />
         )}
       </CardHeader>
-      <CardContent>
+      <CardContent className="px-[var(--ui-dashboard-metric-padding-x,1.5rem)] pt-[var(--ui-dashboard-metric-content-padding-top,0rem)] pb-[var(--ui-dashboard-metric-padding-y,1.5rem)]">
         {loading ? (
           <div className="flex items-center gap-2 text-muted-foreground" data-testid="metric-card-loading">
             <Loader2 className="h-4 w-4 animate-spin" />
@@ -108,9 +108,9 @@ export const MetricCard: React.FC<MetricCardProps & SchemaHostProps> = ({
           </div>
         ) : (
           <>
-            <div className="text-2xl font-bold">{value}</div>
+            <div className="mt-[var(--ui-dashboard-metric-value-margin-top,0px)] text-[length:var(--ui-dashboard-metric-value-font-size,1.5rem)] leading-[var(--ui-dashboard-metric-value-line-height,2rem)] [font-weight:var(--ui-dashboard-metric-value-font-weight,700)]">{value}</div>
             {(trend || trendValue || description) && (
-              <p className="text-xs text-muted-foreground flex items-center mt-1">
+              <p className="text-xs text-muted-foreground flex items-center mt-[var(--ui-dashboard-metric-note-margin-top,0.25rem)]">
                 {trend && trendValue && (
                   <span className={cn(
                     "flex items-center mr-2",

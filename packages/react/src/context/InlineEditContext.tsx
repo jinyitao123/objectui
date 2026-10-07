@@ -84,6 +84,8 @@ export interface InlineEditContextValue {
    * still get a coherent band. Defaults to `false`.
    */
   approvalPending: boolean;
+  /** The host successfully read Native approval requests for this record. */
+  approvalResolved?: boolean;
   /**
    * Quorum / per-group tally of the pending approval node, when it aggregates
    * more than one decision (objectstack#4478). Threaded verbatim from the
@@ -212,6 +214,11 @@ export interface InlineEditProviderProps {
    */
   approvalPending?: boolean;
   /**
+   * True only when the host has a successful Native approval read for this
+   * record. When true, an empty request list supersedes stale record mirrors.
+   */
+  approvalResolved?: boolean;
+  /**
    * The pending node's server-computed decision tally (objectstack#4478).
    * Surfaced verbatim so the band can show "2 of 3" / per-group ticks. Omitted
    * for `first_response` nodes and for hosts that don't read approvals.
@@ -234,6 +241,7 @@ export const InlineEditProvider: React.FC<InlineEditProviderProps> = ({
   canEdit = true,
   locked = false,
   approvalPending,
+  approvalResolved,
   approvalProgress,
   approvalIsSubmitter,
   lockedReason,
@@ -286,6 +294,7 @@ export const InlineEditProvider: React.FC<InlineEditProviderProps> = ({
       canEdit,
       locked,
       approvalPending: pending,
+      approvalResolved,
       approvalProgress,
       approvalIsSubmitter,
       lockedReason,
@@ -302,7 +311,7 @@ export const InlineEditProvider: React.FC<InlineEditProviderProps> = ({
       setError,
       setFieldErrors,
     }),
-    [editing, canEdit, locked, pending, approvalProgress, approvalIsSubmitter, lockedReason, draft, autoFocusField, saving, error, fieldErrors, enter, setField, teardown],
+    [editing, canEdit, locked, pending, approvalResolved, approvalProgress, approvalIsSubmitter, lockedReason, draft, autoFocusField, saving, error, fieldErrors, enter, setField, teardown],
   );
 
   return <InlineEditContext.Provider value={value}>{children}</InlineEditContext.Provider>;

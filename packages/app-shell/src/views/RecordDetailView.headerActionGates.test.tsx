@@ -17,17 +17,21 @@
  * `sys_delete` overflow item must never be offered for an operation the server
  * would 405.
  *
- * These pin the resulting show/hide matrix, including the two properties that
+ * These pin the resulting show/hide matrix, including the properties that
  * make this an INTERSECTION and not a union:
  *   • a server grant never re-opens an affordance the lifecycle bucket closed;
- *   • a permissive bucket default never survives a server denial.
+ *   • a permissive bucket default never survives an API-operation or base
+ *     object-permission denial.
  * ...and the backward-compatible fallback: a missing effective set (unrestricted
  * object / old backend / no PermissionProvider) leaves today's bucket +
- * `userActions` decision untouched.
+ * `userActions` decision untouched when no base object verdict is supplied.
  */
 
 import { describe, it, expect } from 'vitest';
-import { resolveRecordHeaderActionGates } from './RecordDetailView';
+import {
+  resolveObjectUpdatePermissionGate,
+  resolveRecordHeaderActionGates,
+} from './RecordDetailView';
 
 // `platform` is the permissive bucket — edit + delete both default open, so it
 // isolates the effective-set intersection as the only variable.
@@ -73,6 +77,22 @@ describe('resolveRecordHeaderActionGates — effective API operations (#3546)', 
     // Omitting the argument entirely must behave identically — this is the
     // pre-#3546 call shape every non-permission-aware caller still uses.
     expect(resolveRecordHeaderActionGates(platform)).toEqual({ edit: true, delete: true });
+  });
+
+  it('a loaded permission context denied object update cannot edit when apiOperations is absent', () => {
+    // `apiOperations` narrows apiMethods; it does not replace the permission
+    // set's base `allowEdit` decision. The detail surface must intersect both.
+    expect(resolveRecordHeaderActionGates(platform, undefined, false)).toEqual({
+      edit: false,
+      delete: true,
+    });
+  });
+
+  it('object update permission does not reopen an API-level update denial', () => {
+    expect(resolveRecordHeaderActionGates(platform, ['get', 'list'], true)).toEqual({
+      edit: false,
+      delete: false,
+    });
   });
 
   it('null effective set is treated as absent, not as an empty set', () => {
@@ -126,5 +146,20 @@ describe('resolveRecordHeaderActionGates — effective API operations (#3546)', 
       edit: true,
       delete: false,
     });
+  });
+});
+
+describe('resolveObjectUpdatePermissionGate — loaded permission context', () => {
+  it('uses the reported object verdict even when a role provider has no userId', () => {
+    expect(resolveObjectUpdatePermissionGate(true, 'crm_lead', () => false)).toBe(false);
+    expect(resolveObjectUpdatePermissionGate(true, 'crm_lead', () => true)).toBe(true);
+  });
+
+  it('preserves standalone behavior until a permission context is loaded', () => {
+    expect(resolveObjectUpdatePermissionGate(false, 'crm_lead', () => false)).toBe(true);
+  });
+
+  it('fails closed for a loaded context without an object name', () => {
+    expect(resolveObjectUpdatePermissionGate(true, undefined, () => true)).toBe(false);
   });
 });

@@ -23,6 +23,7 @@ export { PermissionProvider, type PermissionProviderProps } from './PermissionPr
 export { MePermissionsProvider, type MePermissionsProviderProps, type MePermissionsResponse } from './MePermissionsProvider.js';
 export { usePermissions } from './usePermissions.js';
 export { useFieldPermissions } from './useFieldPermissions.js';
+export { hasReportedCapabilities } from './hasReportedCapabilities.js';
 export { PermissionGuard, type PermissionGuardProps } from './PermissionGuard.js';
 export { evaluatePermission } from './evaluator.js';
 export { createPermissionStore, type PermissionStore } from './store.js';

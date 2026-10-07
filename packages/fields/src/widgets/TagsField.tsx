@@ -13,7 +13,7 @@ export function TagsField({ value, onChange, field, readonly, className, error, 
   const tags: string[] = Array.isArray(value) ? value : value == null ? [] : [value as unknown as string];
   const [draft, setDraft] = React.useState('');
   // Unconditional hook call (rules-of-hooks): before the readonly early return.
-  const { t } = useFieldTranslation();
+  const { t: translate } = useFieldTranslation();
 
   if (readonly) {
     if (tags.length === 0) return <EmptyValue />;
@@ -79,7 +79,7 @@ export function TagsField({ value, onChange, field, readonly, className, error, 
             type="button"
             onClick={() => removeTag(t)}
             className="ml-0.5 rounded-full text-muted-foreground hover:text-foreground"
-            aria-label={`Remove ${t}`}
+            aria-label={translate('fields.tags.remove', { tag: t })}
           >
             ×
           </button>
@@ -103,7 +103,7 @@ export function TagsField({ value, onChange, field, readonly, className, error, 
         // literal (Commandment #-1); Chinese now lives in the zh pack only.
         // Shown only while the list is empty — once a tag exists the input is
         // a small continuation strip and the hint would be noise.
-        placeholder={tags.length === 0 ? field?.placeholder || t('fields.tags.placeholder') : ''}
+        placeholder={tags.length === 0 ? field?.placeholder || translate('fields.tags.placeholder') : ''}
         className="h-7 flex-1 border-0 bg-transparent p-0 px-1 shadow-none focus-visible:ring-0 min-w-[8ch]"
         // AFTER the spread so this widget's own computation wins (the #3222
         // discipline): `error` is the published validation slot, and

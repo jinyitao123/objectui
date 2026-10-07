@@ -4,6 +4,15 @@
 
 A lightweight, framework-agnostic rendering engine that enables third-party systems to integrate ObjectUI components without inheriting the full console infrastructure.
 
+## Dashboard host geometry
+
+DashboardView reads the model's header showTitle/showDescription flags. Header
+actions remain on the existing DashboardRenderer execution path. Optional host
+tokens control the page-header inset, padding, minimum height, border, radius
+and surface; the compact host uses a light title panel. With no tokens, the
+existing padding and bottom divider remain the defaults. Closing both text
+flags removes the empty title panel without suppressing actions.
+
 ## Purpose
 
 This package provides the essential building blocks for rendering ObjectUI schemas:
@@ -12,6 +21,12 @@ This package provides the essential building blocks for rendering ObjectUI schem
   (`ObjectView`, `DashboardView`, `PageView`, `RecordDetailView`)
 - Zero console-specific dependencies
 - Bring-your-own-router design
+
+`RecordDetailView` gates generic inline edits with a loaded permission
+context's object update permission, the effective API operation set, the
+record verdict, and field write permissions. With no reported permission
+context, the host's existing standalone behavior remains; server authorization
+is still authoritative.
 
 ## Installation
 
@@ -111,6 +126,8 @@ function MyDashboard() {
 - **Route-Aware Navigation**: Direct links, refreshes, and browser history
   recover the owning area and navigation trail, keeping the sidebar selection
   and business breadcrumb aligned with app metadata
+- **Readable record breadcrumbs**: App record breadcrumbs use the resolved
+  business title or object label; they never fall back to the database key.
 
 ## Notifications
 
@@ -132,6 +149,37 @@ delegate) and `ConsoleNotificationBanners` (the banners, guarded by
 `useHasNotificationProvider()` so a layout without the provider renders no
 banners instead of throwing). See the
 [notifications guide](https://objectui.org/docs/guide/notifications).
+
+## Read-rate report (environment admin)
+
+`ConsoleShell` also mounts `<ReadRateBanner />`, beside the impersonation
+indicator, so every console route carries it — including `/home`, which has its
+own layout. It is **not** a notification banner: nothing in this app raises it.
+It renders the tenant runtime's own verdict, read by `useReadRateReading` from
+the optional `readRate` key on `GET /api/v1/usage/storage`.
+
+| the reading | what renders |
+| --- | --- |
+| `state: 'anomalous'`, with a `readsPerWrite` | the ratio, and the line it was measured against |
+| `state: 'anomalous'`, `readsPerWrite` ABSENT | the no-writes reading: an unbounded ratio, its own words, the heavier tone |
+| `state: 'ok'` | nothing — measured, and under the line |
+| no `readRate` at all | nothing — the control plane reported NO reading |
+| the endpoint could not be read | nothing |
+
+The last three all render nothing and are **three different facts**;
+`classifyReadRate` keeps them apart, because "why does my environment show no
+banner" has more than one answer and one of them is *nobody has measured it*.
+
+Two more properties of that contract are load-bearing. An absent `readsPerWrite`
+means the environment made no writes at all, so the ratio has no upper bound —
+it is the most severe reading there is, never a missing number to hide or dash
+out. And the threshold is **data**: it is rendered from `ratioThreshold` on the
+wire, the verdict is never re-derived from it, and this package holds no copy of
+the line.
+
+It is a **report**. It never refuses, throttles or degrades anything, and the
+copy says so. It is shown only to a workspace admin, who is also the only
+session that issues the request.
 
 ## Components
 
@@ -177,8 +225,28 @@ To render an object view from a schema instead of from a route, use
 ### DashboardView / PageView
 
 `DashboardView` and `PageView` are the route-level equivalents for dashboards
-and custom pages; like `ObjectView` they resolve their target from the route
-(`dashboardName` / `pageName`) rather than from a `schema` prop.
+and custom pages. `DashboardView` reads `dashboardName` from its typed route;
+custom pages use the bare `/apps/:appName/:entryName` route. Pages resolve in
+the active app package. Objects resolve there first, then from the shared
+metadata directory only when the app explicitly references the object in its
+navigation. A package that defines both a page and an eligible object with the
+same entry name renders an ambiguity state. The retired `/page/:pageName` route
+is not supported.
+
+The Console resolves Object schemas by the names referenced by the active app
+navigation and current surface instead of loading every installed Object on
+ordinary app entry. Explicit Studio catalog and action-parameter flows keep
+their broader metadata reads when those tools need them. Record detail also
+loads the full Object directory on demand because its reverse related-list
+graph is discovered from child-object schemas; that registry read remains a
+separate performance limit until the metadata API exposes a lightweight
+reverse-relationship index.
+
+`PageView` resolves a named page from the active app's package first, then uses
+the unscoped name lookup only when that package has no matching page. It reads
+the page item directly instead of loading every page. Page-level action
+parameters load object definitions only when the user opens a parameter dialog.
+A missing item renders as not found; failed requests render as load errors.
 
 ```tsx
 import { DashboardView } from '@object-ui/app-shell';

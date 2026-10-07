@@ -2,12 +2,28 @@
 
 A lazy-loaded charting component for Object UI based on Recharts.
 
+## Host plot height
+
+The shared advanced chart container consumes `--ui-chart-height`, with its
+existing 350px fallback. An authored `height` or caller height utility still
+takes precedence; the non-zero measurement floor remains unchanged. Native
+Dataset dashboard charts scope this variable through
+`--ui-dashboard-chart-height`, so a compact host can size the plot separately
+from the card heading and content inset without changing data or queries.
+
 ## Features
 
 - **Internal Lazy Loading**: Recharts is loaded on-demand using `React.lazy()` and `Suspense`
 - **Zero Configuration**: Just import the package and use `type: 'bar-chart'` in your schema
 - **Automatic Registration**: Components auto-register with the ComponentRegistry
 - **Skeleton Loading**: Shows a skeleton while Recharts loads
+
+## Query results
+
+Object-bound and dataset-bound charts show a concise, localized empty state when
+their query succeeds with no rows. The empty state is exposed as `role="status"`
+and does not display internal object or dataset names. Query failures remain a
+separate `role="alert"` state.
 
 ## Installation
 

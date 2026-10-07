@@ -191,12 +191,13 @@ function renderAuthoredGrid(
   schemaOverrides: Record<string, unknown> = {},
   dataSource?: any,
   wrap?: (el: React.ReactElement) => React.ReactElement,
+  hostProps: Record<string, unknown> = {},
 ) {
   const ds = dataSource ?? makeDataSource();
   const schema: any = { type: 'object-grid', objectName: OBJECT, ...schemaOverrides };
   const inner = (
     <ActionProvider>
-      <ObjectGrid schema={schema} dataSource={ds} />
+      <ObjectGrid schema={schema} dataSource={ds} {...hostProps} />
     </ActionProvider>
   );
   const utils = render(wrap ? wrap(inner) : inner);
@@ -444,5 +445,29 @@ describe('ObjectGrid — FLS on the authored `columns` path (#6799)', () => {
     await waitFor(() => expect(ds.getObjectSchema).toHaveBeenCalledWith(OBJECT));
     await waitFor(() => expect(dataHeaders(container)).toEqual(['Opportunity Name']));
     expect(screen.queryByText('120000')).toBeNull();
+  });
+
+  it('renders the host empty state in the real table viewport without restoring denied headers', async () => {
+    state.readable = ['name'];
+    const ds = makeDataSource();
+    const emptyStateContent = (
+      <div role="status" data-testid="host-grid-empty-state">No work orders yet</div>
+    );
+    const { container } = renderAuthoredGrid(
+      { columns: [{ field: 'name' }, { field: 'salary', label: 'Salary' }] },
+      ds,
+      undefined,
+      { data: [], emptyStateContent },
+    );
+
+    await waitFor(() => expect(ds.getObjectSchema).toHaveBeenCalledWith(OBJECT));
+    await waitFor(() => expect(container.querySelector('[data-slot="record-table"]')).not.toBeNull());
+
+    expect(screen.getByRole('columnheader', { name: 'Opportunity Name' })).toBeInTheDocument();
+    expect(screen.queryByRole('columnheader', { name: 'Salary' })).toBeNull();
+    expect(screen.getByTestId('host-grid-empty-state')).toBeInTheDocument();
+    expect(container.querySelectorAll('[data-slot="record-table-empty-viewport"]')).toHaveLength(1);
+    expect(screen.getAllByRole('status')).toHaveLength(1);
+    expect(screen.queryByText(/No results found/i)).toBeNull();
   });
 });

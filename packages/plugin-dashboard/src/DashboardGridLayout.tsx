@@ -11,6 +11,7 @@ import { isObjectProvider, deriveStaticTableColumns, composeSeriesLabel } from '
 import { classifyWidgetType } from './widgetDispatch';
 import { LEGACY_RETIRED_WIDGET_SCHEMA, isLegacyRetiredWidget } from './legacyRetiredWidget';
 import { DatasetWidget } from './DatasetWidget';
+import { MetricHeaderTitle } from './MetricCardChrome';
 import { useWidgetSubCaption } from './widgetSubCaption';
 
 /** Bridges editMode transitions to the ObjectUI DnD system when a DndProvider is present. */
@@ -582,6 +583,7 @@ export const DashboardGridLayout: React.FC<DashboardGridLayoutProps> = ({
             // and border like its neighbours, instead of showing as bare text
             // (`DashboardRenderer.tsx:777-782`, same rule, same reason).
             const isSelfContained = widget.type === 'metric' && !datasetBound;
+            const isKpiWidget = widget.type === 'metric';
             // `DashboardWidget.title` is the spec's `I18nLabel`: since
             // 17.0.0-rc.6 an author may inline a per-locale map
             // (`{ en: 'Pipeline', 'zh-CN': '销售漏斗' }`) instead of a string.
@@ -589,6 +591,15 @@ export const DashboardGridLayout: React.FC<DashboardGridLayoutProps> = ({
             // `title` attribute (a `string` slot) and the card heading (a text
             // node) — both of which stringify a map to `[object Object]`.
             const widgetTitle = pickLocalized(widget.title, language);
+            const widgetDescription = pickLocalized(widget.description, language);
+            const metricOptions = widget.options && typeof widget.options === 'object'
+              ? widget.options as Record<string, unknown>
+              : {};
+            const metricIcon = isKpiWidget && typeof metricOptions.icon === 'string'
+              ? metricOptions.icon
+              : undefined;
+            const hasMetricHeaderAdornment = isKpiWidget && (!!metricIcon || !!widgetDescription);
+            const showWidgetCardHeader = !!widgetTitle || hasMetricHeaderAdornment;
 
             return (
               <div key={widgetId} className="h-full">
@@ -602,16 +613,40 @@ export const DashboardGridLayout: React.FC<DashboardGridLayoutProps> = ({
                     <SchemaRenderer schema={componentSchema} className="h-full w-full" />
                   </div>
                 ) : (
-                  <Card className={cn(
-                    "h-full overflow-hidden border-border/50 shadow-sm transition-all",
-                    "bg-card/50 backdrop-blur-sm",
+                  <Card data-dashboard-card="" data-dashboard-metric-card={isKpiWidget ? '' : undefined} className={cn(
+                    "h-full overflow-hidden border-border/50 shadow-sm transition-all bg-card/50 backdrop-blur-sm",
+                    isKpiWidget && "min-h-[var(--ui-dashboard-metric-card-min-height,auto)]",
                     editMode && "ring-2 ring-primary/20"
                   )}>
-                    {widgetTitle && (
-                      <CardHeader className="pb-2 border-b border-border/40 bg-muted/20 flex flex-row items-center justify-between">
-                        <CardTitle className="text-base font-medium tracking-tight truncate" title={widgetTitle}>
-                          {widgetTitle}
-                        </CardTitle>
+                    {showWidgetCardHeader && (
+                      <CardHeader data-dashboard-card-header="" className={cn(
+                        "border-border/40 bg-muted/20 flex flex-row items-center justify-between",
+                        isKpiWidget
+                          ? "pt-[var(--ui-dashboard-metric-padding-y,1.5rem)] pb-[var(--ui-dashboard-metric-header-padding-bottom,0.5rem)] px-[var(--ui-dashboard-metric-padding-x,1.5rem)] [--ui-card-divider-display:none] border-b-[length:var(--ui-dashboard-metric-header-border-width,1px)]"
+                          : "pt-[var(--ui-card-padding,1.5rem)] pb-[var(--ui-card-header-padding-bottom,0.5rem)] border-b-[length:var(--ui-dashboard-header-border-width,1px)] px-[var(--ui-card-padding,1.5rem)]"
+                      )}>
+                        {hasMetricHeaderAdornment ? (
+                          <MetricHeaderTitle
+                            className="min-w-0 flex-1"
+                            icon={metricIcon}
+                            description={widgetDescription}
+                            colorVariant={widget.colorVariant}
+                            title={widgetTitle ? (
+                              <CardTitle className="tracking-tight truncate text-[length:var(--ui-dashboard-metric-title-font-size,1rem)] leading-[var(--ui-dashboard-metric-title-line-height,1.5rem)] [font-weight:var(--ui-dashboard-metric-title-font-weight,500)]" title={widgetTitle}>
+                                {widgetTitle}
+                              </CardTitle>
+                            ) : null}
+                          />
+                        ) : widgetTitle ? (
+                          <CardTitle className={cn(
+                            "tracking-tight truncate",
+                            isKpiWidget
+                              ? "text-[length:var(--ui-dashboard-metric-title-font-size,1rem)] leading-[var(--ui-dashboard-metric-title-line-height,1.5rem)] [font-weight:var(--ui-dashboard-metric-title-font-weight,500)]"
+                              : "text-[length:var(--ui-card-title-font-size,1rem)] leading-[var(--ui-card-title-line-height,1.5rem)] [font-weight:var(--ui-card-title-font-weight,500)]"
+                          )} title={widgetTitle}>
+                            {widgetTitle}
+                          </CardTitle>
+                        ) : null}
                         {editMode && (
                           <div className="drag-handle cursor-move p-1 hover:bg-muted/40 rounded">
                             <GripVertical className="h-4 w-4" />
@@ -620,7 +655,12 @@ export const DashboardGridLayout: React.FC<DashboardGridLayoutProps> = ({
                       </CardHeader>
                     )}
                     <CardContent className="p-0 h-full">
-                      <div className={cn("h-full w-full overflow-auto p-4")}>
+                      <div className={cn(
+                        "h-full w-full overflow-auto",
+                        isKpiWidget
+                          ? "px-[var(--ui-dashboard-metric-padding-x,1rem)] pt-[var(--ui-dashboard-metric-content-padding-top,1rem)] pb-[var(--ui-dashboard-metric-padding-y,1rem)]"
+                          : "px-[var(--ui-card-padding,1rem)] pt-[var(--ui-card-content-padding-top,1rem)] pb-[var(--ui-card-padding,1rem)]"
+                      )}>
                         {/*
                           The fork itself, mirroring `DashboardRenderer.tsx:849-851`.
                           `widget` is passed whole: DatasetWidget reads

@@ -2,6 +2,38 @@
 
 ListView plugin for ObjectUI - A unified view component with view type switching, filtering, sorting, and view configuration persistence.
 
+## Host geometry tokens
+
+`--ui-list-toolbar-gap` adjusts the shared list toolbar's spacing without
+changing filtering, sorting, search or view state. Grid geometry is delegated
+to the grid plugin's table tokens; metadata continues to own column widths,
+row density and pagination. The Console's optional `compact-enterprise`
+profile supplies candidate values for these tokens.
+
+Hosts may separate search into a persistent row with
+`--ui-list-inline-search-display: flex` and hide the desktop popover trigger with
+`--ui-list-search-trigger-display: none`. Both inputs share the same search
+state, declared searchable fields, pagination reset and refresh behavior.
+`userActions.search: false` suppresses both surfaces. The inline row is hidden
+by default and is excluded from print output.
+
+The toolbar consumes `--ui-list-toolbar-padding-x`,
+`--ui-list-toolbar-padding-y` and `--ui-list-toolbar-min-height`. The tool cluster
+uses `--ui-list-tools-gap`, `--ui-list-tools-margin-right`,
+`--ui-list-tools-radius`, `--ui-list-tools-border-width`,
+`--ui-list-tools-padding`, `--ui-list-tools-background` and
+`--ui-list-tools-shadow`; omitted variables keep the original segmented layout.
+`--ui-list-inline-search-width` and `--ui-list-inline-search-padding-y` control
+the persistent search row's geometry. These are CSS host seams, not metadata
+properties or additional query paths.
+
+Native Gantt views own their complete timeline query. List search and active
+filters are relayed as canonical filter nodes instead of passing a paged row
+array. Refresh is provided by the Gantt toolbar so it re-reads the displayed
+timeline. Grouping is limited to the Gantt contract's single `groupByField`;
+the flat grid density toggle is omitted because it does not control Gantt
+row geometry. Other list types retain their existing controls.
+
 ## Features
 
 - **View Type Switching**: Switch between Grid, Kanban, Gallery, Calendar,
@@ -23,6 +55,13 @@ The toolbar and cell renderers are tuned for low visual noise on dense tables:
 - **Flat user-filter pills**: `userFilters` (dropdown mode) render as ghost
   text + count. Active state is shown via `text-foreground font-medium`
   rather than a filled / bordered pill.
+- **Keyboard-operable filter clearing**: an active filter has a separate,
+  localized clear button, so keyboard users can open the filter and clear it
+  independently. Escape closes an open filter popover without changing its
+  selection; clearing returns focus to that filter's trigger.
+- **Search focus recovery**: clearing either the inline or popover search
+  returns focus to its input. Escape closes the desktop search popover while
+  preserving the current keyword, and refresh continues to use that keyword.
 - **Quiet active state for tool buttons**: filter / group / sort / color /
   density / search no longer paint a `bg-primary/10 border` block when
   active — they switch to `text-foreground font-medium` and rely on the
@@ -212,6 +251,23 @@ const viewTypes: Record<NonNullable<ListViewSchema['viewType']>, string> = {
 
 export { view, richColumns, viewTypes };
 ```
+
+## Empty grid state
+
+An empty grid-backed ListView still renders its ObjectGrid after the list's
+loading and error states settle. The table therefore keeps the same field
+projection and visible column headers as a populated grid. `emptyState` keeps
+controlling the first-run or filtered copy, while `addRecord.enabled` and the
+host's `onAddRecord` callback continue to control the empty-state action. Until
+field permissions resolve, ListView shows that empty state without mounting
+column headers; once they resolve, the grid receives only the readable
+projection. The React node passed through the grid is internal composition,
+not an additional schema key.
+
+Trusted React hosts may pass `mobileLayout="table"` to keep a ListView's child
+grid as a horizontally scrollable table on narrow screens. The default remains
+`"cards"` for populated mobile grids. `mobileLayout` is forwarded as a React
+prop to ObjectGrid and is not part of `ListViewSchema` or persisted metadata.
 
 ## Page binding — `dataSource` (referencing a saved view by name)
 

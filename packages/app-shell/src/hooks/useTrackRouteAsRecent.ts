@@ -8,9 +8,8 @@
  *
  * The hook understands the standard console URL layout:
  *
- *   /apps/:appName/:objectName
+ *   /apps/:appName/:entryName (resolved by the active package)
  *   /apps/:appName/dashboard/:id
- *   /apps/:appName/page/:id
  *   /apps/:appName/report/:id
  *
  * It also understands the Studio metadata-admin item routes so that browsing
@@ -124,6 +123,9 @@ export function useTrackRouteAsRecent({
     }
 
     if (seg2 && !ROUTE_PREFIXES.has(seg2)) {
+      // The one-segment route can be either an object or a page. AppEntryRoute
+      // records it only after package-scoped metadata has resolved its type.
+      if (parts.length === 3) return;
       const obj = objectsRef.current.find(o => o.name === seg2);
       if (obj) {
         addRecentItem({
@@ -145,14 +147,6 @@ export function useTrackRouteAsRecent({
           label: titleize(seg3),
           href: `${basePath}/dashboard/${seg3}`,
           type: 'dashboard',
-        });
-        break;
-      case 'page':
-        addRecentItem({
-          id: `page:${seg3}`,
-          label: titleize(seg3),
-          href: `${basePath}/page/${seg3}`,
-          type: 'page',
         });
         break;
       case 'report':

@@ -145,6 +145,36 @@ describe('NavigationSyncEffect', () => {
     vi.clearAllMocks();
   });
 
+  it('leaves an idle page collection unread until its owning surface loads it', async () => {
+    const saveItem = vi.fn().mockResolvedValue({});
+    const metadata = metaValue({
+      apps: [crm],
+      pages: [],
+      dashboards: [],
+      status: { page: 'idle', dashboard: 'ready' },
+    });
+    let pageReads = 0;
+    Object.defineProperty(metadata, 'pages', {
+      configurable: true,
+      get() {
+        pageReads += 1;
+        return [];
+      },
+    });
+
+    render(
+      <AdapterCtx.Provider value={makeAdapter(saveItem)}>
+        <MetadataCtx.Provider value={metadata}>
+          <NavigationSyncEffect />
+        </MetadataCtx.Provider>
+      </AdapterCtx.Provider>,
+    );
+    await flush();
+
+    expect(pageReads).toBe(0);
+    expect(saveItem).not.toHaveBeenCalled();
+  });
+
   it('does not seed the baseline until page AND dashboard types are ready', async () => {
     const saveItem = vi.fn().mockResolvedValue({});
     // Lazy types still loading — pages reads as [] even though the server

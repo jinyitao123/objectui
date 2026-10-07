@@ -25,6 +25,7 @@
  *     expressed in HTML are injected.
  *   - `Block`                — escape hatch: `<Block type="object-grid" .../>`.
  *   - `useAdapter`            — live data hook: query/create/update objects.
+ *   - `navigate`              — host SPA navigation for in-app paths.
  *   - `data` / `variables`   — page data + local variables, for convenience.
  *
  * Styling — page source is metadata, not build input. A react page styles with
@@ -40,7 +41,12 @@
 
 import * as React from 'react';
 import { ComponentRegistry, isCapabilityEnabled, CAP_REACT_PAGES } from '@object-ui/core';
-import { SchemaRenderer, SchemaRendererProvider, useAdapter } from '@object-ui/react';
+import {
+  SchemaRenderer,
+  SchemaRendererProvider,
+  useAdapter,
+  useHostNavigation,
+} from '@object-ui/react';
 
 type RuntimeModule = typeof import('@object-ui/react-runtime');
 
@@ -53,11 +59,12 @@ function toPascal(tag: string): string {
     .join('');
 }
 
-// Build the component scope from the curated PUBLIC contract. We inject the
-// data/leaf blocks (non-containers) as prop-driven wrappers; layout containers
-// are intentionally left out — in react mode the author composes layout with
-// real HTML and inline `style` objects, not our schema-children renderers (and
-// not Tailwind classes — see the styling note in this file's header).
+// Build the base component scope from the curated PUBLIC contract. We inject
+// the data/leaf blocks (non-containers) as prop-driven wrappers; layout
+// containers are intentionally left out — in react mode the author composes
+// layout with real HTML and inline `style` objects, not our schema-children
+// renderers (and not Tailwind classes — see the styling note in this file's
+// header). Trusted direct React components are added separately below.
 //
 // Lazily-registered blocks (`object-kanban`, `object-map`, `markdown`, … — see
 // apps/console/src/main.tsx) are in here too: `getPublicConfigs()` resolves
@@ -104,6 +111,35 @@ function buildComponentScope(dataSource: unknown): Record<string, React.Componen
   return scope;
 }
 
+function addRuntimeReactComponents(
+  scope: Record<string, unknown>,
+  dataSource: unknown,
+): Record<string, unknown> {
+  for (const { name, component, injectDataSource } of ComponentRegistry.getReactRuntimeComponents()) {
+    if (Object.prototype.hasOwnProperty.call(scope, name)) {
+      throw new Error(`React runtime component "${name}" collides with an existing page scope name.`);
+    }
+
+    const RuntimeComponent = component as React.ElementType;
+    const Wrapper: React.FC<Record<string, unknown>> = (props) => React.createElement(
+      RuntimeComponent,
+      injectDataSource
+        ? {
+            ...props,
+            // The authenticated host adapter is authoritative. Page source may
+            // supply a conflicting prop, but must not replace this boundary.
+            dataSource,
+          }
+        // Spreading the complete prop bag also preserves ReactNode children and
+        // function-valued render slots; runtime components are not schema blocks.
+        : props,
+    );
+    Wrapper.displayName = name;
+    scope[name] = Wrapper;
+  }
+  return scope;
+}
+
 /**
  * "No adapter yet" — the window before the host's AdapterProvider finishes
  * connecting, and any surface that renders a react page without one — is now
@@ -141,11 +177,51 @@ function CapabilityDisabledNotice(): React.ReactElement {
   );
 }
 
+// Normalization and metadata refresh may clone an unchanged Page. Preserve the
+// runner's scope for equal JSON payloads; opaque runtime values still compare
+// by identity, and genuinely changed metadata rebuilds the scope.
+function samePagePayload(left: unknown, right: unknown, visited = new WeakMap<object, object>()): boolean {
+  if (Object.is(left, right)) return true;
+  if (!left || !right || typeof left !== 'object' || typeof right !== 'object') return false;
+  if (Array.isArray(left) !== Array.isArray(right)) return false;
+  if (Array.isArray(left) && Array.isArray(right) && left.length !== right.length) return false;
+  const leftPrototype = Object.getPrototypeOf(left);
+  const rightPrototype = Object.getPrototypeOf(right);
+  if (leftPrototype !== rightPrototype) return false;
+  if (!Array.isArray(left) && leftPrototype !== Object.prototype && leftPrototype !== null) return false;
+  if (visited.has(left)) return visited.get(left) === right;
+  visited.set(left, right);
+  const leftRecord = left as Record<string, unknown>;
+  const rightRecord = right as Record<string, unknown>;
+  const keys = Object.keys(leftRecord);
+  return keys.length === Object.keys(rightRecord).length
+    && keys.every((key) => Object.prototype.hasOwnProperty.call(rightRecord, key)
+      && samePagePayload(leftRecord[key], rightRecord[key], visited));
+}
+
 export const ReactKindPage: React.FC<{ schema: any }> = ({ schema }) => {
   const source: string = typeof schema?.source === 'string' ? schema.source : '';
   // The live data source for the injected data blocks (and the page's own
   // `useAdapter()` calls). Same object the rest of the app renders against.
   const adapter = useAdapter();
+  const { navigate: hostNavigate } = useHostNavigation();
+  const hostNavigateRef = React.useRef(hostNavigate);
+  hostNavigateRef.current = hostNavigate;
+  // One stable function keeps ReactRunner's injected scope stable across route
+  // changes. The ref forwards each call to the current host router function,
+  // whose identity may change as the router location changes.
+  const pageNavigateRef = React.useRef<((to: string, options?: { replace?: boolean }) => void) | null>(null);
+  if (!pageNavigateRef.current) {
+    pageNavigateRef.current = (to, options) => {
+      const navigate = hostNavigateRef.current;
+      if (navigate) {
+        navigate(to, options);
+      } else if (typeof window !== 'undefined') {
+        if (options?.replace) window.location.replace(to);
+        else window.location.assign(to);
+      }
+    };
+  }
   // Gate: default-closed. Off in OSS / untrusted builds. Read here so the hooks
   // below stay unconditional; the disabled notice is returned after them, and
   // the effect never loads the gated runtime when disabled.
@@ -173,19 +249,30 @@ export const ReactKindPage: React.FC<{ schema: any }> = ({ schema }) => {
   // plugin finishing its registration notifies the registry, and rebuilding the
   // scope there would reset every interactive page on the screen. It doesn't
   // need to — `buildComponentScope` already sees lazy blocks (objectui#2953).
-  const scope = React.useMemo(
-    () => ({
+  // Host runtime React components share this one-time scope build and therefore
+  // must also be registered before a page mounts.
+  const scopeCache = React.useRef<{
+    schema: unknown;
+    adapter: typeof adapter;
+    scope: ReturnType<typeof addRuntimeReactComponents>;
+  } | null>(null);
+  if (!scopeCache.current || scopeCache.current.adapter !== adapter
+    || !samePagePayload(scopeCache.current.schema, schema)) {
+    scopeCache.current = { schema, adapter, scope: addRuntimeReactComponents({
       ...buildComponentScope(adapter),
       // Live data access — `const adapter = useAdapter()` inside the page, then
       // adapter.find('object', {...}) / .create / .update. Hooks injected as
       // closure vars; the page calls them from its own component body.
       useAdapter,
+      // The Console injects its basename-aware SPA navigate here. Hosts that
+      // do not supply HostNavigationContext retain the browser navigation path.
+      navigate: pageNavigateRef.current,
       data: schema?.data ?? schema?.variables ?? {},
       variables: schema?.variables ?? {},
       page: schema ?? {},
-    }),
-    [schema, adapter],
-  );
+    }, adapter) };
+  }
+  const scope = scopeCache.current.scope;
 
   // Capability gate — returned after all hooks above so hook order stays stable.
   if (!capabilityEnabled) {

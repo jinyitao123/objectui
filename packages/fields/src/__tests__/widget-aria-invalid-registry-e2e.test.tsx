@@ -63,8 +63,8 @@
  *
  * `NOT_YET_DELIVERED` is now EMPTY (objectui#3318 closed the last row, `grid`),
  * and a case below asserts it stays that way. This file remains the source of
- * truth for the registry's state: 45 types, every one of them either delivering
- * on a focusable control or carrying a measured NOT_APPLICABLE verdict.
+ * truth for the registry's state: every type either delivers on a focusable
+ * control or carries a measured NOT_APPLICABLE verdict.
  *
  * ## Discipline inherited from the #3291 sweep
  *
@@ -97,6 +97,9 @@ import { TextAreaField } from '../widgets/TextAreaField';
 import { NumberField } from '../widgets/NumberField';
 import { BooleanField } from '../widgets/BooleanField';
 import { SelectField } from '../widgets/SelectField';
+import { ChoiceCardsField } from '../widgets/ChoiceCardsField';
+import { DeclaredLabelSelectField } from '../widgets/DeclaredLabelSelectField';
+import { DeclaredLabelComboboxField } from '../widgets/DeclaredLabelComboboxField';
 import { DateField } from '../widgets/DateField';
 import { DateTimeField } from '../widgets/DateTimeField';
 import { TimeField } from '../widgets/TimeField';
@@ -142,6 +145,9 @@ const WIDGETS: Record<string, ComponentType<any>> = {
   number: NumberField,
   boolean: BooleanField,
   select: SelectField,
+  'choice-cards': ChoiceCardsField,
+  'declared-label-select': DeclaredLabelSelectField,
+  'declared-label-combobox': DeclaredLabelComboboxField,
   date: DateField,
   datetime: DateTimeField,
   time: TimeField,
@@ -301,7 +307,10 @@ const FOCUSABLE = [
 ].join(',');
 
 /** Option widgets render an "unfillable" placeholder unless offered a list. */
-const OPTION_TYPES = new Set(['select', 'multiselect', 'radio', 'checkboxes', 'tags']);
+const OPTION_TYPES = new Set([
+  'select', 'multiselect', 'radio', 'checkboxes', 'tags', 'choice-cards',
+  'declared-label-select', 'declared-label-combobox',
+]);
 const OPTIONS = [
   { label: 'Alpha', value: 'alpha' },
   { label: 'Beta', value: 'beta' },
@@ -339,10 +348,13 @@ const GRID_COLUMNS = [
 const MISSING_VALUE = null;
 
 function fieldConfig(type: string) {
+  const textLabelPicker = type === 'declared-label-select' || type === 'declared-label-combobox';
+  const choiceCards = type === 'choice-cards';
   return {
     name: 'f',
     label: 'F',
-    type: `field:${type}`,
+    type: textLabelPicker ? 'text' : choiceCards ? 'select' : `field:${type}`,
+    ...(textLabelPicker || choiceCards ? { widget: type } : {}),
     required: true,
     ...(OPTION_TYPES.has(type) ? { options: OPTIONS } : {}),
     ...(type === 'grid' ? { columns: GRID_COLUMNS } : {}),

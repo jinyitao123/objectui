@@ -112,7 +112,12 @@ describe('resolveHref — non-object targets unchanged', () => {
 
   it('page', () => {
     const item: NavigationItem = { id: 'n2', type: 'page', label: 'Home', pageName: 'home' };
-    expect(resolveHref(item, BASE).href).toBe(`${BASE}/page/home`);
+    expect(resolveHref(item, BASE).href).toBe(`${BASE}/home`);
+  });
+
+  it('encodes the page name as the app entry segment', () => {
+    const item: NavigationItem = { id: 'n2', type: 'page', label: 'Home', pageName: 'sales home' };
+    expect(resolveHref(item, BASE).href).toBe(`${BASE}/sales%20home`);
   });
 
   it('url is external when target=_blank', () => {
@@ -193,7 +198,7 @@ describe('resolveActiveNavItem — single winner across the tree', () => {
 
   it('dashboard / page items match inside groups', () => {
     expect(activeId(`${BASE}/dashboard/kpis`)).toBe('nav_kpis');
-    expect(activeId(`${BASE}/page/home`)).toBe('nav_home');
+    expect(activeId(`${BASE}/home`)).toBe('nav_home');
   });
 
   it('uses authored page params to distinguish items that share a page', () => {
@@ -202,7 +207,7 @@ describe('resolveActiveNavItem — single winner across the tree', () => {
       { id: 'profit_report', type: 'page', label: 'Profit', pageName: 'reports', params: { nav: 'profit_report' } },
     ];
     expect(
-      resolveActiveNavItem(sharedPageNav, `${BASE}/page/reports`, '?nav=profit_report', BASE)?.id,
+      resolveActiveNavItem(sharedPageNav, `${BASE}/reports`, '?nav=profit_report', BASE)?.id,
     ).toBe('profit_report');
   });
 
@@ -211,7 +216,7 @@ describe('resolveActiveNavItem — single winner across the tree', () => {
       { id: 'output_invoices', type: 'page', label: 'Output invoices', pageName: 'output_invoices', params: { nav: 'output_invoices' } },
     ];
     expect(
-      resolveActiveNavItem(uniquePageNav, `${BASE}/page/output_invoices`, '?verify=browser', BASE)?.id,
+      resolveActiveNavItem(uniquePageNav, `${BASE}/output_invoices`, '?verify=browser', BASE)?.id,
     ).toBe('output_invoices');
   });
 
@@ -220,12 +225,12 @@ describe('resolveActiveNavItem — single winner across the tree', () => {
       { id: 'sales_report', type: 'page', label: 'Sales', pageName: 'reports', params: { nav: 'sales_report' } },
       { id: 'profit_report', type: 'page', label: 'Profit', pageName: 'reports', params: { nav: 'profit_report' } },
     ];
-    expect(resolveActiveNavItem(sharedPageNav, `${BASE}/page/reports`, '', BASE)).toBeNull();
+    expect(resolveActiveNavItem(sharedPageNav, `${BASE}/reports`, '', BASE)).toBeNull();
   });
 
   it('returns the ancestor groups and winning leaf as one route trail', () => {
     expect(
-      resolveActiveNavTrail(NAV, `${BASE}/page/home`, '', BASE, CTX).map((item) => item.id),
+      resolveActiveNavTrail(NAV, `${BASE}/home`, '', BASE, CTX).map((item) => item.id),
     ).toEqual(['grp', 'nav_home']);
   });
 

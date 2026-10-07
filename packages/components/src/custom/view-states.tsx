@@ -78,7 +78,11 @@ interface DataEmptyStateProps extends React.ComponentProps<"div"> {
    */
   iconWrapperClassName?: string
   title?: string
+  /** Classes applied to the title element. */
+  titleClassName?: string
   description?: string
+  /** Classes applied to the description element. */
+  descriptionClassName?: string
   /** Optional action rendered below the description */
   action?: React.ReactNode
 }
@@ -121,7 +125,9 @@ function DataEmptyState({
   showIcon = true,
   iconWrapperClassName,
   title = "No data",
+  titleClassName,
   description,
+  descriptionClassName,
   action,
   children,
   ...props
@@ -162,10 +168,10 @@ function DataEmptyState({
         </div>
       )}
       {title && (
-        <h3 className="text-sm font-medium">{title}</h3>
+        <h3 className={cn("text-sm font-medium", titleClassName)}>{title}</h3>
       )}
       {description && (
-        <p className="max-w-sm text-sm text-muted-foreground">{description}</p>
+        <p className={cn("max-w-sm text-sm text-muted-foreground", descriptionClassName)}>{description}</p>
       )}
       {action}
       {children}

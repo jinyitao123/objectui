@@ -184,20 +184,28 @@ describe('ObjectForm Integration', () => {
             expect(container.querySelector('input[name="email"]')).toBeTruthy();
         });
 
-        // Collapse the Contact Info group → its email field leaves the DOM,
-        // while the other group's field and the ungrouped field stay.
+        const email = container.querySelector('input[name="email"]') as HTMLInputElement;
+        fireEvent.change(email, { target: { value: 'draft@example.com' } });
+
+        // Collapse hides the group while retaining the same registered control
+        // and its draft. Other groups remain visible.
         fireEvent.click(screen.getByText('Contact Info'));
         await waitFor(() => {
-            expect(container.querySelector('input[name="email"]')).toBeNull();
+            expect(email.closest('[data-field]')?.hasAttribute('hidden')).toBe(true);
         });
+        expect(container.querySelector('input[name="email"]')).toBe(email);
+        expect(email.value).toBe('draft@example.com');
         expect(container.querySelector('input[name="amount"]')).toBeTruthy();
+        expect(container.querySelector('input[name="amount"]')?.closest('[data-field]')?.hasAttribute('hidden')).toBe(false);
         expect(container.querySelector('[name="notes"]')).toBeTruthy();
 
-        // Expand again → the field returns.
+        // Reopening preserves both control identity and the entered draft.
         fireEvent.click(screen.getByText('Contact Info'));
         await waitFor(() => {
-            expect(container.querySelector('input[name="email"]')).toBeTruthy();
+            expect(email.closest('[data-field]')?.hasAttribute('hidden')).toBe(false);
         });
+        expect(container.querySelector('input[name="email"]')).toBe(email);
+        expect(email.value).toBe('draft@example.com');
     });
 
     it('stays flat when the object declares no fieldGroups', async () => {

@@ -54,7 +54,7 @@ import {
   RefreshIndicator,
 } from '@object-ui/components';
 import { usePullToRefresh } from '@object-ui/mobile';
-import { resolveConditionalFormatting, leadWithNameField, buildExpandFields, buildExportFileName, columnIdentity, collectPredicateFieldRefs, collectGroupingFieldRefs, listViewPredicates, isObjectInlineEditable, isProjectableField, isExpandableFieldType, isUnmaterializedFieldType, readObjectSortability, isPlatformSortableField, filterPlatformSortableSort, toFilterNode, convertSortToQueryParams, normalizeSortEntries, type QuerySortEntry, ROW_HEIGHT_TO_DENSITY_MODE, resolveRecordSourceConfig, resolveRecordSourceObjectName } from '@object-ui/core';
+import { resolveConditionalFormatting, leadWithNameField, buildExpandFields, buildExportFileName, columnIdentity, collectPredicateFieldRefs, collectGroupingFieldRefs, listViewPredicates, isObjectInlineEditable, isProjectableField, isExpandableFieldType, isUnmaterializedFieldType, readObjectSortability, isPlatformSortableField, filterPlatformSortableSort, toFilterNode, toFilterNodeSafely, filterRefusalSubject, FilterOperatorError, convertSortToQueryParams, normalizeSortEntries, type QuerySortEntry, ROW_HEIGHT_TO_DENSITY_MODE, resolveRecordSourceConfig, resolveRecordSourceObjectName } from '@object-ui/core';
 import { usePermissions } from '@object-ui/permissions';
 import {
   RECORD_OVERLAY_DEFAULT_WIDTH,
@@ -78,27 +78,6 @@ import { BulkActionDialog } from './components/BulkActionDialog';
 import type { BulkResult } from './hooks/useBulkExecutor';
 import type { BulkActionDef } from '@object-ui/types';
 
-/**
- * A view's declared `sort` → the shape the table's header indicators read.
- *
- * `[{ field, order }, …]` is the ONE spelling `@objectstack/spec` still
- * declares (objectui#8221 retired the string clauses). The headers have to
- * agree with the fetch path on it: a view that arrives sorted by
- * `created_at desc` should show that arrow before anyone clicks anything —
- * otherwise the first click on that column produces `asc` while the list was
- * already `desc`, and the arrow tells the truth only from the second click on.
- *
- * ⚠️ This reader is WIDER than the fetch path as of objectui#8767, and the
- * sentence this docblock used to carry — that the fetch path reads all three
- * spellings — is no longer true. The fetch path now REFUSES a string and sends
- * no `$orderby` at all, while this reader still parses `"name desc"` and
- * `["name desc", …]`, so a grid authored with a retired spelling shows an
- * arrow for an ordering its query does not carry. Narrowing this reader moves
- * the wire shape and takes the export path with it — the route the #8767
- * ruling deliberately did not take. It is NOT fixed here.
- *
- * Exported for the test that pins it against the fetch path's own reading.
- */
 /**
  * A declared `sort` → the `"field order"` join string THIS block sends as
  * `$orderby` (objectui#8973).
@@ -131,14 +110,44 @@ function toOrderByClause(sort: QuerySortEntry[] | undefined | null): string | un
   return ordered.map((s) => `${s.field} ${s.order}`).join(', ');
 }
 
+/**
+ * A view's declared `sort` → the shape the table's header indicators read.
+ *
+ * `[{ field, order }, …]` is the ONE spelling `@objectstack/spec` still
+ * declares for `ObjectGridPropsSchema.sort` (objectui#8221 retired the string
+ * clauses), and since objectui#8961 it is the only spelling this reader
+ * admits. The headers agree with the fetch path on it: a view that arrives
+ * sorted by `created_at desc` shows that arrow before anyone clicks anything —
+ * otherwise the first click on that column produces `asc` while the list was
+ * already `desc`, and the arrow tells the truth only from the second click on.
+ *
+ * ⭐ A retired string spelling (`"name desc"`, `["name desc", …]`) yields
+ * NOTHING here, so it lights no arrow. That is the agreement, not an omission:
+ * the fetch path REFUSES the same spelling and sends no `$orderby`
+ * (objectui#8767). Between #8767 and objectui#8961 this reader was WIDER than
+ * that path — it parsed the string and drew a confident arrow for an ordering
+ * the query did not carry, a UI element stating something untrue about the rows
+ * beside it, with nothing but a console line to say so.
+ *
+ * ⛔ Do not re-widen it for a stored `sys_metadata` row still carrying the old
+ * spelling. The author is already told, once per spelling, by PR #8758's own
+ * diagnostic at the fetch path — it quotes the offending value and prescribes
+ * the array form. A second reading here would restore exactly the arrow the
+ * wire cannot honour.
+ *
+ * The wire shape is NOT what moved: this block still sends its own
+ * `"field order"` join string (see {@link toOrderByClause}), the shared sink's
+ * `{field: direction}` map stays declined, and the server-side export path
+ * reads `schema.sort` itself rather than through this function, so it was
+ * already array-only and is untouched.
+ *
+ * Exported for the test that pins it against the fetch path's own reading.
+ */
 export function parseSchemaSort(sort: unknown): TableSortItem[] {
-  const entries = typeof sort === 'string' ? [sort] : Array.isArray(sort) ? sort : [];
+  const entries = Array.isArray(sort) ? sort : [];
   const items: TableSortItem[] = [];
   for (const entry of entries) {
-    if (typeof entry === 'string') {
-      const [field, order] = entry.trim().split(/\s+/);
-      if (field) items.push({ field, order: order?.toLowerCase() === 'desc' ? 'desc' : 'asc' });
-    } else if (entry && typeof entry === 'object' && typeof (entry as any).field === 'string') {
+    if (entry && typeof entry === 'object' && typeof (entry as any).field === 'string') {
       const { field, order } = entry as { field: string; order?: string };
       items.push({ field, order: String(order).toLowerCase() === 'desc' ? 'desc' : 'asc' });
     }
@@ -306,6 +315,11 @@ const GRID_DEFAULT_TRANSLATIONS: Record<string, string> = {
   'grid.exportAs': 'Export as {{format}}',
   'grid.loading': 'Loading grid…',
   'grid.errorLoading': 'Error loading grid',
+  // objectui#9050 — the malformed-filter state, shared with `RelatedList`
+  // and `LineItemsPanel` because it is one sentence about one authored
+  // value, not three. Byte-identical to the `en` pack, which
+  // `defaults-maps-mirror-en-pack` enforces.
+  'view.malformedFilter': 'This view’s filter is malformed, so no records are shown: the {{subject}} condition cannot be applied.',
   'grid.pullToRefresh': 'Pull to refresh',
   'grid.refreshing': 'Refreshing…',
   'grid.openRecord': 'Open record',
@@ -488,6 +502,17 @@ export interface ObjectGridComponentProps extends ObjectGridExternalPaginationPr
   schema: ObjectGridSchema;
   dataSource?: DataSource;
   className?: string;
+  /**
+   * React-only responsive presentation choice. `cards` preserves the default
+   * mobile card layout; `table` keeps the horizontally scrollable table.
+   * This is a host prop and is never authored in ObjectGrid metadata.
+   */
+  mobileLayout?: 'cards' | 'table';
+  /**
+   * Internal ListView-to-grid React handoff for its existing empty-state node.
+   * This is runtime composition only and is never authored in metadata.
+   */
+  emptyStateContent?: React.ReactNode;
   /**
    * [objectui#8674] Narrow ONE row's generic Edit / Delete entries — the layer
    * that lets a host withhold an operation the record itself cannot accept.
@@ -1131,9 +1156,137 @@ function resolveRowHeightMode(rowHeight: unknown): RowHeightMode {
   return rowHeight as RowHeightMode;
 }
 
+/**
+ * The three page-size defaults this component falls back to, named so the
+ * divergence between them is DECLARED rather than a by-product of three
+ * hand-spelled fallback chains that happened to end in different literals.
+ *
+ * They are three different quantities and that is why they are three
+ * constants: one sizes a page of ROWS in the client-paged table, one sizes a
+ * page of GROUPS in the grouped view, and one sizes the `$top` WINDOW the
+ * server-paged fetch asks for. ⚠️ What is NOT settled here is whether the
+ * first and the third should be the same number — the same grid with no
+ * authored `pagination` shows the server-window default per page while it
+ * fetches its own rows and the flat default when it does not, which is a
+ * visible inconsistency an author never declared. Changing either literal
+ * changes what every undeclared grid renders, so it is handed back as a
+ * question (objectui#9853) rather than decided here.
+ */
+const DEFAULT_FLAT_PAGE_SIZE = 10;
+const DEFAULT_GROUPS_PER_PAGE = 10;
+const DEFAULT_SERVER_WINDOW_SIZE = 50;
+
+/**
+ * The mode a `selection` object with no `type` member asks for (objectui#9837,
+ * ruling A-prime: presence enables, an explicit off wins).
+ *
+ * ⚠️ Derived, not chosen freely. The ruling's first clause is that writing the
+ * object turns selection ON, so the only values that satisfy it are the two
+ * enabling ones — and `'multiple'` is already this renderer's own answer to
+ * "selection is on, nothing said which kind": it is what the bulk-action
+ * auto-enable arm resolves to, and what the legacy `selectable: true` means
+ * (`packages/types/src/data-display.ts`, "boolean: Enable/disable selection
+ * (true = multiple selection)"). `'single'` would be a third, unstated opinion.
+ *
+ * ⚠️ `@objectstack/spec`'s own `SelectionConfigSchema` declares `type` with
+ * `.default('none')`, which this constant deliberately does NOT follow: honouring
+ * it would make a written object mean OFF and contradict the ruling's first
+ * clause outright. It is reachable only through a PARSE, and this repo's mirror
+ * strips imported defaults at the import boundary
+ * (`packages/types/src/zod/imported-defaults.ts`), so an omitted `type` stays
+ * omitted on the way to this read — but metadata parsed by the spec bundle
+ * itself arrives carrying `type: 'none'` and is then an EXPLICIT off here.
+ * Handed back as a question on objectui#9837 rather than decided here.
+ */
+const DEFAULT_SELECTION_TYPE = 'multiple' as const;
+
+/**
+ * The ONE resolver for an authored page size, for the reason the `rowHeight`
+ * resolver just above exists: one resolver at every entry is what keeps the
+ * answer single (objectui#4443).
+ *
+ * Before objectui#9853 this value was spelled out separately at each of its
+ * three read points, and the spellings disagreed about a non-positive number:
+ * the flat site used `||`, so `0` was falsy and fell through to a default,
+ * while both seeds used `??`, so `0` was not nullish and survived as a real
+ * page size. It then divided the grouped pager and reached the wire as
+ * `$top: 0`, so the grid asked the server for nothing and drew an empty table
+ * — with no error, no warning and no empty state naming the cause.
+ *
+ * ## Why refusing `0` is not this renderer inventing a meaning
+ *
+ * `@objectstack/spec` has already answered what a `pageSize` of `0` means.
+ * Its pagination config declares the member as a POSITIVE integer with a
+ * default, and the spec's own suite pins that refusal under the names
+ * `should reject zero pageSize` and `should reject negative pageSize`. The
+ * `limit` that this block's `ElementDataSourceMapping` lowers
+ * `pagination.pageSize` into is declared positive as well. So `0` is not a
+ * spelling whose meaning a consumer may choose; it is a value the contract
+ * refuses, and a renderer that quietly divides by it is the only party not
+ * saying so.
+ *
+ * ⚠️ The refusal is FAIL-SOFT on purpose. Throwing would take out the whole
+ * subtree for a declaration the flat path already tolerated, which is a worse
+ * outcome than the defect. The value is dropped, the site's own default is
+ * used, and `describeNonPositivePageSize` states it once through the channel
+ * this component already uses for "you declared it, the renderer dropped it".
+ *
+ * Reads the canonical key first and the deprecated flat shorthand second, in
+ * that precedence, with `??` so an explicit `0` is SEEN by the guard instead
+ * of skipped by falsiness — that skipping is the defect, not the fix.
+ */
+function readAuthoredPageSize(schema: {
+  pagination?: unknown;
+  pageSize?: unknown;
+}): unknown {
+  const fromObject = (schema.pagination as { pageSize?: unknown } | undefined)?.pageSize;
+  return fromObject ?? schema.pageSize;
+}
+
+function isUsablePageSize(value: unknown): value is number {
+  return typeof value === 'number' && Number.isInteger(value) && value > 0;
+}
+
+function resolvePageSize(
+  schema: { pagination?: unknown; pageSize?: unknown },
+  fallback: number,
+): number {
+  const authored = readAuthoredPageSize(schema);
+  return isUsablePageSize(authored) ? authored : fallback;
+}
+
+/**
+ * The diagnostic half. `null` means "nothing to say" — an absent key is not a
+ * mistake, and a usable page size is not either, so the message is CONDITIONAL
+ * and a control asserting its silence is what keeps it from being an
+ * always-on marker that states nothing.
+ */
+function describeNonPositivePageSize(
+  schema: { pagination?: unknown; pageSize?: unknown },
+  context: { blockType?: unknown; objectName?: unknown },
+): string | null {
+  const authored = readAuthoredPageSize(schema);
+  if (authored === undefined || authored === null) return null;
+  if (isUsablePageSize(authored)) return null;
+  const where = [
+    typeof context.blockType === 'string' ? context.blockType : 'object-grid',
+    typeof context.objectName === 'string' ? context.objectName : undefined,
+  ]
+    .filter(Boolean)
+    .join(' on ');
+  return (
+    `[ObjectUI] ObjectGrid pagination: ${where} declared pageSize: ${String(authored)}, `
+    + 'which is not a positive integer. A page size must be a positive integer '
+    + '(the spec refuses zero and negative values), so it was ignored and this '
+    + 'grid fell back to its default page size.'
+  );
+}
+
 export const ObjectGrid: React.FC<ObjectGridComponentProps> = ({
   schema,
   dataSource,
+  mobileLayout = 'cards',
+  emptyStateContent,
   onEdit,
   onDelete,
   rowOperations,
@@ -1197,7 +1350,7 @@ export const ObjectGrid: React.FC<ObjectGridComponentProps> = ({
   // pages). Defaults to the schema page size, falling back to 10 groups/page.
   const [groupedPage, setGroupedPage] = useState(1);
   const [groupedPageSize, setGroupedPageSize] = useState<number>(
-    (schema.pagination as any)?.pageSize ?? schema.pageSize ?? 10,
+    resolvePageSize(schema, DEFAULT_GROUPS_PER_PAGE),
   );
 
   // Sync internal rowHeightMode when schema.rowHeight prop changes (e.g., parent ListView density toggle).
@@ -1603,8 +1756,17 @@ export const ObjectGrid: React.FC<ObjectGridComponentProps> = ({
   // empty array. `plugin-list`'s `buildEffectiveFilter` and `plugin-view`'s
   // `ObjectView` already reach the wire through this same sink; this read point
   // was the last consumer on the chain that did not.
+  //
+  // ⚠️ `toFilterNodeSafely`, not `toFilterNode` — objectui#9050. This read is a
+  // RENDER-time `useMemo`: a `FilterOperatorError` from the lowering is a
+  // render error, and there is no load `try` and no `classifyLoadError` above
+  // it. The refusal is kept as a VALUE and rendered by the malformed-filter
+  // branch below; collapsing it to `undefined` would mean "no filter" and run
+  // the grid unconstrained, the silent widening objectui#9001 closed.
   const schemaFilterSource = schema.filter;
-  const schemaFilter = useMemo(() => toFilterNode(schemaFilterSource), [schemaFilterSource]);
+  const schemaFilterResult = useMemo(() => toFilterNodeSafely(schemaFilterSource), [schemaFilterSource]);
+  const schemaFilterRefusal = schemaFilterResult.ok ? undefined : schemaFilterResult.refusal;
+  const schemaFilter = schemaFilterResult.ok ? schemaFilterResult.node : undefined;
   const schemaSort = schema.sort;
   const schemaPagination = schema.pagination;
   const schemaPageSize = schema.pageSize;
@@ -1616,7 +1778,7 @@ export const ObjectGrid: React.FC<ObjectGridComponentProps> = ({
   // makes records beyond the first batch reachable at all (framework #2212).
   const [serverPage, setServerPage] = useState(1);
   const [serverPageSize, setServerPageSize] = useState<number>(
-    (schema.pagination as any)?.pageSize ?? schema.pageSize ?? 50,
+    resolvePageSize(schema, DEFAULT_SERVER_WINDOW_SIZE),
   );
 
   // Column-header sort, when this grid fetches its own rows (objectui#3106).
@@ -1689,6 +1851,11 @@ export const ObjectGrid: React.FC<ObjectGridComponentProps> = ({
   // fetchData's reference is unstable.
   useEffect(() => {
     if (hasInlineData) return;
+    // A refused `schema.filter` never reaches the wire (objectui#9050). The
+    // malformed-filter branch in the render shows it instead; this guard is
+    // what keeps "no filter node" from being read as "no filter" by the query
+    // built below.
+    if (schemaFilterRefusal) return;
 
     let cancelled = false;
 
@@ -1978,6 +2145,18 @@ export const ObjectGrid: React.FC<ObjectGridComponentProps> = ({
             // `undefined`, which is why the truthiness guard this replaces is
             // gone — `defaultFilters: {}` used to send `$filter: {}`, asking
             // the server a question with no content in a shape it refuses.
+            //
+            // ⚠️ Still the THROWING entry, and that is measured rather than
+            // inherited (objectui#9050). Unlike the three `useMemo` reads this
+            // card converts — `schema.filter` above, `RelatedList`'s and
+            // `LineItemsPanel`'s — this read is inside `loadSchemaAndData`, so
+            // it is already wrapped by this effect's own `try` and lands in
+            // `setError`. What it did NOT do is say what went wrong: the panel
+            // read "Error loading grid" over the converter's English paragraph.
+            // The malformed-filter branch in the render now names the operator
+            // for a `FilterOperatorError` arriving on this path too, which is
+            // the whole of step 2 for this fourth call site. Converting it to
+            // `toFilterNodeSafely` here would only rethrow into the same catch.
             const legacyFilter = toFilterNode(schema.defaultFilters);
             if (legacyFilter !== undefined) {
               params.$filter = legacyFilter;
@@ -2008,10 +2187,13 @@ export const ObjectGrid: React.FC<ObjectGridComponentProps> = ({
               // spelling and answers `undefined`, so the query carries no
               // `$orderby`. Its return value is deliberately unused — the wire
               // shape stays this block's, and the array arm below is untouched
-              // (with it the export path and `parseSchemaSort`). Routing the
-              // whole key through the sink is a different card: it would send
-              // the sink's `{field: direction}` map where every grid today
-              // sends a `"field order"` string.
+              // (with it the export path). The header-arrow reader
+              // `parseSchemaSort` was left parsing the string HERE, and read
+              // this same key more widely than this refusal until objectui#8961
+              // narrowed it to the declared array; the two now agree. Routing
+              // the whole key through the sink is still a different card: it
+              // would send the sink's `{field: direction}` map where every grid
+              // today sends a `"field order"` string.
               //
               // Read through `unknown`, exactly as the sink does: types are
               // erased, so the array-only `ObjectGridSchema.sort` declaration
@@ -2172,7 +2354,7 @@ export const ObjectGrid: React.FC<ObjectGridComponentProps> = ({
   // the query asking for the OLD one and the new grouping would read
   // `undefined` on every row — the very `(empty)` bucket this card fixes,
   // reachable a second way.
-  }, [objectName, schemaFields, schemaColumns, schemaFilter, schemaSort, headerSort, searchTerm, schemaPagination, schemaPageSize, serverPage, serverPageSize, dataSource, hasInlineData, dataConfig, refreshKey, perms.isLoaded, groupingProjectionKey]);
+  }, [objectName, schemaFields, schemaColumns, schemaFilter, schemaFilterRefusal, schemaSort, headerSort, searchTerm, schemaPagination, schemaPageSize, serverPage, serverPageSize, dataSource, hasInlineData, dataConfig, refreshKey, perms.isLoaded, groupingProjectionKey]);
 
   // The same reset, for the path the loader above never runs on (objectui#4501
   // clause 2). "All N matching are selected" is a claim about ONE query, so it
@@ -2434,6 +2616,26 @@ export const ObjectGrid: React.FC<ObjectGridComponentProps> = ({
     });
     if (message) console.warn(message);
   }, [bulkDefsDiagnosticSlice, columnDiagnosticBlockType, schema.objectName, columnDiagnosticLabel]);
+
+  // [objectui#9853] The same channel again, for a `pagination.pageSize` (or the
+  // deprecated flat shorthand) that is not a positive integer. `resolvePageSize`
+  // drops such a value at all three read points and uses the site's default; on
+  // its own that is a quieter version of the defect, because substituting a
+  // number the author never wrote is exactly what the flat site already did in
+  // silence. This is the half that makes it a diagnosis.
+  //
+  // Keyed on the authored slice, so it is one warning per declaration and not
+  // one per render. NOT a second guard — the predicate lives once, in
+  // `isUsablePageSize`, and this reads it.
+  const pageSizeDiagnosticObject = schema.pagination;
+  const pageSizeDiagnosticFlat = schema.pageSize;
+  useEffect(() => {
+    const message = describeNonPositivePageSize(
+      { pagination: pageSizeDiagnosticObject, pageSize: pageSizeDiagnosticFlat },
+      { blockType: columnDiagnosticBlockType, objectName: schema.objectName },
+    );
+    if (message) console.warn(message);
+  }, [pageSizeDiagnosticObject, pageSizeDiagnosticFlat, columnDiagnosticBlockType, schema.objectName]);
 
   const generateColumns = useCallback((): ObjectGridColumnDraft[] => {
     // Map field type to column header icon (Airtable-style)
@@ -2818,9 +3020,6 @@ export const ObjectGrid: React.FC<ObjectGridComponentProps> = ({
             const effectiveType = inferredType || col.type;
             const inferredAlign = col.align || (effectiveType && numericTypes.includes(effectiveType) ? 'right' as const : undefined);
 
-            // Determine if column should be hidden on mobile
-            const isEssential = colIndex === 0;
-
             return {
               header,
               accessorKey: col.field,
@@ -2829,7 +3028,6 @@ export const ObjectGrid: React.FC<ObjectGridComponentProps> = ({
               // rather than the renderer type so e.g. `date` stays `date`.
               ...(baseInferredType && { type: baseInferredType }),
               ...(schema.showColumnTypeIcons && { headerIcon: getTypeIcon(inferredType) }),
-              ...(!isEssential && { className: 'hidden sm:table-cell' }),
               ...(col.width && { width: col.width }),
               ...(inferredAlign && { align: inferredAlign }),
               sortable: col.sortable !== false,
@@ -3341,6 +3539,35 @@ export const ObjectGrid: React.FC<ObjectGridComponentProps> = ({
     setShowExport(false);
   }, [data, schema.exportOptions, schema.operations?.export, effectiveApiOps, schema.objectName, objectName, objectSchema, generateColumns, dataSource, hasInlineData, schemaFilter, schemaSort]);
 
+  // objectui#9050 step 2 — a refused filter, from EITHER of this component's
+  // two entries into the lowering: `schema.filter` (a render-time `useMemo`,
+  // which would otherwise have thrown out of render) and `schema.defaultFilters`
+  // (inside the load effect, which already caught it but reported it as a
+  // generic load failure). Ahead of the load-error branch because it is not a
+  // load failure: nothing was ever sent, and the repair is in the author's
+  // metadata rather than in the network. It NAMES the operator, which is what
+  // separates it from the `SchemaErrorBoundary`'s "Component failed to render"
+  // banner — and from the "Error loading grid" heading this path used to show.
+  const filterRefusal = schemaFilterRefusal
+    ?? (error instanceof FilterOperatorError ? error : undefined);
+  if (filterRefusal) {
+    return (
+      <div
+        role="alert"
+        className="p-3 sm:p-4 border border-amber-300 bg-amber-50 rounded-md"
+        data-testid="grid-malformed-filter"
+      >
+        {/* Separately addressable: this is the half that has to NAME the
+            operator, and the technical line below repeats the token
+            incidentally. */}
+        <h3 className="text-amber-800 font-semibold" data-testid="grid-malformed-filter-subject">
+          {t('view.malformedFilter', { subject: filterRefusalSubject(filterRefusal) ?? '' })}
+        </h3>
+        <p className="text-amber-700 text-sm mt-1">{filterRefusal.message}</p>
+      </div>
+    );
+  }
+
   if (error) {
     return (
       <div className="p-3 sm:p-4 border border-red-300 bg-red-50 rounded-md">
@@ -3351,7 +3578,7 @@ export const ObjectGrid: React.FC<ObjectGridComponentProps> = ({
   }
 
   if (loading && data.length === 0) {
-    if (useCardView) {
+    if (mobileLayout === 'cards' && useCardView) {
       return (
         <div className="space-y-2 p-2">
           {[1, 2, 3].map((i) => (
@@ -3616,25 +3843,43 @@ export const ObjectGrid: React.FC<ObjectGridComponentProps> = ({
   const hasUserPinnedColumns =
     userLeftPinnedCount > 0 || pinnedRightCols.some((c: any) => c.accessorKey !== '_actions');
 
-  // Density-driven cell padding/font (applied to every column so it actually reaches <td>).
+  // Density-driven vertical sizing stays tied to rowHeight. The named table
+  // variables only replace the fixed horizontal padding and font-size tokens;
+  // each var() fallback preserves the class this branch used to emit.
   // `h-*` enforces a minimum row height so the action-button column doesn't dictate it.
   const rowHeightCellClass =
     rowHeightMode === 'compact'
-      ? 'px-3 py-1 h-9 text-[13px] leading-tight'
+      ? 'px-[var(--ui-table-cell-padding-x,0.75rem)] py-1 h-9 text-[length:var(--ui-table-font-size,13px)] leading-tight'
       : rowHeightMode === 'short'
-        ? 'px-3 py-1 h-9 text-[13px] leading-normal'
+        ? 'px-[var(--ui-table-cell-padding-x,0.75rem)] py-1 h-9 text-[length:var(--ui-table-font-size,13px)] leading-normal'
         : rowHeightMode === 'tall'
-          ? 'px-3 py-2.5 h-14 text-sm'
+          ? 'px-[var(--ui-table-cell-padding-x,0.75rem)] py-2.5 h-14 text-[length:var(--ui-table-font-size,0.875rem)]'
           : rowHeightMode === 'extra_tall'
-            ? 'px-3 py-3.5 h-16 text-sm leading-relaxed'
-            : 'px-3 py-1.5 h-11 text-[13px] leading-normal';
+            ? 'px-[var(--ui-table-cell-padding-x,0.75rem)] py-3.5 h-16 text-[length:var(--ui-table-font-size,0.875rem)] leading-relaxed'
+            : 'px-[var(--ui-table-cell-padding-x,0.75rem)] py-1.5 h-11 text-[length:var(--ui-table-font-size,13px)] leading-normal';
 
-  // Body cells get `px-3` from rowHeightCellClass; give the header the same
-  // horizontal padding so header labels line up exactly with the cell content
-  // below them (the primitive <th> default is px-4, which is 4px wider).
+  // Body cells get horizontal padding from rowHeightCellClass; give headers
+  // the same value so labels line up with cell content. The inner label span
+  // in DataTable has a fixed `text-xs`, so scope its variable to that known
+  // header slot instead of overriding cell renderers throughout the table.
+  const headerCellClasses = [
+    'px-[var(--ui-table-cell-padding-x,0.75rem)]',
+    'text-[length:var(--ui-table-header-font-size,0.875rem)]',
+    '[&>div>div>span.text-xs]:text-[length:var(--ui-table-header-font-size,0.75rem)]',
+  ].join(' ');
+  // A few structural cells are authored inside the shared DataTable renderer
+  // rather than in ObjectGrid's column descriptors. Scope the same variables to
+  // those fixed slots without reaching typed field renderers or column widths.
+  const tableSlotClasses = [
+    '[&_thead>tr>th.w-10.bg-background.px-3]:px-[var(--ui-table-cell-padding-x,0.75rem)]',
+    '[&_thead>tr>th.w-10.bg-background.px-3>span.text-xs]:text-[length:var(--ui-table-header-font-size,0.75rem)]',
+    '[&_thead>tr>th.w-24.text-right]:text-[length:var(--ui-table-header-font-size,0.875rem)]',
+    '[&_tbody>tr>td:first-child.px-3]:px-[var(--ui-table-cell-padding-x,0.75rem)]',
+    '[&_tbody>tr>td.w-10>span.text-xs]:text-[length:var(--ui-table-font-size,0.75rem)]',
+  ].join(' ');
   const applyDensity = (col: any) => ({
     ...col,
-    className: ['px-3', col.className].filter(Boolean).join(' '),
+    className: [headerCellClasses, col.className].filter(Boolean).join(' '),
     cellClassName: [rowHeightCellClass, col.cellClassName].filter(Boolean).join(' '),
   });
 
@@ -3749,7 +3994,7 @@ export const ObjectGrid: React.FC<ObjectGridComponentProps> = ({
         ...unpinnedCols.map(applyColumnChrome),
         ...pinnedRightCols.map((col: any) => ({
           ...applyColumnChrome(col),
-          className: ['px-3', col.className, rightPinnedClasses].filter(Boolean).join(' '),
+          className: [headerCellClasses, col.className, rightPinnedClasses].filter(Boolean).join(' '),
           cellClassName: [rowHeightCellClass, col.cellClassName, rightPinnedClasses].filter(Boolean).join(' '),
         })),
       ]
@@ -3811,10 +4056,22 @@ export const ObjectGrid: React.FC<ObjectGridComponentProps> = ({
         : [];
   const hasBulkActions = effectiveBulkActions.length > 0 || bulkActionDefs.length > 0;
   let selectionMode: 'none' | 'single' | 'multiple' | boolean = false;
-  if (schema.selection?.type) {
-    selectionMode = schema.selection.type === 'none' ? false : schema.selection.type;
+  if (schema.selection !== undefined) {
+    // "presence enables; an explicit off wins" — the ONE rule both
+    // object-armed keys on this block obey (objectui#9837, ruling A-prime, batch
+    // #162 item 2), `paginationEnabled` below being the other half.
+    //
+    // Writing the object is how an author asks for selection; `type: 'none'`
+    // is this key's own explicit off and beats the presence. Before the ruling
+    // the read was `schema.selection?.type`, so an object with no `type` fell
+    // through to the legacy arms and the object itself meant NOTHING — the
+    // exact opposite of what the neighbouring `pagination` key taught, with no
+    // error and no diagnostic either way.
+    const authoredType = schema.selection?.type;
+    selectionMode =
+      authoredType === 'none' ? false : (authoredType ?? DEFAULT_SELECTION_TYPE);
   } else if (schema.selectable !== undefined) {
-    // Legacy support
+    // Legacy support — read only when `selection` is absent.
     selectionMode = schema.selectable;
   } else if (hasBulkActions) {
     // Auto-enable multi-select when bulk actions exist
@@ -4160,13 +4417,28 @@ export const ObjectGrid: React.FC<ObjectGridComponentProps> = ({
   };
 
   // Determine pagination settings (support both new and legacy formats)
-  const paginationEnabled = schema.pagination !== undefined 
-    ? true 
-    : (schema.showPagination !== undefined ? schema.showPagination : true);
+  //
+  // "presence enables; an explicit off wins" — the same ONE rule
+  // `selectionMode` above obeys (objectui#9837, ruling A-prime, batch #162 item 2).
+  //
+  // The order of the two arms is the whole ruling. `pagination` declares no off
+  // switch of its own (its members are `pageSize` / `pageSizeOptions`), so the
+  // deprecated flat `showPagination: false` is the ONLY way an author can turn
+  // paging off — and it therefore has to be read BEFORE the object's presence.
+  // Before the ruling the presence check ran first and hard-forced `true`,
+  // which made `showPagination: false` unreachable the moment the object was
+  // written: a block that cannot turn off the thing it names (objectui#9819).
+  const paginationEnabled =
+    schema.showPagination === false
+      ? false // explicit off wins, whatever `pagination` says
+      : schema.pagination !== undefined
+        ? true // the object's presence asks for paging with its settings
+        : (schema.showPagination ?? true); // neither written: today's default
   
-  const pageSize = schema.pagination?.pageSize 
-    || schema.pageSize 
-    || 10;
+  // Through the same resolver as the two seeds above (objectui#9853). This
+  // site used `||` and the seeds used `??`, so one authored `pageSize: 0`
+  // reached three read points and got two different answers.
+  const pageSize = resolvePageSize(schema, DEFAULT_FLAT_PAGE_SIZE);
 
   // Determine search settings
   const searchEnabled = schema.searchableFields !== undefined
@@ -4263,10 +4535,17 @@ export const ObjectGrid: React.FC<ObjectGridComponentProps> = ({
   // arrow, and the first click on that column would ask for `asc` on a list
   // that was already `desc`.
   //
-  // ⚠️ One spelling now escapes that agreement: since objectui#8767 the fetch
-  // path REFUSES a string `sort` and sends no `$orderby`, while
-  // {@link parseSchemaSort} still parses one. Closing that gap narrows this
-  // reader and moves the wire shape with it — the route #8767 did not take.
+  // ⭐ That agreement now covers the SPELLING too (objectui#8961). One used to
+  // escape it: since objectui#8767 the fetch path REFUSES a string `sort` and
+  // sends no `$orderby`, while {@link parseSchemaSort} went on parsing one, so
+  // a grid authored `sort: 'name desc'` painted a descending arrow over rows
+  // the server returned in no declared order. That reader now admits only the
+  // declared `[{ field, order }]` array — the one spelling the fetch path
+  // still lowers — so the arrow on screen and the `$orderby` on the wire read
+  // the same key the same way, and a retired spelling lights nothing on either
+  // side. What did NOT move is the wire shape: the array arm still lowers to
+  // this block's own `"field order"` join string, and the shared sink's
+  // `{field: direction}` map stays declined (see {@link toOrderByClause}).
   //
   // A plain expression, not a `useMemo`: this sits below the component's early
   // returns, where a hook would be skipped on some renders and change the hook
@@ -4416,12 +4695,13 @@ export const ObjectGrid: React.FC<ObjectGridComponentProps> = ({
               onChange={(v: any) => (discrete ? ctx.commit(v) : ctx.stage(v))}
               // The record a dependent widget scopes itself by (objectui#7165,
               // finished by objectui#7188). `LookupField` resolves
-              // `dependentValues ?? ctx.formValues ?? ctx.data ?? {}`, and only
-              // the FIRST link is suppliable by any host: `SchemaRendererContextType`
-              // declares exactly `dataSource` / `debug` / `debugFlags` / `apiFetch`,
-              // so the tail is unconditionally empty repo-wide (objectui#7206) —
-              // which is why the repair is this prop and could not have been a
-              // provider. A grid that supplied none of the three rendered every
+              // `dependentValues ?? {}`, so this prop is the only channel that
+              // can carry a record. The chain used to end
+              // `?? ctx.formValues ?? ctx.data`, but `SchemaRendererContextType`
+              // declares exactly `dataSource` / `debug` / `debugFlags` /
+              // `apiFetch`, so that tail was unconditionally empty repo-wide and
+              // has been retired (objectui#7206) — which is why the repair is
+              // this prop and could not have been a provider. A grid that supplied none of the three rendered every
               // `dependsOn` column as a permanently gated, disabled trigger
               // ("Select region first") even when the row carried the parent —
               // a field that could never be filled, with no diagnostic. PR
@@ -4448,16 +4728,16 @@ export const ObjectGrid: React.FC<ObjectGridComponentProps> = ({
         }
       : undefined,
     singleClickEdit: schema.singleClickEdit ?? true,
-    className: schema.className,
+    className: [schema.className, tableSlotClasses].filter(Boolean).join(' '),
     cellClassName: rowHeightMode === 'compact'
-      ? 'px-3 py-1 text-[13px] leading-tight'
+      ? 'px-[var(--ui-table-cell-padding-x,0.75rem)] py-1 text-[length:var(--ui-table-font-size,13px)] leading-tight'
       : rowHeightMode === 'short'
-        ? 'px-3 py-1 text-[13px] leading-normal'
+        ? 'px-[var(--ui-table-cell-padding-x,0.75rem)] py-1 text-[length:var(--ui-table-font-size,13px)] leading-normal'
         : rowHeightMode === 'tall'
-          ? 'px-3 py-2.5 text-sm'
+          ? 'px-[var(--ui-table-cell-padding-x,0.75rem)] py-2.5 text-[length:var(--ui-table-font-size,0.875rem)]'
           : rowHeightMode === 'extra_tall'
-            ? 'px-3 py-3.5 text-sm leading-relaxed'
-            : 'px-3 py-1.5 text-[13px] leading-normal',
+            ? 'px-[var(--ui-table-cell-padding-x,0.75rem)] py-3.5 text-[length:var(--ui-table-font-size,0.875rem)] leading-relaxed'
+            : 'px-[var(--ui-table-cell-padding-x,0.75rem)] py-1.5 text-[length:var(--ui-table-font-size,13px)] leading-normal',
     showRowNumbers: true,
     // [#5148] The authored request ∧ the principal's verdict — the conjunction
     // #5143 spelled for `editable` and #4646 / PR #5145 spelled for the
@@ -4694,11 +4974,19 @@ export const ObjectGrid: React.FC<ObjectGridComponentProps> = ({
     if (schema.objectName && panelRecordId != null && hasDeclaredFields) {
       return (
         <div className="px-6 pt-6 pb-6" data-testid="record-detail-panel">
+          {/*
+            objectui#9722: `dataSource` is passed straight through — no cast.
+            This hand-off carried an `as any` too; measured on this branch, it
+            was paying for NOTHING (both sides declare `DataSource | undefined`
+            from `@object-ui/types`), so removing it restores a real check at
+            zero cost. The `objectSchema` cast below is a different question
+            and is deliberately left alone.
+          */}
           <RecordDetailPanel
             record={record}
             objectName={schema.objectName}
             recordId={panelRecordId}
-            dataSource={dataSource as any}
+            dataSource={dataSource}
             objectSchema={objectSchema as any}
             onClose={navigation.close}
           />
@@ -4810,7 +5098,7 @@ export const ObjectGrid: React.FC<ObjectGridComponentProps> = ({
   // Mobile card-view: below the 768px app breakpoint (matches useIsMobile /
   // Tailwind md: / the responsive page+grid layout), render stacked cards
   // instead of a side-scrolling wide table.
-  if (useCardView && data.length > 0 && !isGrouped) {
+  if (mobileLayout === 'cards' && useCardView && data.length > 0 && !isGrouped) {
     const displayColumns = generateColumns().filter((c) => c.accessorKey !== '_actions');
 
     // Build a lookup of column metadata for smart rendering
@@ -5264,7 +5552,7 @@ export const ObjectGrid: React.FC<ObjectGridComponentProps> = ({
   // BulkActionBar rendered *after* gridContent stays inside the flex column
   // and remains visible; otherwise an h-full table pushes the bar past the
   // bottom of an overflow-hidden ancestor and clips it.
-  const gridContent = isGrouped ? (
+  const gridContent = isGrouped && groups.length > 0 ? (
     <div className="flex flex-col flex-1 min-h-0">
       {/* The partial-grouping disclosure sits INSIDE the grouped region,
           directly above the first group header — not in the paging footer.
@@ -5292,13 +5580,29 @@ export const ObjectGrid: React.FC<ObjectGridComponentProps> = ({
   ) : (
     <div className="flex flex-col flex-1 min-h-0">
       <div className="flex flex-col flex-1 min-h-0">
-        <SchemaRenderer schema={dataTableSchema} />
+        <SchemaRenderer schema={dataTableSchema} emptyStateContent={emptyStateContent} />
       </div>
       {summaryFooter}
     </div>
   );
 
   // Rendered BulkActionDialog (shared across both render branches).
+  //
+  // ⭐ objectui#9722: `dataSource` reaches this hand-off through a `!`, and
+  // that non-null assertion is ALL that is erased here. It used to be an
+  // `as any`, and measured on this branch that cast was paying for two
+  // separate things at once: the optional-vs-required arm (this grid declares
+  // `dataSource?: DataSource`, the dialog demands one) AND the structural
+  // assignability of the four data-source members — which did not hold,
+  // because the executor's face still spelled the pre-objectui#9511
+  // `ReadonlyArray<string | number>` for the two bulk doors. Deriving those
+  // two doors from `DataSource` (see `BulkExecutorOptions`) makes the second
+  // one hold for real, so only the first still needs erasing, and any future
+  // drift of that face reddens HERE instead of passing silently.
+  //
+  // ⚠️ The `!` is not an idle tidy-up of the same lie: it preserves exactly
+  // today's runtime behaviour (a grid with no `dataSource` still hands the
+  // dialog `undefined`), and it is the one arm a type cannot check for us.
   const bulkDialog = (
     <BulkActionDialog
       def={activeBulkDef}
@@ -5306,7 +5610,7 @@ export const ObjectGrid: React.FC<ObjectGridComponentProps> = ({
       skippedCount={activeBulkSkipped}
       open={!!activeBulkDef}
       onClose={handleBulkDialogClose}
-      dataSource={dataSource as any}
+      dataSource={dataSource!}
       resource={schema.objectName ?? ''}
       objectFields={objectSchema?.fields}
       runAction={runBulkActionRecord}

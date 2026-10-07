@@ -187,3 +187,22 @@ describe('DashboardFilterBar — inline per-locale filter labels (#4032 / #4163)
     expect(trigger.textContent).toContain('Won');
   });
 });
+
+describe('DashboardFilterBar — optional host chrome', () => {
+  it('exposes compact-profile panel tokens while preserving the declared filter control', () => {
+    renderIn('en', [
+      { name: 'region', field: 'region', type: 'text', label: 'Region' } as DashboardFilterDef,
+    ]);
+
+    const panel = screen.getByTestId('dashboard-filter-bar');
+    const heading = panel.querySelector('[data-dashboard-filter-heading]');
+
+    expect(panel).toHaveAttribute('data-dashboard-filter-panel', '');
+    expect(panel).toHaveAttribute('role', 'group');
+    expect(panel.className).toContain('bg-[var(--ui-dashboard-chrome-background,transparent)]');
+    expect(panel.className).toContain('px-[var(--ui-dashboard-filter-panel-padding-x,0px)]');
+    expect(heading).not.toBeNull();
+    expect(heading?.className).toContain('[display:var(--ui-dashboard-filter-heading-display,none)]');
+    expect(screen.getByTestId('dashboard-filter-region')).toBeInTheDocument();
+  });
+});

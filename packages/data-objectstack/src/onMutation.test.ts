@@ -471,6 +471,21 @@ describe('ObjectStackAdapter.batchTransaction capability gate (#2693 / framework
     return { ds, fetchMock, batchTransaction };
   }
 
+  it.each([
+    { capability: true, expected: true },
+    { capability: { enabled: true }, expected: true },
+    { capability: false, expected: false },
+    { capability: { enabled: false }, expected: false },
+    { capability: undefined, expected: false },
+  ])('reads the atomic guarantee without any batch or single-object write: $capability', async ({ capability, expected }) => {
+    const create = vi.fn();
+    const { ds, batchTransaction, fetchMock } = makeCapabilityDS({ capability, batchStatus: 200, clientData: { create } });
+    expect(await ds.supportsTransactionalBatch()).toBe(expected);
+    expect(fetchMock).toHaveBeenCalled();
+    expect(batchTransaction).not.toHaveBeenCalled();
+    expect(create).not.toHaveBeenCalled();
+  });
+
   it('declared transactionalBatch:true → a 404 is a hard error, NOT downgraded to emulation', async () => {
     const create = vi.fn();
     const { ds } = makeCapabilityDS({ capability: { enabled: true }, batchStatus: 404, clientData: { create } });

@@ -1,6 +1,250 @@
 @import 'tailwindcss';
 @import '@object-ui/app-shell/styles.css';
 
+/* Optional geometry profile. The default Console retains its existing sizes. */
+:root[data-ui-profile='compact-enterprise'] {
+  --ui-root-font-size: 14px;
+  font-size: var(--ui-root-font-size);
+  --ui-control-height: 28px;
+  --ui-control-small-height: 28px;
+  --ui-control-radius: 3.5px;
+  --ui-control-font-size: 12.25px;
+  --ui-control-line-height: 17.5px;
+  --ui-control-large-height: 28px;
+  --ui-icon-button-size: 28px;
+  --ui-menu-item-padding-y: 7px;
+  --ui-button-gap: 5.25px;
+  --ui-button-padding-x: 14px;
+  --ui-button-padding-y: 0px;
+  --ui-button-small-padding-x: 10.5px;
+  --ui-input-padding-x: 10.5px;
+  --ui-input-padding-y: 3.5px;
+  --ui-label-font-size: 12.25px;
+  --ui-label-line-height: 12.25px;
+  --ui-invalid-border-color: hsl(var(--destructive));
+  --ui-textarea-min-height: 72px;
+  --ui-textarea-padding-y: 7px;
+  --ui-form-row-gap: 14px;
+  --ui-form-column-gap: 21px;
+  --ui-field-stack-gap: 5.25px;
+  --ui-field-display: grid;
+  --ui-field-margin-gap: 0px;
+  --ui-section-font-size: 14px;
+  --ui-section-padding-top: 7px;
+  --ui-section-padding-bottom: 7px;
+  --ui-dialog-title-font-size: 15.75px;
+  --ui-dialog-title-line-height: 24.5px;
+  --ui-dialog-action-gap: 7px;
+  --ui-modal-empty-description-gap: 0px;
+  --ui-section-count-display: inline;
+  --ui-section-border-width: 0px;
+  --ui-section-heading-gap: 7px;
+  --ui-section-chevron-order: 2;
+  --ui-section-accent-display: block;
+  --ui-section-accent-width: 3px;
+  --ui-section-accent-height: 17.5px;
+  --ui-card-radius: 5.25px;
+  --ui-card-shadow: 0 1px 2px rgba(9, 30, 66, 0.04);
+  --ui-card-padding: 17.5px;
+  --ui-card-header-padding-bottom: 13px;
+  --ui-card-divider-display: block;
+  --ui-card-content-padding-top: 18px;
+  --ui-card-title-font-size: 12.25px;
+  --ui-card-title-line-height: 17.5px;
+  --ui-card-title-font-weight: 700;
+  --ui-card-hover-shadow: 0 6px 18px rgba(9, 30, 66, 0.06);
+  --ui-dashboard-header-border-width: 0px;
+  --ui-dashboard-grid-gap: 14px;
+  --ui-dashboard-grid-row-height: 49px;
+  --ui-dashboard-chart-height: 280.25px;
+  --ui-dashboard-chrome-background: hsl(var(--card));
+  --ui-dashboard-chrome-border-color: hsl(var(--border));
+  --ui-dashboard-chrome-border-width: 1px;
+  --ui-dashboard-chrome-radius: var(--ui-card-radius,5.25px);
+  --ui-dashboard-page-header-margin-inline: 21px;
+  --ui-dashboard-page-header-padding: 22px 21px;
+  --ui-dashboard-page-header-padding-sm: 22px 21px;
+  --ui-dashboard-page-header-min-height: 110.75px;
+  --ui-dashboard-page-header-margin-top: 17.5px;
+  --ui-dashboard-filter-panel-padding-x: 14px;
+  --ui-dashboard-filter-panel-padding-y: 9.5px;
+  --ui-dashboard-filter-heading-display: block;
+  --ui-dashboard-filter-heading-gap: 14px;
+  --ui-dashboard-filter-controls-justify: flex-end;
+  --ui-dashboard-toolbar-gap: 7px;
+  --ui-dashboard-metric-title-font-size: 10.5px;
+  --ui-dashboard-metric-title-line-height: 14px;
+  --ui-dashboard-metric-title-font-weight: 400;
+  --ui-dashboard-metric-value-font-size: 25px;
+  --ui-dashboard-metric-value-line-height: 25px;
+  --ui-dashboard-metric-value-font-weight: 800;
+  --ui-dashboard-metric-card-min-height: 112px;
+  --ui-dashboard-metric-padding-x: 17px;
+  --ui-dashboard-metric-padding-y: 14px;
+  --ui-dashboard-metric-header-padding-bottom: 0px;
+  --ui-dashboard-metric-content-padding-top: 0px;
+  --ui-dashboard-metric-inner-padding: 0px;
+  --ui-dashboard-metric-icon-size: 26px;
+  --ui-dashboard-metric-value-margin-top: 5.25px;
+  --ui-dashboard-metric-note-margin-top: 7px;
+  --ui-dashboard-metric-delta-margin-top: 3px;
+  --ui-dashboard-metric-header-border-width: 0px;
+  --ui-dashboard-metric-header-gap: 7px;
+  --ui-dashboard-metric-title-flex: 0 1 auto;
+  --ui-dashboard-metric-icon-glyph-size: 14px;
+  --ui-dashboard-metric-corner-mark-display: block;
+  --ui-dashboard-metric-corner-mark-size: 13px;
+  --ui-dashboard-metric-header-description-display: none;
+  --ui-dashboard-metric-help-display: inline-flex;
+  --ui-dashboard-metric-help-icon-size: 12px;
+  --ui-dashboard-metric-interaction-gap: 7px;
+  --ui-dashboard-metric-drill-button-size: 28px;
+  --ui-dashboard-metric-accent-line-width: 3px;
+  --ui-dashboard-metric-accent-line-inset: 14px;
+  --ui-dashboard-metric-accent-line-radius: 2px;
+  --ui-dashboard-metric-accent-line-color: hsl(var(--border));
+  --ui-modal-padding-x: 21px;
+  --ui-modal-header-padding-top: 17.5px;
+  --ui-modal-header-padding-bottom: 14px;
+  --ui-modal-body-padding-y: 17.5px;
+  --ui-modal-footer-padding-y: 14px;
+  --ui-modal-body-max-height: 76vh;
+  --ui-modal-max-height: calc(76vh + 116px);
+  --ui-modal-full-max-width: min(1120px, 95vw);
+  --ui-table-font-size: 12.25px;
+  --ui-table-header-font-size: 10.5px;
+  --ui-table-cell-padding-x: 10.5px;
+  --ui-table-cell-line-height: 17.5px;
+  --ui-list-toolbar-gap: 7px;
+  --ui-list-toolbar-padding-x: 14px;
+  --ui-list-toolbar-padding-y: 10.5px;
+  --ui-list-toolbar-min-height: 49px;
+  --ui-list-tools-gap: 7px;
+  --ui-list-tools-margin-right: auto;
+  --ui-list-tools-radius: 0px;
+  --ui-list-tools-border-width: 0px;
+  --ui-list-tools-padding: 0px;
+  --ui-list-tools-background: transparent;
+  --ui-list-tools-shadow: none;
+  --ui-list-inline-search-display: flex;
+  --ui-list-inline-search-width: 280px;
+  --ui-list-inline-search-padding-y: 10.5px;
+  --ui-list-search-trigger-display: none;
+  --ui-gantt-min-height: 0px;
+  --ui-toolbar-action-height: 28px;
+  --ui-toolbar-action-large-height: 28px;
+
+  /* RISEMAP geometry observations at 1280x720. Shared values map to the
+     existing compact profile; surface values require an explicit host
+     consumer and are not inferred by a generic renderer. */
+  --ui-app-sidebar-width: 240px;
+  --ui-app-topbar-height: 68px;
+  --ui-page-body-font-size: 14px;
+  --ui-page-body-line-height: 21px;
+  --ui-page-content-padding-inline: 21px;
+  --ui-page-content-padding-block: 17.5px;
+  --ui-page-title-font-size: 21px;
+  --ui-workspace-header-padding-block: 17.5px;
+  --ui-workspace-header-padding-inline: 21px;
+  --ui-workspace-header-breadcrumb-font-size: 10.5px;
+  --ui-workspace-header-breadcrumb-line-height: 14px;
+  --ui-workspace-header-breadcrumb-margin-bottom: 10.5px;
+  --ui-workspace-header-icon-size: 35px;
+  --ui-workspace-header-row-gap: 14px;
+  --ui-workspace-header-min-height: 105px;
+  --ui-table-header-line-height: 14px;
+  --ui-table-header-font-weight: 600;
+  --ui-table-border-width: 1px;
+  --ui-space-1: 3.5px;
+  --ui-space-1-5: 5.25px;
+  --ui-space-2: 7px;
+  --ui-space-2-5: 8.75px;
+  --ui-space-3: 10.5px;
+  --ui-space-3-5: 12.25px;
+  --ui-space-4: 14px;
+  --ui-space-5: 17.5px;
+  --ui-space-6: 21px;
+
+  /* List geometry differs by surface and must not become one global row size. */
+  --ui-surface-quote-view-tab-height: 24.5px;
+  --ui-surface-quote-table-header-height: 35px;
+  --ui-surface-quote-table-header-padding-block: 10.5px;
+  --ui-surface-quote-table-row-min-height: 49.5px;
+  --ui-surface-quote-table-cell-font-size: 12.25px;
+  --ui-surface-quote-table-cell-line-height: 17.5px;
+  --ui-surface-contact-status-tab-height: 35px;
+  --ui-surface-contact-title-line-height: 28px;
+  --ui-surface-contact-title-font-weight: 700;
+  --ui-surface-contact-stat-card-height: 61.5px;
+  --ui-surface-contact-stat-card-gap: 10.5px;
+  --ui-surface-contact-stat-card-padding-inline: 14px;
+  --ui-surface-contact-stat-card-padding-block: 12.25px;
+  --ui-surface-contact-stat-card-radius: 5.25px;
+  --ui-surface-contact-stat-label-font-size: 10.5px;
+  --ui-surface-contact-stat-label-line-height: 14px;
+  --ui-surface-contact-stat-label-font-weight: 400;
+  --ui-surface-contact-stat-value-font-size: 17.5px;
+  --ui-surface-contact-stat-value-line-height: 17.5px;
+  --ui-surface-contact-stat-value-font-weight: 600;
+  --ui-surface-contact-table-header-height: 32px;
+  --ui-surface-contact-table-header-padding-inline: 14px;
+  --ui-surface-contact-table-header-padding-block: 8.75px;
+  --ui-surface-contact-table-row-min-height: 57.8px;
+  --ui-surface-contact-table-cell-font-size: 14px;
+  --ui-surface-contact-table-cell-line-height: 21px;
+  --ui-surface-project-status-tab-height: 31.5px;
+  --ui-surface-project-title-line-height: 31.5px;
+  --ui-surface-project-title-font-weight: 500;
+  --ui-surface-project-table-header-height: 52.5px;
+  --ui-surface-project-table-header-padding-block: 10.5px;
+  --ui-surface-project-table-row-min-height: 53px;
+  --ui-surface-project-table-cell-font-size: 12.25px;
+  --ui-surface-project-table-cell-line-height: 17.5px;
+
+  /* Existing CompositeDialog consumes the sidebar token; these width variants
+     remain surface candidates until a host chooses the relevant dialog size. */
+  --ui-dialog-sidebar-width: 236px;
+  --ui-surface-contact-edit-dialog-width: 960px;
+  --ui-surface-contact-edit-dialog-sidebar-width: 236px;
+  --ui-surface-long-form-dialog-width: 1120px;
+  --ui-surface-contact-channel-row-height: 45.5px;
+  --ui-surface-contact-channel-row-height-with-divider: 46.5px;
+}
+
+@media (max-width: 767px) {
+  :root[data-ui-profile='compact-enterprise'] {
+    --ui-app-topbar-height: 60px;
+  }
+}
+
+/* Solid dashboard panels in this profile; default-host translucency stays intact. */
+:root[data-ui-profile='compact-enterprise'] [data-dashboard-card] {
+  background-color: hsl(var(--card));
+  border-color: hsl(var(--border));
+  backdrop-filter: none;
+}
+:root[data-ui-profile='compact-enterprise'] [data-dashboard-card]:hover {
+  box-shadow: var(--ui-card-hover-shadow);
+}
+:root[data-ui-profile='compact-enterprise'] [data-dashboard-card-header] {
+  background-color: transparent;
+}
+:root[data-ui-profile='compact-enterprise'] [data-dashboard-metric-card] {
+  position: relative;
+}
+:root[data-ui-profile='compact-enterprise'] [data-dashboard-metric-card]::before {
+  content: '';
+  position: absolute;
+  z-index: 0;
+  top: var(--ui-dashboard-metric-accent-line-inset);
+  bottom: var(--ui-dashboard-metric-accent-line-inset);
+  left: 0;
+  width: var(--ui-dashboard-metric-accent-line-width);
+  border-radius: 0 var(--ui-dashboard-metric-accent-line-radius) var(--ui-dashboard-metric-accent-line-radius) 0;
+  background-color: var(--ui-dashboard-metric-accent-line-color);
+  pointer-events: none;
+}
+
 /* Typography plugin — generates the `prose` utilities. plugin-markdown's
    MarkdownImpl renders docs/markdown inside `prose prose-h1:text-3xl …`;
    without this plugin those classes are no-ops and Markdown renders with
@@ -54,6 +298,38 @@
 @source '../../../packages/i18n/src/**/*.{ts,tsx}';
 @source '../../../packages/collaboration/src/**/*.{ts,tsx}';
 @source '../../../packages/mobile/src/**/*.{ts,tsx}';
+
+/*
+ * Only SHIPPED source. Tailwind v4 scans source TEXT, not an import graph, so
+ * any class-shaped token in a scanned file compiles a real utility into this
+ * app's eager `index-*.css` -- including a token that only ever appears as a
+ * test's EXPECTED value. `packages/components/src/index.css` and
+ * `packages/runner/src/index.css` already carry this pair; this entry was the
+ * one that did not, while reaching FURTHER than either of them.
+ *
+ * Anchored at the repository root because that is the one base that covers
+ * BOTH trees this entry scans: the 27 package globs above (`../../../packages`)
+ * and Tailwind's AUTOMATIC detection root, which is the PROCESS CWD -- here
+ * `apps/console`, where `pnpm --filter @object-ui/console build` runs. Runner's
+ * header records the same reasoning one level down, and records the measurement
+ * that makes it sound: negations DO apply to files the automatic root found.
+ *
+ * Measured (objectui#6379), not assumed: these two lines remove 19 classes --
+ * 10,096 bytes from the unminified compile, and -7,998 raw / -955 gzipped from
+ * the built `index-*.css` users are served -- and every removed class was
+ * traced to a test file. That is 2.0% of the render-blocking gzipped CSS: a
+ * correctness fix with a size side-effect, NOT a first-paint fix.
+ *
+ * The clearest single reading among the 19 is `mt-[3.7331px]` -- the
+ * self-hosted sentinel of components' own
+ * `index-css-scan-excludes-tests.test.ts`, a token that exists ONLY to prove
+ * that package's exclusion works, and which this app was shipping to users.
+ * `prose-lg` and `prose-slate` are 10,302 of the unminified bytes between
+ * them: the typography plugin emits a very large rule block per `prose-*`
+ * variant, and both variants were named by tests and by no shipped source.
+ */
+@source not '../../../**/*.test.{ts,tsx}';
+@source not '../../../**/__tests__/**';
 
 /* Tailwind plugin for animations remove
 @plugin 'tailwindcss-animate';
@@ -428,9 +704,9 @@ header.sticky {
   background-color: hsl(135 59% 49%) !important;
 }
 
-/* iOS sheet/dialog: extra-rounded corners. */
+/* Retain the default dialog corners unless the host supplies a radius. */
 [role="dialog"] {
-  border-radius: 1.25rem !important;
+  border-radius: var(--ui-modal-radius, 1.25rem) !important;
 }
 
 /* iOS-blue tinted text selection. */

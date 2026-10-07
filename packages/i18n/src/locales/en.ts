@@ -194,6 +194,7 @@ const en = {
   form: {
     noPermissionToSave: "You don't have permission to save this record.",
     submitFailed: 'Could not save. Please try again.',
+    uploadInFlight: 'Wait for the upload to finish before saving.',
     removeItem: 'Remove item',
     fieldRequired: 'This field is required',
     invalidFormat: 'Invalid format',
@@ -208,6 +209,32 @@ const en = {
     // only displace it by authoring a `description`, which makes a VISIBLE
     // subtitle appear on every form — so the fallback has to come from here.
     dialogDescriptionFallback: 'Complete the form fields, then submit or cancel.',
+    compoundDialogDescription: 'Enter the record and its line items, then save.',
+    compoundLineItems: 'Line Items',
+    exportConfiguration: {
+      title: 'Export data',
+      scope: 'Export scope',
+      currentPage: 'Current page: {{count}}',
+      allFiltered: 'All filtered results: {{count}}',
+      availableFields: 'Available fields',
+      selectedFields: 'Fields to export',
+      addField: 'Add',
+      noAvailableFields: 'No additional fields can be added.',
+      noFields: 'Select at least one field to export.',
+      removeField: 'Remove {{field}}',
+      moveFieldUp: 'Move {{field}} up',
+      moveFieldDown: 'Move {{field}} down',
+      fileName: 'File name',
+      fileNameRequired: 'Enter a file name.',
+      format: 'Format',
+      formatCsv: 'CSV',
+      formatXlsx: 'Excel (.xlsx)',
+      formatJson: 'JSON',
+      preview: 'Preview (up to {{count}} rows)',
+      noPreviewRows: 'No preview rows are available.',
+      exporting: 'Exporting…',
+      exportFailed: 'Export failed. Please try again.',
+    },
     keepEditing: 'Keep editing',
     discard: 'Discard',
     conflictTitle: 'Save conflict',
@@ -296,6 +323,9 @@ const en = {
       selectBusinessUnit: 'Select a business unit',
       selectPosition: 'Select a position',
       selectUnitAndSubordinates: 'Select a business unit',
+      selectField: 'Select a user field',
+      noUserFields: 'No user fields on this object',
+      fieldNotUserTyped: '{{name}} — not a user field',
     },
     filterCondition: {
       selectObjectFirst: 'Select an object first.',
@@ -345,10 +375,38 @@ const en = {
       refusedResidue:
         'Not saved: {{name}} "{{text}}" and {{otherName}} "{{otherText}}" are not numbers. Enter plain decimals (example: 30.2741, 120.1551).',
     },
+    // objectui#8148 — the FIFTH refusal sentence of objectui#6755's class, and
+    // the only SHARED one. The four above are each ONE widget's; this one is
+    // produced by `numberBadInput.tsx` for `NumberField`, `CurrencyField`,
+    // `PercentField` and both of `GeolocationField`'s boxes. That last is the
+    // sharpest case: it sits beside `LocationField`, whose refusals are keyed
+    // right above, so two adjacent coordinate widgets refused bad input in two
+    // different languages on the same form.
+    //
+    // ⭐ `{{example}}` is a HOLE, and that is what keeps decimal numerals out
+    // of every pack. Five different values reach this one sentence (`1234`,
+    // `1234.56`, `12.5`, `30.2741`, `120.1551`), so keying the example per
+    // widget would be five keys times ten packs — and each pack would then
+    // hold a decimal it could legitimately re-punctuate, where `1234,56` reads
+    // as the `latitude, longitude` PAIR `refusedFormat` above asks for. The
+    // widget fills the hole in ASCII; no pack spells a digit.
+    //
+    // The English value is byte-identical to the literal it replaces
+    // (`FIELD_DEFAULTS` in `packages/fields/src/widgets/useFieldTranslation.ts`
+    // carries the same one), so English and provider-less rendering are
+    // unchanged.
+    number: {
+      badInput:
+        'Not saved: the text in this box is not a number. Enter a plain decimal (example: {{example}}).',
+    },
     // objectui#3342 — the tags widget's input hint, shown while the tag list
     // is empty. The author-declared `field.placeholder` always wins over this.
+    permissions: {
+      editDenied: 'You do not have edit access to this field.',
+    },
     tags: {
       placeholder: 'Type and press Enter to add…',
+      remove: 'Remove {{tag}}',
     },
     // objectui#4028 — `AddressField`'s five sub-labels, previously English
     // string literals with no key at all: on a Chinese console every address
@@ -404,6 +462,7 @@ const en = {
     sortDesc: 'Sort descending',
     filterColumn: 'Filter {{column}}',
     columns: 'Columns',
+    optionalColumns: 'Optional columns',
     exportCSV: 'Export CSV',
     exportExcel: 'Export Excel',
     selectRow: 'Select row',
@@ -430,6 +489,13 @@ const en = {
   },
   grid: {
     actions: 'Actions',
+    computed: 'Computed',
+    addLine: 'Add line',
+    duplicateRow: 'Duplicate row',
+    removeRow: 'Remove row',
+    openFullForm: 'Open full form',
+    openRow: 'Open row',
+    selectRowNumber: 'Select row {{row}}',
     edit: 'Edit',
     delete: 'Delete',
     export: 'Export',
@@ -670,6 +736,7 @@ const en = {
     },
   },
   calendar: {
+    datePickerPlaceholder: 'Pick a date',
     today: 'Today',
     month: 'Month',
     week: 'Week',
@@ -678,6 +745,33 @@ const en = {
     newEvent: 'New event',
     moreEvents: '+{{count}} more',
     unscheduled: 'Unscheduled ({{count}})',
+    loading: 'Loading calendar…',
+    loadError: 'Error: {{message}}',
+    configRequired: 'Calendar configuration required. Please specify startDateField, the calendar\'s one required key; the event title resolves without titleField.',
+    configRequiredHint: 'It belongs on the view\'s calendar block. An interface page has no calendar slot of its own: point its sourceView at a view that declares one.',
+    eventDetails: 'Event Details',
+    pullToRefresh: 'Pull to refresh',
+    refreshing: 'Refreshing…',
+    onDate: 'On {{date}}',
+    eventTitle: 'Title',
+    eventTitlePlaceholder: 'What\'s this event about?',
+    creating: 'Creating…',
+    titleRequired: 'Title is required',
+    a11y: {
+      region: 'Calendar',
+      grid: 'Calendar grid',
+      goToToday: 'Go to today',
+      previousPeriod: 'Previous period',
+      nextPeriod: 'Next period',
+      currentDate: 'Current date: {{date}}',
+      dayCell: '{{date}}, {{count}} events',
+      dayCell_one: '{{date}}, {{count}} event',
+      dayCell_other: '{{date}}, {{count}} events',
+      resizeEventEnd: 'Resize event end',
+      resizeEventEndHint: 'Drag to change end date',
+      resizeStart: 'Resize start',
+      resizeEnd: 'Resize end',
+    },
   },
   list: {
     loading: 'Loading records…',
@@ -990,8 +1084,11 @@ const en = {
     tabActionsFor: 'View actions for {{name}}',
     readonlyAriaLabel: 'Read-only view',
     readonlyTooltip: 'System view — defined in code, read-only.',
+    malformedFilter: 'This view’s filter is malformed, so no records are shown: the {{subject}} condition cannot be applied.',
   },
   detail: {
+    approvalsReadFailed: 'Approval information could not be loaded.',
+    retryApprovals: 'Retry',
     back: 'Back',
     edit: 'Edit',
     editInline: 'Edit',
@@ -1239,8 +1336,9 @@ const en = {
     showEmptyFields: 'Show {{count}} empty fields',
     hideEmptyFields: 'Hide empty fields',
     noValue: 'No value',
-    unresolvedReference: 'Unresolved reference: {{value}} was not resolved to a user',
-    unresolvedLookupReference: 'Unresolved reference: {{value}} was not resolved to a record on this screen',
+    unresolvedReference: 'User not resolved on this screen',
+    unresolvedLookupReference: 'Record not resolved on this screen',
+    moreReferences: 'More related records',
     // Cell-level COUNT phrases for the `repeater` and file cells
     // (objectui#8441). Both were written straight into the renderer before this
     // — `repeater` as a number plus a hardcoded Chinese unit word, which every
@@ -1686,6 +1784,12 @@ const en = {
     },
   },
   console: {
+    // The Studio front door's wordmark (objectui#10043). Its sibling one
+    // route away -- `StudioDesignSurface`'s header Home button -- walks back
+    // to the same place, so both read as the same affordance.
+    studio: {
+      backToHome: 'Back to home',
+    },
     saveAdvisoryTitle: 'Saved — the authoring check raised {{count}} advisory finding(s)',
     publishAdvisoryTitle: 'Published — the authoring check raised {{count}} advisory finding(s)',
     importMappingsUnavailable: 'Saved import mappings for {{object}} could not be loaded',
@@ -2130,6 +2234,18 @@ const en = {
         older: 'Older',
       },
     },
+    // objectui#9954 — the environment admin's read-rate report (cloud#2333).
+    // Two anomalous cases, two sets of words: an ABSENT `readsPerWrite` means the
+    // environment wrote nothing at all, so the ratio is unbounded — the most
+    // severe reading, and never a missing number. `{{threshold}}` always comes
+    // from the wire; this repo holds no copy of the line. Report only — the copy
+    // states that nothing is limited or blocked, and must keep doing so.
+    readRate: {
+      ratioTitle: 'Unusual read volume in this environment',
+      ratio: 'Reads are running at {{ratio}} rows for every row written. The platform flags anything above {{threshold}}. Nothing is limited or blocked; this is a report so the read pattern can be reviewed.',
+      noWritesTitle: 'Reads with no writes at all in this environment',
+      noWrites: 'Rows are being read while none at all are being written, so the read rate has no upper bound. This is the most severe reading. The platform flags anything above {{threshold}}. Nothing is limited or blocked; this is a report so the read pattern can be reviewed.',
+    },
     errors: {
       somethingWentWrong: 'Something went wrong',
       unexpectedError: 'An unexpected error occurred while rendering this view.',
@@ -2568,6 +2684,15 @@ const en = {
       role: 'Role',
       save: 'Save Changes',
     },
+    language: {
+      title: 'Language',
+      description: 'The language used for notifications and messages sent to you. The interface language is chosen separately, from the globe menu.',
+      label: 'Preferred language',
+      systemDefault: 'Use the deployment default',
+      save: 'Save',
+      saved: 'Language preference updated.',
+      readOnly: 'Your administrator manages the language for your account.',
+    },
     password: {
       changeTitle: 'Change Password',
       setTitle: 'Set Local Password',
@@ -2811,6 +2936,7 @@ const en = {
     resultsCount: '{{count}} result for "{{query}}"',
     resultsCountPlural: '{{count}} results for "{{query}}"',
     itemsAvailable: '{{count}} items available',
+    itemsAvailableOne: '{{count}} item available',
     noResults: 'No results found',
     noResultsHint: 'Try adjusting your search terms',
     typeObjects: 'Objects',
@@ -2845,6 +2971,12 @@ const en = {
     appAccessDenied: "You don't have access to this app",
     appAccessDeniedDescription: 'This app exists, but your account is not authorized to open it. Ask an administrator to grant you access.',
     appAccessDeniedHome: 'Back to home',
+    appEntryAccessDenied: 'You do not have permission to open this entry.',
+    appEntryAccessDeniedDescription: 'Your account is not authorized to open this entry.',
+    appEntryLoadError: 'Unable to load this app entry.',
+    appEntryLoadErrorDescription: 'The entry could not be checked. Check your connection and try again.',
+    appEntryAmbiguous: 'This app entry is ambiguous.',
+    appEntryAmbiguousDescription: 'This package defines both a page and an object named “{{name}}”. Rename one before publishing.',
     createFirstApp: 'Create Your First App',
     systemSettings: 'System Settings',
     back: 'Back',
@@ -2919,7 +3051,20 @@ const en = {
       revertLabel: 'Reverted a change',
       applyLabel: 'Build change',
       revert: 'revert',
-      items: 'item(s)',
+      // objectui#9266 — the count is INSIDE the value, one interpolated string
+      // per pack. It used to be a bare unit word that `CommitTimeline` glued to
+      // a number it rendered itself, which no pack could make agree: `de` read
+      // `1 Elemente`, `ru` `1 элементов`, `ar` `1 عناصر`. Each pack now states
+      // the count in its own count-INVARIANT idiom — `en` keeps the `(s)` marker
+      // it already dodged with, `zh`/`ja`/`ko` keep the inline counter their
+      // grammar needs no plural for, and `de`/`fr`/`es`/`pt`/`ru`/`ar` use the
+      // label-colon form (`Elemente: 3`, `Элементов: 3`), which is the shape
+      // `fields.textarea.charactersRemaining` already uses for this exact
+      // reason. ⛔ Do not "upgrade" this to a `_one`/`_other` family: identical
+      // key sets across ten packs (all-locales-key-parity) leave `ru` without
+      // `_few` and `ar` without `_two`/`_many`, so those categories land on the
+      // base key and `ru` goes back to reading `2 элементов`.
+      items: '{{count}} item(s)',
       revertAction: 'Revert',
       reverted: 'Reverted — the change has been undone.',
       revertFailed: 'Revert failed',
@@ -2936,6 +3081,7 @@ const en = {
     requiredError: '{{label}} is required',
     lookupPlaceholder: 'Record id for {{label}}',
     lookupHelpText: 'No reference object is configured for this parameter, so the record picker is unavailable. Enter a record id, or ask an administrator to fix the action parameter.',
+    unresolvedParam: 'This parameter cannot be shown: the field it is backed by is missing from the object metadata, so the control it needs cannot be built. Ask an administrator to fix the action definition.',
     cancel: 'Cancel',
     confirm: 'Confirm',
     uploading: 'Uploading…',
@@ -3669,6 +3815,7 @@ const en = {
       },
     },
   approvalsInbox: {
+    recordUnresolvable: 'This record cannot be opened',
     loadMore: 'Load more',
     loadingMore: 'Loading…',
     loadedOf: 'Loaded {{loaded}} of {{total}}',

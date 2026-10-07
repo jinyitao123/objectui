@@ -9,6 +9,23 @@ const FIELD_DEFAULTS: Record<string, string> = {
   'common.select': 'Select…',
   'common.loading': 'Loading…',
   'common.noResults': 'No results found',
+  'common.noData': 'No data',
+  'table.selectRow': 'Select row',
+  'table.selectAllRows': 'Select all rows',
+  'table.columns': 'Columns',
+  'table.optionalColumns': 'Optional columns',
+  'grid.selectRowNumber': 'Select row {{row}}',
+  'grid.removeRow': 'Remove row',
+  'grid.duplicateRow': 'Duplicate row',
+  'grid.openRow': 'Open row',
+  'grid.openFullForm': 'Open full form',
+  'grid.addLine': 'Add line',
+  'grid.computed': 'Computed',
+  'report.total': 'Total',
+  'view.dragToReorder': 'Drag to reorder',
+  'validation.required': '{{field}} is required',
+  'detail.attachmentCount': '{{count}} attachment',
+  'detail.attachmentCountPlural': '{{count}} attachments',
   'common.cancel': 'Cancel',
   'common.confirm': 'Confirm',
   'table.selected': '{{count}} selected',
@@ -39,11 +56,15 @@ const FIELD_DEFAULTS: Record<string, string> = {
   'lookup.jumpToPage': 'Jump to page',
   'lookup.retry': 'Retry',
   // objectui#3231 — the empty / dependency-gated state of the fixed-option
-  // widgets (select, multiselect, radio, checkboxes). Only used when the host
+  // widgets (select, choice-cards, multiselect, radio, checkboxes). Only used when the host
   // supplies no `emptyHint`; the gate sentence shares its key with the form
   // renderer so both cannot drift apart in a locale.
   'fields.options.empty': 'No options available',
   'fields.options.selectFirst': 'Select {{fields}} first',
+  'fields.permissions.editDenied': 'You do not have edit access to this field.',
+  'fields.tags.remove': 'Remove {{tag}}',
+  'fields.choiceCards.selectOnly': 'Choice cards require a select field.',
+  'fields.choiceCards.singleValueOnly': 'Choice cards support one selected value. Use a multi-value widget for this field.',
   // objectui#4026 — the separator between the controlling-field names that
   // fill `{{fields}}` of the two gate sentences above/below (`lookup.
   // selectFirst`, `fields.options.selectFirst`). It is a LOCALE property, not
@@ -75,6 +96,17 @@ const FIELD_DEFAULTS: Record<string, string> = {
   'fields.recipient.selectBusinessUnit': 'Select a business unit',
   'fields.recipient.selectPosition': 'Select a position',
   'fields.recipient.selectUnitAndSubordinates': 'Select a business unit',
+  // objectui#7613 — the `field` recipient kind (maintainer ruling
+  // objectstack#14103, executor objectstack#15072). It picks a user-valued
+  // COLUMN of the shared object rather than a record, so its three sentences
+  // are about columns and none of the per-type placeholders above fits.
+  // `noUserFields` exists rather than reusing `fields.recipient.empty`
+  // ("No matches") because an empty list here is not a failed search: it is
+  // the object having no column the evaluator could read as users, and an
+  // admin who is not told that has no way to act on it.
+  'fields.recipient.selectField': 'Select a user field',
+  'fields.recipient.noUserFields': 'No user fields on this object',
+  'fields.recipient.fieldNotUserTyped': '{{name}} — not a user field',
   'fields.filterCondition.selectObjectFirst': 'Select an object first.',
   // objectstack#3896 — this used to be 'All records'. An empty criteria never
   // meant "share everything"; it meant the predicate was missing, and the
@@ -129,6 +161,21 @@ const FIELD_DEFAULTS: Record<string, string> = {
     'Not saved: {{name}} "{{text}}" is not a number. Enter plain decimals (example: 30.2741, 120.1551).',
   'fields.location.refusedResidue':
     'Not saved: {{name}} "{{text}}" and {{otherName}} "{{otherText}}" are not numbers. Enter plain decimals (example: 30.2741, 120.1551).',
+  // objectui#8148 — the FIFTH refusal sentence of objectui#6755's class, and
+  // the only SHARED one: `numberBadInput.tsx` produces it for `NumberField`,
+  // `CurrencyField`, `PercentField` and both of `GeolocationField`'s boxes.
+  // `GeolocationField` sits beside `LocationField`, whose refusals are all
+  // keyed above, so two adjacent coordinate widgets refused in two languages.
+  //
+  // `{{example}}` is a HOLE, not five per-widget keys: five different decimals
+  // reach this one sentence, and a pack that spelled one of them could
+  // legitimately write `1234,56`, which reads as the `latitude, longitude` pair
+  // the widget above asks for. The widget fills the hole in ASCII instead.
+  //
+  // Byte-identical to the literal it replaces, so English and provider-less
+  // rendering are unchanged.
+  'fields.number.badInput':
+    'Not saved: the text in this box is not a number. Enter a plain decimal (example: {{example}}).',
   // objectui#3342 — the tags widget's input hint. Used only when the field
   // author declared no `placeholder` of their own (author declaration wins).
   'fields.tags.placeholder': 'Type and press Enter to add…',

@@ -27,14 +27,27 @@ import {
   cn,
 } from '@object-ui/components';
 import { LineItemsField, type GridColumn } from '@object-ui/fields';
+import { createSafeTranslation } from '@object-ui/i18n';
 import { useSchemaContext, useRecordContext } from '@object-ui/react';
 import { buildMasterDetailEditBatch, sumRows } from './masterDetailTx';
 import {
   runBatchTransaction,
   mergeFilterNodes,
-  toFilterNode,
+  filterRefusalSubject,
+  toFilterNodeSafely,
   convertSortToQueryParams,
 } from '@object-ui/core';
+
+// The malformed-filter state (objectui#9050 step 2). A provider-less host —
+// a standalone embed, this package's own tests — must read the sentence rather
+// than the raw key, which is what `createSafeTranslation` is for; the row is
+// byte-identical to the `en` pack, enforced by `defaults-maps-mirror-en-pack`.
+const useLineItemsTranslation = createSafeTranslation(
+  {
+    'view.malformedFilter': 'This view’s filter is malformed, so no records are shown: the {{subject}} condition cannot be applied.',
+  },
+  'view.malformedFilter',
+);
 
 export interface LineItemsPanelSchema {
   type?: 'record:line_items';
@@ -84,8 +97,77 @@ export interface LineItemsPanelSchema {
  */
 export const DEFAULT_LINE_ITEMS_LIMIT = 500;
 
+/**
+ * What the contract admits as a row cap for this panel.
+ *
+ * `@objectstack/spec` has already answered what `limit: 0` means: the element
+ * data source `limit` that a `dataSource` binding lowers into this key is
+ * declared a POSITIVE INTEGER (`z.number().int().positive().optional()`), and
+ * so is the `pagination.pageSize` of a named view that fills it. So `0` is not
+ * a spelling whose meaning this renderer may choose; it is a value the contract
+ * refuses, and a renderer that forwards it to the wire is the only party not
+ * saying so.
+ */
+function isUsableRowLimit(value: unknown): value is number {
+  return typeof value === 'number' && Number.isInteger(value) && value > 0;
+}
+
+/**
+ * The ONE resolver for this panel's row cap, for the reason objectui#9853 gave
+ * when it landed the same shape on `ObjectGrid` and objectui#9897 repeated on
+ * `ListView`: one resolver at every entry is what keeps the answer single.
+ *
+ * Before objectui#9925 this read was a bare `schema.limit ?? DEFAULT_LINE_ITEMS_LIMIT`,
+ * and `??` rejects only `null` and `undefined` — so an authored `limit: 0` was
+ * not nullish and survived as a real window. It reached the wire as `$top: 0`,
+ * the panel asked the server for nothing, and the empty grid named no cause. A
+ * negative goes out the same way. Both ENTRANCES converge on this key: a
+ * `dataSource` binding lowers a named view's `pagination.pageSize` into
+ * `schema.limit` before this component sees it (`RECORD_LINE_ITEMS_DATA_SOURCE`
+ * maps `limit: 'limit'`), and a panel with no binding at all reads the authored
+ * `limit` from the same place — so resolving HERE covers both, which a repair at
+ * the lowering layer could not.
+ *
+ * ⚠️ The refusal is FAIL-SOFT on purpose. Throwing would take out the whole
+ * panel over one declaration, which is a worse outcome than the defect. The
+ * value is dropped, this panel's own default is used, and
+ * `describeRefusedRowLimit` states it once through the channel this component
+ * already uses for "you declared it, the renderer dropped it" (the same
+ * `console.warn` the `childObject` declines below write to). ⛔ Not a silent
+ * clamp, and ⛔ not a clamp to 1: the author's number is refused, not repaired.
+ */
+function resolveRowLimit(authored: unknown, fallback: number): number {
+  return isUsableRowLimit(authored) ? authored : fallback;
+}
+
+/**
+ * The diagnostic half. `null` means "nothing to say" — an absent `limit` is not
+ * a mistake, and a usable one is not either, so the message is CONDITIONAL and
+ * the silence controls in the pin are what keep it from being an always-on
+ * marker that states nothing.
+ *
+ * ⛔ NOT a second guard: the predicate lives once, in `isUsableRowLimit`, and
+ * this reads it. Two predicates would be free to drift, and the drift would be
+ * invisible — a value refused by one and admitted by the other.
+ */
+function describeRefusedRowLimit(authored: unknown, childObject: unknown): string | null {
+  if (authored === undefined || authored === null) return null;
+  if (isUsableRowLimit(authored)) return null;
+  const where =
+    typeof childObject === 'string' && childObject
+      ? `record:line_items on ${childObject}`
+      : 'record:line_items';
+  return (
+    `[ObjectUI] LineItemsPanel row cap: ${where} declared limit: ${String(authored)}, `
+    + 'which is not a positive integer. A row cap must be a positive integer '
+    + '(the spec refuses zero and negative values), so it was ignored and this '
+    + `panel fell back to its default row cap (${DEFAULT_LINE_ITEMS_LIMIT}).`
+  );
+}
+
 export const LineItemsPanel: React.FC<{ schema: LineItemsPanelSchema }> = ({ schema }) => {
   const ctx = useSchemaContext() as any;
+  const { t } = useLineItemsTranslation();
   const dataSource = ctx?.dataSource;
   // useRecordContext returns null outside a <RecordContextProvider> (e.g. in the
   // Studio designer/palette), so it never throws — call it unconditionally to
@@ -146,17 +228,38 @@ export const LineItemsPanel: React.FC<{ schema: LineItemsPanelSchema }> = ({ sch
     return () => { cancelled = true; };
   }, [dataSource, schema.childObject]);
 
+  // [objectui#9925] The loud half of the row-cap refusal, on the channel this
+  // component already uses for "you declared it, the renderer dropped it" (the
+  // `childObject` declines above and in `load`). Keyed on the DECLARATION, so
+  // it is one warning per declaration rather than one per render — and it fires
+  // from an effect, never from render, so a re-render with the same authored
+  // value says nothing a second time. (This panel parses no config of its own,
+  // so before this card nothing in the renderer looked at `limit` at all.)
+  useEffect(() => {
+    const message = describeRefusedRowLimit(schema.limit, schema.childObject);
+    if (message) console.warn(message);
+  }, [schema.limit, schema.childObject]);
+
   // Content keys, not identities: an inline `filter` / `sort` on a schema node is
   // a new object every render and both are inputs to `load` (which an effect
   // below depends on) — keying on identity would refetch the children on every
   // render. Same reason `RelatedList` keys its own scope filter on content.
+  //
+  // ⚠️ `toFilterNodeSafely`, not `toFilterNode` — objectui#9050. This is a
+  // RENDER-time `useMemo`, so a `FilterOperatorError` from the lowering is a
+  // render error with no load `catch` and no `classifyLoadError` above it. The
+  // refusal is kept as a VALUE and rendered below; collapsing it to
+  // `undefined` would mean "no filter" and load this panel's rows
+  // unconstrained, the silent widening objectui#9001 closed.
   const filterKey = JSON.stringify(schema.filter ?? null);
   const sortKey = JSON.stringify(schema.sort ?? null);
-  const listFilterNode = useMemo(
-    () => toFilterNode(schema.filter),
+  const listFilterResult = useMemo(
+    () => toFilterNodeSafely(schema.filter),
     // eslint-disable-next-line react-hooks/exhaustive-deps -- keyed on CONTENT, see above
     [filterKey],
   );
+  const filterRefusal = listFilterResult.ok ? undefined : listFilterResult.refusal;
+  const listFilterNode = listFilterResult.ok ? listFilterResult.node : undefined;
   const orderBy = useMemo(
     () => convertSortToQueryParams(schema.sort),
     // eslint-disable-next-line react-hooks/exhaustive-deps -- keyed on CONTENT, see above
@@ -165,6 +268,13 @@ export const LineItemsPanel: React.FC<{ schema: LineItemsPanelSchema }> = ({ sch
 
   const load = useCallback(async () => {
     if (!dataSource || !parentId) {
+      setLoading(false);
+      return;
+    }
+    // A refused filter never reaches the wire (objectui#9050). The render below
+    // shows the malformed-filter state instead; this guard is what keeps "no
+    // filter node" from being read as "no filter" by the query built here.
+    if (filterRefusal) {
       setLoading(false);
       return;
     }
@@ -209,7 +319,7 @@ export const LineItemsPanel: React.FC<{ schema: LineItemsPanelSchema }> = ({ sch
             ? parentScope
             : mergeFilterNodes(parentScope, listFilterNode),
         ...(orderBy ? { $orderby: orderBy } : {}),
-        $top: schema.limit ?? DEFAULT_LINE_ITEMS_LIMIT,
+        $top: resolveRowLimit(schema.limit, DEFAULT_LINE_ITEMS_LIMIT),
       });
       const data = (res?.data ?? []) as Record<string, any>[];
       setRows(data.map((r) => ({ ...r })));
@@ -226,6 +336,7 @@ export const LineItemsPanel: React.FC<{ schema: LineItemsPanelSchema }> = ({ sch
     schema.childObject,
     schema.relationshipField,
     schema.limit,
+    filterRefusal,
     listFilterNode,
     orderBy,
   ]);
@@ -302,7 +413,7 @@ export const LineItemsPanel: React.FC<{ schema: LineItemsPanelSchema }> = ({ sch
 
   return (
     <Card className={cn('shadow-none')}>
-      <CardHeader className="flex-row items-center justify-between gap-2 pb-2">
+      <CardHeader className="flex-row items-center justify-between gap-[var(--ui-list-toolbar-gap,0.5rem)] pb-2">
         <CardTitle className="text-sm font-medium">{schema.title || 'Line Items'}</CardTitle>
         {!schema.readonly && (
           <Button
@@ -330,7 +441,30 @@ export const LineItemsPanel: React.FC<{ schema: LineItemsPanelSchema }> = ({ sch
             nothing here is pending — the schema itself already says this panel
             can never resolve, so there is no first paint where "Loading…" is
             true. */}
-        {!schema.childObject ? (
+        {/* objectui#9050 step 2 — the authored `filter` did not lower, so this
+            panel has no query it is allowed to send. Ahead of every branch
+            below for the same reason the `childObject` branch is ahead of
+            `loading`: nothing is pending, and falling through to an editable
+            grid over rows that were never scoped is the worse outcome. It NAMES
+            the operator, which is what separates this from the generic
+            "Component failed to render" banner a `SchemaErrorBoundary` shows —
+            and this panel can be mounted with no such boundary above it at
+            all. */}
+        {filterRefusal ? (
+          <div
+            role="alert"
+            className="rounded-md border border-amber-300 bg-amber-50 p-3 text-sm text-amber-800"
+            data-testid="line-items-malformed-filter"
+          >
+            {/* Separately addressable: this is the half that has to NAME the
+                operator, and the technical line below repeats the token
+                incidentally. */}
+            <p className="font-medium" data-testid="line-items-malformed-filter-subject">
+              {t('view.malformedFilter', { subject: filterRefusalSubject(filterRefusal) ?? '' })}
+            </p>
+            <p className="mt-1 text-xs opacity-80">{filterRefusal.message}</p>
+          </div>
+        ) : !schema.childObject ? (
           <p
             className="py-6 text-center text-sm text-muted-foreground"
             data-testid="line-items-no-child-object"

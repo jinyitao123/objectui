@@ -107,6 +107,9 @@ import { TextAreaField } from '../widgets/TextAreaField';
 import { NumberField } from '../widgets/NumberField';
 import { BooleanField } from '../widgets/BooleanField';
 import { SelectField } from '../widgets/SelectField';
+import { ChoiceCardsField } from '../widgets/ChoiceCardsField';
+import { DeclaredLabelSelectField } from '../widgets/DeclaredLabelSelectField';
+import { DeclaredLabelComboboxField } from '../widgets/DeclaredLabelComboboxField';
 import { DateField } from '../widgets/DateField';
 import { DateTimeField } from '../widgets/DateTimeField';
 import { TimeField } from '../widgets/TimeField';
@@ -161,6 +164,9 @@ const WIDGETS: Record<string, ComponentType<any>> = {
   number: NumberField,
   boolean: BooleanField,
   select: SelectField,
+  'choice-cards': ChoiceCardsField,
+  'declared-label-select': DeclaredLabelSelectField,
+  'declared-label-combobox': DeclaredLabelComboboxField,
   date: DateField,
   datetime: DateTimeField,
   time: TimeField,
@@ -207,7 +213,10 @@ const WIDGETS: Record<string, ComponentType<any>> = {
 };
 
 /** Option widgets render an "unfillable" placeholder unless offered a list. */
-const OPTION_TYPES = new Set(['select', 'multiselect', 'radio', 'checkboxes', 'tags']);
+const OPTION_TYPES = new Set([
+  'select', 'multiselect', 'radio', 'checkboxes', 'tags', 'choice-cards',
+  'declared-label-select', 'declared-label-combobox',
+]);
 const OPTIONS = [
   { label: 'Alpha', value: 'alpha' },
   { label: 'Beta', value: 'beta' },
@@ -232,10 +241,13 @@ const AUTHORED_EXTRAS = {
 };
 
 function fieldConfig(type: string, extras: Record<string, unknown> = {}) {
+  const textLabelPicker = type === 'declared-label-select' || type === 'declared-label-combobox';
+  const choiceCards = type === 'choice-cards';
   return {
     name: 'f',
     label: 'F',
-    type: `field:${type}`,
+    type: textLabelPicker ? 'text' : choiceCards ? 'select' : `field:${type}`,
+    ...(textLabelPicker || choiceCards ? { widget: type } : {}),
     ...(OPTION_TYPES.has(type) ? { options: OPTIONS } : {}),
     ...extras,
   };
@@ -262,7 +274,7 @@ function renderForm(field: Record<string, unknown>, required: boolean) {
 /**
  * The form row. Waiting on `[data-field]` (emitted by `FormItem` for EVERY
  * field) rather than widget-specific copy keeps the wait condition identical
- * for all 46 widgets and independent of what any one of them renders.
+ * for every registered field widget and independent of its rendered copy.
  */
 async function formRow(): Promise<Element> {
   return waitFor(() => {

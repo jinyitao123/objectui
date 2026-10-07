@@ -2,6 +2,7 @@ import { describe, it, expect, vi } from 'vitest';
 import { render, screen, fireEvent, waitFor } from '@testing-library/react';
 import React from 'react';
 import { UploadProvider } from '@object-ui/providers';
+import { formatDate, formatDateTime } from '@object-ui/core';
 import { GridField, LineItemsField, sumColumn, lookupAutofillPatch } from './GridField';
 
 const columns = [
@@ -12,6 +13,53 @@ const columns = [
 const field = { columns, total_field: 'amount' } as any;
 
 describe('GridField / LineItemsField — editable line items', () => {
+  it('formats compact currency cells with their authored prefix and scale', () => {
+    const previousProfile = document.documentElement.dataset.uiProfile;
+    document.documentElement.dataset.uiProfile = 'compact-enterprise';
+    try {
+      render(<GridField
+        readonly
+        value={[{ amount: 300 }]}
+        onChange={() => {}}
+        columns={[
+          { name: 'amount', label: 'Amount', type: 'currency', prefix: 'US$', scale: 2 },
+        ]}
+        field={{ name: 'lines', type: 'grid' }}
+      />);
+      expect(screen.getByText('US$300.00')).toBeTruthy();
+    } finally {
+      if (previousProfile === undefined) delete document.documentElement.dataset.uiProfile;
+      else document.documentElement.dataset.uiProfile = previousProfile;
+    }
+  });
+
+  it('uses the shared calendar in compact date cells and preserves sibling dates', async () => {
+    const previousProfile = document.documentElement.dataset.uiProfile;
+    document.documentElement.dataset.uiProfile = 'compact-enterprise';
+    try {
+      const onChange = vi.fn();
+      render(<GridField
+        value={[{ expected: '2026-10-12', confirmed: '2026-10-14' }]}
+        onChange={onChange}
+        field={{ name: 'dates', type: 'grid', columns: [
+          { name: 'expected', label: 'Expected date', type: 'date' },
+          { name: 'confirmed', label: 'Confirmed date', type: 'date' },
+        ], allow_add: false }}
+      />);
+      const expected = screen.getByRole('textbox', { name: 'Expected date' });
+      expect(expected.getAttribute('type')).toBe('text');
+      fireEvent.change(expected, { target: { value: '2026-10-17' } });
+      fireEvent.blur(expected);
+      await waitFor(() => expect(onChange).toHaveBeenCalledWith([
+        { expected: '2026-10-17', confirmed: '2026-10-14' },
+      ]));
+      expect(screen.getAllByRole('button', { name: /calendar/i })).toHaveLength(2);
+    } finally {
+      if (previousProfile === undefined) delete document.documentElement.dataset.uiProfile;
+      else document.documentElement.dataset.uiProfile = previousProfile;
+    }
+  });
+
   it('is exported under both names', () => {
     expect(LineItemsField).toBe(GridField);
   });
@@ -293,15 +341,38 @@ describe('GridField / LineItemsField — editable line items', () => {
      */
     describe('read-only display formats each temporal type as itself', () => {
       const row = { merchant: 'Chipotle', incurred_on: '2026-06-17T00:00:00.000Z', incurred_at: STORED_ISO, started_at: '14:30' };
-      // Spelled `'en'` rather than bare `toLocaleDateString()` (objectui#4468):
-      // the bare call reads the MACHINE's locale, so these pins agreed with the
+      // Spelled `'en'` rather than a bare `toLocale*` call (objectui#4468): the
+      // bare call reads the MACHINE's locale, so these pins agreed with the
       // widget only by the accident of a CI runner set to en-US — and they
       // would have kept agreeing with it after the widget started following the
       // session locale, which is the bug this suite has to be able to see.
       // `'en'` is what `useDisplayLocale()` resolves to with no provider.
-      const expectedDay = new Date(2026, 5, 17).toLocaleDateString('en');
+      //
+      // Both faces are asked of the SHARED functions rather than spelled out,
+      // the `date-locale-channel.test.tsx` idiom: which face each register
+      // renders is pinned by `fields-date-widget-convention-8194.test.tsx` and
+      // `datetime-widget-faces-8209.test.tsx`, while this block's own claim is
+      // that the three temporal types render as three DIFFERENT things.
+      const expectedDay = formatDate(new Date(2026, 5, 17), undefined, { locale: 'en' });
       const dt = new Date(STORED_ISO);
-      const expectedInstant = `${dt.toLocaleDateString('en')} ${dt.toLocaleTimeString('en')}`;
+      // objectui#8209 — the sub-grid `datetime` cell took `'compact'`, the face
+      // of its register. Before it, this column composed a bare
+      // `toLocaleDateString` + `toLocaleTimeString` pair.
+      const expectedInstant = formatDateTime(dt, { style: 'compact', locale: 'en' });
+
+      /**
+       * FIXTURE VALIDITY. ⚠️ The `date` expectation used to be `Intl`'s bare
+       * numeric default (`6/17/2026`), which the `datetime` cell beside it
+       * CONTAINS — so `toContain(expectedDay)` was satisfied by the wrong
+       * column and would have stayed green with the `date` column rendering
+       * anything at all. That is only visible once the two faces are named, so
+       * it is asserted here rather than left to the next reader.
+       */
+      it('the three temporal faces are three distinct strings', () => {
+        expect(expectedInstant).not.toContain(expectedDay);
+        expect(expectedDay).not.toBe('14:30');
+        expect(expectedInstant).not.toBe('14:30');
+      });
 
       it('formats date / datetime / time in the read-only table', () => {
         render(<GridField value={[row]} onChange={() => {}} field={temporalField} readonly />);
@@ -376,6 +447,18 @@ describe('GridField / LineItemsField — editable line items', () => {
       ],
       total_field: 'amount',
     } as any;
+    const taxedComputedField = {
+      columns: [
+        { name: 'quantity', label: 'Qty', type: 'number' as const },
+        { name: 'taxed_unit_price', label: 'Taxed unit price', type: 'currency' as const },
+        { name: 'discount_rate', label: 'Discount rate', type: 'number' as const },
+        {
+          name: 'taxed_subtotal', label: 'Taxed subtotal', type: 'currency' as const,
+          computed: true, expr: 'record.quantity * record.taxed_unit_price * (1 - record.discount_rate / 100)', scale: 4,
+        },
+      ],
+      total_field: 'taxed_subtotal',
+    } as any;
 
     it('renders a computed column read-only (no input) and recomputes on edit', () => {
       const onChange = vi.fn();
@@ -385,6 +468,33 @@ describe('GridField / LineItemsField — editable line items', () => {
       // Editing quantity recomputes amount in the emitted row.
       fireEvent.change(screen.getAllByLabelText('Qty')[0], { target: { value: '4' } });
       expect(onChange).toHaveBeenCalledWith([{ product: 'Widget', quantity: 4, unit_price: 10, amount: 40 }]);
+    });
+
+    it('derives computed cells and their total from initially loaded numeric-string inputs', () => {
+      const onChange = vi.fn();
+      const { container } = render(<GridField value={[{
+        quantity: '2', taxed_unit_price: '90', discount_rate: '0', taxed_subtotal: null,
+      }]} onChange={onChange} field={taxedComputedField} />);
+
+      expect(container.querySelector('[data-computed="taxed_subtotal"]')?.textContent).toContain('180');
+      expect(screen.getByTestId('line-items-total').textContent).toContain('180');
+      expect(onChange).not.toHaveBeenCalled();
+    });
+
+    it('recomputes computed display after the parent replaces a row without firing onChange', () => {
+      const onChange = vi.fn();
+      const { container, rerender } = render(<GridField value={[{
+        quantity: '2', taxed_unit_price: '90', discount_rate: '0', taxed_subtotal: null,
+      }]} onChange={onChange} field={taxedComputedField} />);
+      expect(container.querySelector('[data-computed="taxed_subtotal"]')?.textContent).toContain('180');
+
+      rerender(<GridField value={[{
+        quantity: '2', taxed_unit_price: '95', discount_rate: '0', taxed_subtotal: null,
+      }]} onChange={onChange} field={taxedComputedField} />);
+
+      expect(container.querySelector('[data-computed="taxed_subtotal"]')?.textContent).toContain('190');
+      expect(screen.getByTestId('line-items-total').textContent).toContain('190');
+      expect(onChange).not.toHaveBeenCalled();
     });
 
     it('shows a dash for a computed cell whose inputs are blank', () => {

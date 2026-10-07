@@ -114,6 +114,7 @@ export * from './utils/dataset-format.js';
 // (objectstack#5473 / objectstack#5665).
 export * from './utils/dataset-pivot.js';
 export * from './utils/record-title.js';
+export * from './utils/record-key-display.js';
 // The one `colorField` ladder every record view shares (objectui#7243) — the
 // gantt, calendar and timeline all resolve an authored option colour here
 // instead of each guessing at the raw stored value.
@@ -148,6 +149,12 @@ export * from './utils/normalize-list-view.js';
 // `objectName` gets POPULATED when absent (#7477 ruling B), these answer which
 // object a block RESOLVES (the objectui#6939 three-rung ladder). Merging them
 // would override one standing ruling or the other.
+// A THIRD reading ships beside them since objectui#9571:
+// `recordSourceDataArmForType` answers which `data` arm a registered block TYPE
+// declares, for the one consumer that cannot be handed the arm as a parameter —
+// `SchemaRenderer`, which is generic over every type and holds only
+// `schema.type`. Read its docblock before adding a row; it transports the call
+// sites' own literals rather than re-deriving them.
 export * from './utils/record-source.js';
 // The single home for the VALUE fallback prettifier (a stored value becomes a
 // display string when nothing resolves it). `@object-ui/fields` and

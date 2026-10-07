@@ -476,6 +476,8 @@ export interface GanttInteractions {
 
 export interface GanttViewProps {
   tasks: GanttTask[]
+  /** Hide the timeline toolbar while preserving the chart and host row clicks. Defaults to true. */
+  showToolbar?: boolean
   /** Initial timeline granularity (also switchable from the toolbar). */
   viewMode?: GanttViewMode
   startDate?: Date
@@ -810,6 +812,7 @@ function writeSavedLayout(key: string, layout: GanttLayout): void {
 
 export function GanttView({
   tasks: tasksProp,
+  showToolbar = true,
   viewMode: viewModeProp,
   startDate: startDateProp,
   endDate: endDateProp,
@@ -3370,8 +3373,9 @@ export function GanttView({
         .gantt-task-list { scrollbar-width: none; }
       `}</style>
       {/* Toolbar */}
-      <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-2 p-2 border-b bg-card">
-        <div className="flex items-center gap-2">
+      {showToolbar && (
+        <div className="flex flex-col sm:flex-row flex-wrap items-start sm:items-center justify-between gap-2 p-2 border-b bg-card">
+        <div className="flex shrink-0 items-center gap-2 max-w-full">
           {/* "New Task" intentionally removed — the page-level header
               already exposes a fully-fielded create form for this
               object, and the toolbar's quick-create only set 3 fields
@@ -3398,12 +3402,12 @@ export function GanttView({
           </Button>
           {/* The period ON SCREEN, not the start of the dataset — see
               `visiblePeriodStart`. */}
-          <span className="font-semibold text-xs sm:text-sm" data-testid="gantt-toolbar-period">
+          <span className="shrink-0 whitespace-nowrap font-semibold text-xs sm:text-sm" data-testid="gantt-toolbar-period">
             {periodLabel}
           </span>
           {effectiveReadOnly && (
             <span
-              className="inline-flex items-center gap-1 rounded-full border bg-muted px-2 py-0.5 text-[10px] font-medium text-muted-foreground"
+              className="inline-flex shrink-0 whitespace-nowrap items-center gap-1 rounded-full border bg-muted px-2 py-0.5 text-[10px] font-medium text-muted-foreground"
               data-testid="gantt-readonly-badge"
               title={t('gantt.readOnlyHint')}
             >
@@ -3413,7 +3417,7 @@ export function GanttView({
           )}
         </div>
         
-        <div className="flex items-center gap-2">
+        <div className="flex flex-wrap items-center gap-2 min-w-0 max-w-full">
           {/* Granularity segmented control */}
           <div className="flex bg-muted rounded-md p-1" role="group" aria-label={t('gantt.toolbar.viewMode')}>
             {VIEW_MODES.map((mode) => (
@@ -3627,7 +3631,8 @@ export function GanttView({
             {isFullscreen ? <Minimize2 className="h-4 w-4" /> : <Maximize2 className="h-4 w-4" />}
           </Button>
         </div>
-      </div>
+        </div>
+      )}
 
       {/* Gantt Body — focusable for keyboard row navigation */}
       <div

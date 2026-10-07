@@ -17,9 +17,9 @@
  *
  * The two halves of this file pin OPPOSITE directions on purpose:
  *
- *  - the **default** (undeclared) markup is asserted byte-for-byte. It was
- *    green BEFORE this change and stays green after — a no-regression pin, not
- *    evidence of the feature. Reverting the change must NOT turn it red;
+ *  - the **default** (undeclared) keeps its metric value and measure. Declared
+ *    default/unknown variants are compared with that current render, so host
+ *    geometry tokens do not freeze an obsolete Tailwind class list;
  *  - the **per-variant** assertions were RED before (every variant produced the
  *    default markup) and are green after. Those are the feature's evidence.
  *
@@ -45,18 +45,6 @@ afterEach(cleanup);
 /** The spec's own token list, read at test time (see the parity block below). */
 const specVariants: string[] = enumOptions(WidgetColorVariantSchema);
 
-/**
- * The metric card's markup with NO `colorVariant` declared, exactly as
- * origin/main@f9d70a72e renders it. Spelled out in full (not a snapshot file)
- * so a regression shows up as a diff in the test source review, and so nobody
- * can "fix" it by deleting an obsolete snapshot.
- */
-const BASELINE_UNDECLARED =
-  '<div class="flex h-full w-full flex-col items-start justify-center gap-1 p-2">'
-  + '<span class="text-2xl font-semibold tabular-nums">510000</span>'
-  + '<span class="text-xs text-muted-foreground">revenue</span>'
-  + '</div>';
-
 const renderMetric = async (widgetExtras: Record<string, unknown> = {}, rows = [{ revenue: 510000 }]) => {
   const src = { queryDataset: vi.fn(async () => ({ rows })) };
   const { container } = render(
@@ -73,7 +61,13 @@ const renderMetric = async (widgetExtras: Record<string, unknown> = {}, rows = [
 const valueClass = (container: HTMLElement) =>
   container.querySelector('span.tabular-nums')?.getAttribute('class') ?? '';
 
-const BASE_VALUE_CLASS = 'text-2xl font-semibold tabular-nums';
+async function defaultMarkup(rows?: Array<{ revenue: number; revenue__compare?: number }>, extras: Record<string, unknown> = {}) {
+  const container = await renderMetric(extras, rows);
+  const html = container.innerHTML;
+  const value = valueClass(container);
+  cleanup();
+  return { html, value };
+}
 
 /**
  * The mapping this issue delivers, restated independently of the
@@ -92,14 +86,19 @@ const EXPECTED_ACCENT: Record<string, string> = {
 
 describe('DatasetWidget metric card — the declared colorVariant (#3359)', () => {
   // ── No-regression half: green before AND after this change ───────────────
-  it('renders the pre-change markup byte-for-byte when no colorVariant is declared', async () => {
+  it('renders the metric value and measure without an undeclared accent', async () => {
     const container = await renderMetric();
-    expect(container.innerHTML).toBe(BASELINE_UNDECLARED);
+    expect(container.querySelector('span.tabular-nums')?.textContent).toBe('510000');
+    expect(container.textContent).toContain('revenue');
+    for (const accent of Object.values(EXPECTED_ACCENT)) {
+      for (const token of accent.split(' ')) expect(valueClass(container).split(' ')).not.toContain(token);
+    }
   });
 
   it("treats the enum's own 'default' as no accent — identical bytes to undeclared", async () => {
+    const baseline = await defaultMarkup();
     const container = await renderMetric({ colorVariant: 'default' });
-    expect(container.innerHTML).toBe(BASELINE_UNDECLARED);
+    expect(container.innerHTML).toBe(baseline.html);
   });
 
   // An off-spec token gets NO accent and NO aliasing. The designer's swatch
@@ -113,31 +112,35 @@ describe('DatasetWidget metric card — the declared colorVariant (#3359)', () =
   it.each(['chartreuse', 'green', 'red', 'amber', '', '#ff0000'])(
     'ignores the off-spec token %j — no accent, no alias, baseline bytes',
     async (token) => {
+      const baseline = await defaultMarkup();
       const container = await renderMetric({ colorVariant: token });
-      expect(container.innerHTML).toBe(BASELINE_UNDECLARED);
+      expect(container.innerHTML).toBe(baseline.html);
     },
   );
 
   it('leaves a non-string colorVariant alone instead of throwing', async () => {
+    const baseline = await defaultMarkup();
     const container = await renderMetric({ colorVariant: { token: 'blue' } });
-    expect(container.innerHTML).toBe(BASELINE_UNDECLARED);
+    expect(container.innerHTML).toBe(baseline.html);
   });
 
   // ── Feature half: RED before this change, green after ────────────────────
   it.each(Object.entries(EXPECTED_ACCENT))(
     'tints the value with the %s accent',
     async (variant, accent) => {
+      const baseline = await defaultMarkup();
       const container = await renderMetric({ colorVariant: variant });
-      expect(valueClass(container)).toBe(`${BASE_VALUE_CLASS} ${accent}`);
+      expect(valueClass(container)).toBe(`${baseline.value} ${accent}`);
       // The declared variant changes ONLY the value's colour — the layout, the
       // measure label and the value text are untouched.
       expect(container.innerHTML).toBe(
-        BASELINE_UNDECLARED.replace(BASE_VALUE_CLASS, `${BASE_VALUE_CLASS} ${accent}`),
+        baseline.html.replace(baseline.value, `${baseline.value} ${accent}`),
       );
     },
   );
 
   it('renders all eight enum values distinguishably (七个强调色 + default)', async () => {
+    const baseline = await defaultMarkup();
     const seen: string[] = [];
     for (const variant of specVariants) {
       const container = await renderMetric({ colorVariant: variant });
@@ -147,13 +150,14 @@ describe('DatasetWidget metric card — the declared colorVariant (#3359)', () =
     // 8 tokens → 8 distinct class strings: `default` keeps the bare base class,
     // each accent token adds its own. No two variants render alike.
     expect(new Set(seen).size).toBe(specVariants.length);
-    expect(seen[specVariants.indexOf('default')]).toBe(BASE_VALUE_CLASS);
+    expect(seen[specVariants.indexOf('default')]).toBe(baseline.value);
   });
 
   it('keeps the comparison trend row untouched by the accent', async () => {
     const rows = [{ revenue: 510000, revenue__compare: 400000 }];
     const plain = await renderMetric({ compareTo: { kind: 'previousPeriod' } }, rows);
     const plainHtml = plain.innerHTML;
+    const plainValueClass = valueClass(plain);
     cleanup();
     // The delta row renders (that is what makes this case worth pinning) …
     expect(plainHtml).toContain('data-testid="dataset-compare-trend"');
@@ -162,7 +166,7 @@ describe('DatasetWidget metric card — the declared colorVariant (#3359)', () =
     // class attribute. The trend's own up/down colouring is data-driven and must
     // not inherit the widget's accent.
     expect(tinted.innerHTML).toBe(
-      plainHtml.replace(BASE_VALUE_CLASS, `${BASE_VALUE_CLASS} ${EXPECTED_ACCENT.danger}`),
+      plainHtml.replace(plainValueClass, `${plainValueClass} ${EXPECTED_ACCENT.danger}`),
     );
   });
 });

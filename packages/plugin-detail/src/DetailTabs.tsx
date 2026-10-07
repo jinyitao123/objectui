@@ -35,7 +35,7 @@ export const DetailTabs: React.FC<DetailTabsProps> = ({
 
   return (
     <Tabs value={activeTab} onValueChange={setActiveTab} className={className}>
-      <TabsList className="w-full justify-start border-b rounded-none bg-transparent p-0">
+      <TabsList className="sticky top-0 z-20 w-full justify-start border-b rounded-none bg-background/95 p-0 backdrop-blur supports-[backdrop-filter]:bg-background/60">
         {visibleTabs.map((tab) => (
           <TabsTrigger
             key={tab.key}

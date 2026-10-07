@@ -60,6 +60,30 @@ export function resolveConsoleUrl(path: string, baseURI?: string): string {
 }
 
 /**
+ * Convert a root-relative URL that already includes the console mount into the
+ * app-relative path expected by React Router's `navigate`.
+ *
+ * React Router prepends its `basename` to navigation targets. A destination
+ * authored as `/_console/apps/example` would therefore be mounted twice. Paths
+ * already expressed relative to the router (`/apps/example`), relative
+ * references, and absolute URLs stay unchanged. The mount comes from the same
+ * explicit `<base href>` resolver used by full-page Console URLs.
+ */
+export function normalizeConsoleRouterPath(path: string, baseURI?: string): string {
+  if (!path.startsWith('/') || path.startsWith('//')) return path;
+
+  const suffixIndex = path.search(/[?#]/);
+  const pathname = suffixIndex < 0 ? path : path.slice(0, suffixIndex);
+  const suffix = suffixIndex < 0 ? '' : path.slice(suffixIndex);
+  const mountPath = new URL(resolveRootUrl(baseURI)).pathname.replace(/\/+$/, '');
+
+  if (!mountPath || mountPath === '/') return path;
+  if (pathname !== mountPath && !pathname.startsWith(`${mountPath}/`)) return path;
+
+  return `${pathname.slice(mountPath.length) || '/'}${suffix}`;
+}
+
+/**
  * Resolve the public share-link landing base — the console-mounted `/s` route
  * that `SharedRecordPage` serves (`/_console/s/:token` on a CLI-served
  * deployment). `ShareDialog` appends `/:token` to it for the link a user

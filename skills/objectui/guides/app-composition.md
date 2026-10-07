@@ -19,7 +19,7 @@ source of truth for that mapping.
 | `{type:'object', objectName, filters}` | `/:objectName/data?filter[k]=v` | Bare data surface. No saved-view tab bar; conditions render as removable chips; full filter/sort/group toolbar; "Save as view" is the exit |
 | `{type:'dashboard', dashboardName}` | `/dashboard/:name` | Dashboard renderer |
 | `{type:'report', reportName}` | `/report/:name` | Report renderer |
-| `{type:'page', pageName}` | `/page/:name` | Bare SDUI rendering only -- no object shell, so view switching, actions and record routing are hand-assembled in the page schema |
+| `{type:'page', pageName}` | `/:name` | Package-scoped page metadata resolves the bare app entry -- no object shell, so view switching, actions and record routing are hand-assembled in the page schema |
 | `{type:'url', url}` | external | `target` controls the tab |
 | `{type:'component', componentRef, params?}` | `/component/:ns/:name?…` | `componentRef` is colon-joined (`metadata:resource`); `params` ride as querystring. `metadata:*` refs are special-cased onto the `/metadata[/:type[/:name]]` routes |
 | `{type:'group', children}` | — | Grouping only; no target |

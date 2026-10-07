@@ -31,7 +31,7 @@ describe('resolveAppNavigationContext', () => {
   it('recovers an area, group, and page from a direct page route', () => {
     const result = resolveAppNavigationContext({
       areas,
-      pathname: `${BASE}/page/page_project_timesheet_cost`,
+      pathname: `${BASE}/page_project_timesheet_cost`,
       search: '?verify=direct-link',
       basePath: BASE,
     });

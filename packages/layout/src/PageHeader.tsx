@@ -1,5 +1,6 @@
 import React from 'react';
 import { cn, LazyIcon, Button } from '@object-ui/components';
+import type { BreadcrumbItem, BreadcrumbSchema } from '@object-ui/types';
 import { ArrowLeft } from 'lucide-react';
 import { useRecordContext, SchemaRenderer } from '@object-ui/react';
 
@@ -28,6 +29,20 @@ import { useRecordContext, SchemaRenderer } from '@object-ui/react';
 export interface PageHeaderComponentProps extends React.HTMLAttributes<HTMLDivElement> {
     title: string;
     /**
+     * Code-only layout variant for trusted React pages. `default` preserves the
+     * existing header. `workspace` adds a tokenized frame and optional breadcrumb
+     * row without changing the authored `page:header` schema.
+     */
+    variant?: 'default' | 'workspace';
+    /**
+     * Code-only breadcrumb data for `variant="workspace"`. Items use the
+     * canonical `BreadcrumbItem` shape and render through the registered
+     * `breadcrumb` SchemaRenderer, including its link/current-page semantics.
+     * This is deliberately distinct from the schema `page:header.breadcrumb`
+     * boolean, which only controls the host-provided breadcrumb slot.
+     */
+    breadcrumbItems?: BreadcrumbItem[];
+    /**
      * Optional secondary line under the title. `subtitle` is the only spelling:
      * it is the key `@objectstack/spec/ui`'s `PageHeaderProps` declares, and it
      * resolves {field.path} tokens against the current record context.
@@ -47,6 +62,9 @@ export interface PageHeaderComponentProps extends React.HTMLAttributes<HTMLDivEl
      * pre-rendered React node.
      */
     icon?: React.ReactNode | string;
+    /** Optional class overrides for the title and subtitle elements. */
+    titleClassName?: string;
+    subtitleClassName?: string;
     action?: React.ReactNode;
     /**
      * Show a back arrow at the left of the header that navigates one level
@@ -119,12 +137,16 @@ const interpolateTitle = (template: string | undefined, data: unknown): string =
 
 export function PageHeader({
     title,
+    variant = 'default',
+    breadcrumbItems,
     subtitle,
     icon,
     action,
     actions,
     showBack,
     schema,
+    titleClassName,
+    subtitleClassName,
     className,
     children,
     ...props
@@ -166,6 +188,7 @@ export function PageHeader({
     const isRecordPage = !!ctx?.recordId;
     const isEmbedded = !!ctx?.embedded;
     const shouldShowBack = showBack ?? (isRecordPage && !isEmbedded);
+    const isWorkspaceVariant = variant === 'workspace';
     const handleBack = React.useCallback(() => {
         // Strip a trailing `/record/{id}` (or any one-segment leaf) to land
         // on the list view. If the URL doesn't match, fall back to browser
@@ -213,9 +236,44 @@ export function PageHeader({
         : null;
     const slot = action || children || actionsSlot || schemaChildren;
 
+    const workspaceBreadcrumbSchema: BreadcrumbSchema | null =
+        isWorkspaceVariant && Array.isArray(breadcrumbItems) && breadcrumbItems.length > 0
+            ? {
+                  type: 'breadcrumb',
+                  items: breadcrumbItems,
+                  className: cn(
+                      '[&>ol]:text-[length:var(--ui-workspace-header-breadcrumb-font-size,0.75rem)]',
+                      '[&>ol]:leading-[var(--ui-workspace-header-breadcrumb-line-height,1rem)]',
+                  ),
+              }
+            : null;
+
     return (
-        <div className={cn('flex flex-col gap-3 pb-4 border-b', className)} {...props}>
-            <div className="flex flex-wrap items-center gap-x-4 gap-y-2">
+        <div
+            data-slot="page-header"
+            className={cn(
+                'flex min-w-0 flex-col gap-3 pb-4 border-b border-border',
+                isWorkspaceVariant &&
+                    'min-h-[var(--ui-workspace-header-min-height,0px)] gap-0 px-[var(--ui-workspace-header-padding-inline,1.25rem)] py-[var(--ui-workspace-header-padding-block,1rem)]',
+                className,
+            )}
+            {...props}
+        >
+            {workspaceBreadcrumbSchema && (
+                <div
+                    data-slot="workspace-header-breadcrumb"
+                    className="mb-[var(--ui-workspace-header-breadcrumb-margin-bottom,0.5rem)] min-w-0"
+                >
+                    <SchemaRenderer schema={workspaceBreadcrumbSchema} />
+                </div>
+            )}
+            <div
+                className={cn(
+                    'flex flex-wrap items-center gap-x-4 gap-y-2',
+                    isWorkspaceVariant &&
+                        'items-start gap-x-[var(--ui-workspace-header-row-gap,1rem)]',
+                )}
+            >
                 {shouldShowBack && (
                     <Button
                         type="button"
@@ -229,17 +287,42 @@ export function PageHeader({
                     </Button>
                 )}
                 {icon && (resolvedTitle || resolvedSecondary) && (
-                    <div className="flex-shrink-0 grid place-items-center size-10 rounded-md bg-primary/10 text-primary">
+                    <div
+                        className={cn(
+                            'flex-shrink-0 grid place-items-center size-10 rounded-md bg-primary/10 text-primary',
+                            isWorkspaceVariant && 'size-[var(--ui-workspace-header-icon-size,2.5rem)]',
+                        )}
+                    >
                         {typeof icon === 'string' ? <LazyIcon name={icon} className="size-5" /> : icon}
                     </div>
                 )}
-                <div className="flex flex-col min-w-48 flex-1">
+                <div className="flex min-w-0 flex-1 flex-col">
                     {resolvedTitle ? (
-                        <h1 className="text-2xl font-bold tracking-tight md:text-3xl truncate">{resolvedTitle}</h1>
+                        <h1 className={cn(
+                            isWorkspaceVariant ? 'whitespace-normal break-words' : 'truncate',
+                            'text-[length:var(--ui-page-title-font-size,1.5rem)] leading-[var(--ui-page-title-line-height,1.3333)] font-[weight:var(--ui-page-title-font-weight,700)] tracking-tight md:text-[length:var(--ui-page-title-font-size,1.875rem)] md:leading-[var(--ui-page-title-line-height,1.2)]',
+                            titleClassName,
+                        )}>{resolvedTitle}</h1>
                     ) : null}
-                    {resolvedSecondary && <p className="text-sm text-muted-foreground truncate">{resolvedSecondary}</p>}
+                    {resolvedSecondary && (
+                        <p className={cn(
+                            isWorkspaceVariant ? 'whitespace-normal break-words' : 'truncate',
+                            'text-sm text-muted-foreground',
+                            subtitleClassName,
+                        )}>
+                            {resolvedSecondary}
+                        </p>
+                    )}
                 </div>
-                {slot && <div className="flex items-center gap-2 ml-auto">{slot}</div>}
+                {slot && (
+                    <div
+                        data-slot="page-header-actions"
+                        className="ml-auto flex max-w-full flex-wrap items-center justify-end gap-2"
+                        onClick={(event) => event.stopPropagation()}
+                    >
+                        {slot}
+                    </div>
+                )}
             </div>
         </div>
     );

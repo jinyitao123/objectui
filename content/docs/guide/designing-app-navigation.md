@@ -20,7 +20,7 @@ Say your app has a `project` object:
 | `{ "type": "object", "objectName": "project" }` | `/apps/my_app/project` — the object's **default view** | The full object shell: view switcher, object actions, a create button, record detail routing, search and recent-items integration |
 | `{ "type": "object", "objectName": "project", "viewName": "project.by_status" }` | `/apps/my_app/project/view/project.by_status` | The same shell, with the entry **anchored** to a named view — users can still switch |
 | `{ "type": "object", "objectName": "project", "filters": { "status": "open" } }` | `/apps/my_app/project/data?filter[status]=open` — the **bare data surface** | URL-defined conditions over everything permissions allow, bound to **no saved view**. Conditions show as removable chips; the full filter/sort/group toolbar is available; "Save as view" turns the slice into a named view |
-| `{ "type": "page", "pageName": "project_overview" }` | `/apps/my_app/page/project_overview` | Nothing but your page schema. View switching, actions, and record links must be assembled by hand |
+| `{ "type": "page", "pageName": "project_overview" }` | `/apps/my_app/project_overview` | The app resolves the bare entry against its package-scoped page metadata. View switching, actions, and record links must be assembled by hand |
 
 The key asymmetry: a page can imitate the other two, but it **loses the object
 shell** — and every future improvement to that shell (new actions, better view

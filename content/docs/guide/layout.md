@@ -14,6 +14,7 @@ The layout system provides:
 - **AppShell** - Full application container with a top navbar, sidebar, and content areas
 - **Page** - Individual page wrapper with header and body
 - **PageHeader** - Consistent page headers with title, breadcrumbs, and actions
+- **WorkspaceToolbar** - Responsive placement for host-owned search, filters, and actions
 - **SidebarNav** - Navigation sidebar with menu items
 
 ## Installation
@@ -134,7 +135,7 @@ The `Page` component provides a consistent wrapper for individual pages with opt
   "type": "page",
   "title": "User Management",
   "description": "Manage users and permissions",
-  "body": {
+  "children": {
     "type": "container",
     "children": [
       { "type": "text", "content": "User list goes here" }
@@ -145,13 +146,13 @@ The `Page` component provides a consistent wrapper for individual pages with opt
 
 ### With Action Buttons
 
-A `page` node has no action row of its own. Buttons are NODES, and they go in `body`:
+A `page` node has no action row of its own. Buttons are NODES, and they go in `children`:
 
 ```json
 {
   "type": "page",
   "title": "Products",
-  "body": [
+  "children": [
     {
       "type": "flex",
       "justify": "end",
@@ -189,7 +190,7 @@ and `button.tsx`, which reads `schema.label`, renders a button with no text.
 > rather than refusing it — so the author got a green validation and an empty page (before
 > objectui#7933 it also reached the DOM as `actions="[object Object]"`). `PageNodeSchema`
 > now declares the key as a refusal, so the same document fails with the remedy in the
-> message instead of rendering silently short. Buttons in `body`, as above; on a record page,
+> message instead of rendering silently short. Buttons in `children`, as above; on a record page,
 > the `page:header` block's own `actions` — which are **action ids**, not nodes
 > (see the [PageHeader reference](/docs/layout/page-header)).
 
@@ -198,7 +199,7 @@ and `button.tsx`, which reads `schema.label`, renders a button with no text.
 > **nothing**: no renderer has ever read the key, and `BaseSchema`'s `.passthrough()` kept
 > the array rather than refusing it — the same silent-accept shape as `actions`, retired
 > under the same ADR-0049 enforce-or-remove gate. The trail is a **node**, not a key: put
-> a `breadcrumb` node in `body`, as [Breadcrumbs for Deep Navigation](#2-breadcrumbs-for-deep-navigation)
+> a `breadcrumb` node in `children`, as [Breadcrumbs for Deep Navigation](#2-breadcrumbs-for-deep-navigation)
 > shows. ⛔ Not the `page:header` block's `breadcrumb` either — that one is singular and a
 > **boolean** display toggle, not a list of links.
 
@@ -213,11 +214,11 @@ and `button.tsx`, which reads `schema.label`, renders a button with no text.
   title?: string,               // Page title
   description?: string,         // Page description/subtitle
   icon?: string,               // Optional icon
-  // NO `actions` — refused by name (objectui#7926); put the buttons in `body`
-  // NO `breadcrumbs` — refused by name (objectui#8871); put a `breadcrumb` node in `body`
+  // NO `actions` — refused by name (objectui#7926); put the buttons in `children`
+  // NO `breadcrumbs` — refused by name (objectui#8871); put a `breadcrumb` node in `children`
 
   // Content
-  body: SchemaNode,            // Main page content
+  children: SchemaNode,            // Main page content
   
   // Layout options
   maxWidth?: 'sm' | 'md' | 'lg' | 'xl' | '2xl' | 'full',
@@ -239,7 +240,7 @@ Control page content width:
   "type": "page",
   "title": "Settings",
   "maxWidth": "lg",  // Centered content with max width
-  "body": {
+  "children": {
     "type": "form",
     "fields": [...]
   }
@@ -257,7 +258,8 @@ Available values:
 ## PageHeader Component
 
 The `PageHeader` provides consistent page headers with a title, an optional subtitle,
-an icon chip, and an action row.
+an icon chip, and an action row. Its `WorkspaceHeader` runtime registration also
+has an opt-in frame and breadcrumb layout for trusted React Pages.
 
 > **The canonical author key is `page:header`; `page-header` is a legacy alias.** The
 > snippets in this section are the `@object-ui/layout` component, which `registerLayout()`
@@ -314,6 +316,41 @@ own `actions` metadata, which keeps the definitions in one place — or inline `
 objects. They are **not** `SchemaNode` nodes: a `{ "type": "button", … }` entry
 renders nothing here.
 
+### React runtime workspace variant
+
+Trusted React Pages receive `<WorkspaceHeader>` from the host runtime. Set
+`variant="workspace"` to render a breadcrumb row above the existing title and
+action row. Pass `breadcrumbItems` using the standard breadcrumb item shape;
+items with `href` render as links and the final item is the current page. The
+title and subtitle may wrap, and the frame grows with the content.
+
+```jsx
+<WorkspaceHeader
+  variant="workspace"
+  title="Shipments"
+  breadcrumbItems={[
+    { label: 'Sales', href: '/sales' },
+    { label: 'Orders', href: '/sales/orders' },
+    { label: 'Shipments' },
+  ]}
+>
+  <button type="button" onClick={createShipment}>New shipment</button>
+</WorkspaceHeader>
+```
+
+`variant` and `breadcrumbItems` are code-only React props. They are not added to
+the `page-header` registration inputs or to the `page:header` Spec contract.
+The canonical schema's singular `breadcrumb` remains a boolean that controls
+the host-provided breadcrumb slot; it is not a list of links. The workspace
+variant consumes `--ui-workspace-header-padding-block`,
+`--ui-workspace-header-padding-inline`,
+`--ui-workspace-header-breadcrumb-font-size`,
+`--ui-workspace-header-breadcrumb-line-height`,
+`--ui-workspace-header-breadcrumb-margin-bottom`,
+`--ui-workspace-header-icon-size`, `--ui-workspace-header-row-gap`, and the
+optional `--ui-workspace-header-min-height`. Its title continues to consume
+`--ui-page-title-*`.
+
 > **Write `subtitle`. `description` is retired.** `@objectstack/spec/ui`'s
 > `PageHeaderProps` — the contract for the canonical `page:header` node — declares
 > `title / subtitle / breadcrumb / actions / recordChrome / showStar / showCopyId /
@@ -334,10 +371,10 @@ renders nothing here.
 > rest. See the [PageHeader reference](/docs/layout/page-header) for the per-key
 > reference face.
 
-> **There is no `breadcrumbs` array.** The component reads no breadcrumb property of any
-> kind, in either spelling. The spec's `breadcrumb` is singular and a **boolean** — a
-> display toggle on the canonical `page:header` node (see
-> [Slotted pages](/docs/guide/slotted-pages)), not a list of links.
+> **There is no schema `breadcrumbs` array.** The canonical `page:header` schema's
+> `breadcrumb` is singular and a **boolean** — a display toggle for the host-provided
+> slot, not a list of links. `breadcrumbItems` exists only on the trusted React
+> `WorkspaceHeader` runtime component described above.
 
 ## SidebarNav Component
 
@@ -509,7 +546,7 @@ Omit `sidebar` and the content fills the width under the top bar.
   "type": "page",
   "title": "Settings",
   "maxWidth": "2xl",
-  "body": {
+  "children": {
     "type": "tabs",
     "tabs": [
       {
@@ -535,13 +572,13 @@ Omit `sidebar` and the content fills the width under the top bar.
 ### Detail Page with Actions
 
 Same rule as above, and it governs the trail too: the breadcrumb and the buttons are both
-**nodes in `body`** — never a `breadcrumbs` or an `actions` key on the page.
+**nodes in `children`** — never a `breadcrumbs` or an `actions` key on the page.
 
 ```json
 {
   "type": "page",
   "title": "Acme Corporation",
-  "body": [
+  "children": [
     {
       "type": "breadcrumb",
       "items": [
@@ -621,9 +658,11 @@ them reads `lg` (1024px), so 800px and 1400px get the same layout.
 
 ### Header and content
 
-- The header is `h-14` (3.5rem / 56px) at **every** breakpoint — there is no compact
-  variant — and spans the full viewport width at every size. The only thing about it that
-  responds is horizontal padding, and it turns at `sm` (640px), not 768: `px-2 sm:px-4`.
+- The header spans the full viewport width. Its height comes from the host-owned
+  `--ui-app-topbar-height` token (fallback `3.5rem`); the shell does not encode a
+  breakpoint-specific height. The compact Console profile sets it to `68px` at
+  `768px` and above and `60px` below `768px`. Horizontal padding still turns at
+  `sm` (640px), not 768: `px-2 sm:px-4`.
 - Content padding steps three ways — `p-3`, `sm:p-4` (640px), `md:p-6` (768px) — with a
   taller `pb-20` below `sm` only.
 
@@ -661,7 +700,7 @@ Control page content padding:
 {
   "type": "page",
   "padding": false,  // Remove default padding
-  "body": {
+  "children": {
     "type": "container",
     "className": "p-8",  // Custom padding
     "children": [...]
@@ -685,7 +724,7 @@ Compose the shell once and let the page JSON change per route:
 
 ### 2. Breadcrumbs for Deep Navigation
 
-Add a breadcrumb trail to help users navigate. It is a **node in `body`**, not a key on the
+Add a breadcrumb trail to help users navigate. It is a **node in `children`**, not a key on the
 page — `breadcrumb`, singular, is the registered renderer:
 
 ```json
@@ -712,13 +751,13 @@ which is a **boolean** display toggle rather than a list of links.
 
 ### 3. Action Buttons at the Top of the Body
 
-Place primary actions in the first `body` node, so they sit above the content:
+Place primary actions in the first `children` node, so they sit above the content:
 
 ```json
 {
   "type": "page",
   "title": "Orders",
-  "body": [
+  "children": [
     {
       "type": "flex",
       "justify": "end",
@@ -744,7 +783,7 @@ Use constrained width for forms and reading content:
 {
   "type": "page",
   "maxWidth": "lg",  // Better for forms
-  "body": {
+  "children": {
     "type": "form",
     "fields": [...]
   }
@@ -795,3 +834,8 @@ const navGroups: NavGroup[] = [
 - [Components Overview](/docs/components) - All available components
 - [Schema Rendering](/docs/guide/schema-rendering) - How schemas work
 - [Architecture Overview](/docs/guide/architecture) - System architecture
+
+
+### AppShell geometry profile
+
+`AppShell` consumes host CSS custom properties `--ui-app-sidebar-width` and `--ui-app-topbar-height`. Their defaults remain `16rem` and `3.5rem`. The compact Console profile supplies a `240px` sidebar and a `68px` top bar at widths of `768px` and above; below `768px` it sets the top bar to `60px`. These dimensions belong to application chrome, independently of dialog summary columns and page content. Sidebar collapse and mobile behavior continue to use the native sidebar component.

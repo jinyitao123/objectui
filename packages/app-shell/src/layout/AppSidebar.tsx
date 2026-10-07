@@ -71,6 +71,7 @@ import {
 import { NavigationRenderer, resolveHref, resolveActiveNavItem, hasVisibleNavigationItems } from '@object-ui/layout';
 import type { NavigationArea, NavigationItem } from '@object-ui/types';
 import { useMetadata } from '../providers/MetadataProvider.js';
+import { useApplicationObjects } from '../hooks/useApplicationObjects.js';
 import { useExpressionContext, evaluateVisibility } from '../providers/ExpressionProvider.js';
 import { useAuth, useWorkspaceAdminStatus, getUserInitials } from '@object-ui/auth';
 import { usePermissions } from '@object-ui/permissions';
@@ -205,7 +206,7 @@ export function AppSidebar({ activeAppName, onAppChange }: { activeAppName: stri
   const { recentItems } = useRecentItems();
   const { favorites, removeFavorite } = useFavorites();
   
-  const { apps: metadataApps, objects: metadataObjects } = useMetadata();
+  const { apps: metadataApps } = useMetadata();
   const apps = metadataApps || [];
   // Filter out inactive + hidden apps from the switcher list.
   const activeApps = apps.filter((a: any) => a.active !== false && a.hidden !== true);
@@ -213,6 +214,7 @@ export function AppSidebar({ activeAppName, onAppChange }: { activeAppName: stri
   // direct /apps/account navigation keeps rendering the Account branding.
   // ADR-0048 (A) — route segment may be a package id; match by it (name fallback).
   const activeApp = matchAppBySegment(apps.filter((a: any) => a.active !== false), activeAppName) || activeApps[0];
+  const { objects: registeredObjects } = useApplicationObjects(activeApp);
 
   // Extract branding information from spec
   const logo = activeApp?.branding?.logo;
@@ -247,15 +249,13 @@ export function AppSidebar({ activeAppName, onAppChange }: { activeAppName: stri
     [can, hasCapabilities],
   );
 
-  // Runtime capability checker — gates nav entries with `requiresObject` /
-  // `requiresService` against the runtime's actual SchemaRegistry contents.
-  // Currently we only probe registered objects (sourced from the metadata
-  // provider, which fetches `GET /api/v1/meta/object` on mount). Service
-  // gates default to pass since there is no client-side service registry
-  // probe yet — callers should wire one when needed.
+  // Runtime capability checker — object entries are judged against object
+  // references in this app's own navigation metadata. Opening a referenced
+  // object performs its permission-aware named metadata read; the sidebar
+  // does not enumerate unrelated object schemas to answer this gate.
   const registeredObjectNames = React.useMemo(
-    () => new Set<string>((metadataObjects || []).map((o: any) => o?.name).filter(Boolean)),
-    [metadataObjects],
+    () => new Set<string>(registeredObjects.map((o: any) => o?.name).filter(Boolean)),
+    [registeredObjects],
   );
   const checkCap = React.useCallback(
     (kind: 'object' | 'service', name: string): boolean => {

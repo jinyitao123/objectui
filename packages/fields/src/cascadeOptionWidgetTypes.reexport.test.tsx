@@ -42,20 +42,20 @@ describe('CASCADE_OPTION_WIDGET_TYPES re-export (objectui#4770)', () => {
     expect(fromFields).toBe(fromCore);
   });
 
-  it('holds exactly the four option widgets that take the live record', () => {
+  it('holds exactly the five option widgets that take the live record', () => {
     // Membership is pinned so changing WHICH widgets receive `dependentValues`
     // stays a deliberate, reviewable edit on all surfaces at once. Adding a key
     // here is not a formality: the picker family (`filter-condition`,
     // `recipient-picker`, the lookup family) reads a specific SIBLING KEY off
     // the same channel, and whether the action / bulk dialogs should feed those
     // is an open question recorded on objectui#4771, not settled by this set.
-    expect([...fromFields].sort()).toEqual(['checkboxes', 'multiselect', 'radio', 'select']);
+    expect([...fromFields].sort()).toEqual(['checkboxes', 'choice-cards', 'multiselect', 'radio', 'select']);
   });
 
   it('is keyed on this package widget keys: every member resolves to itself', () => {
     // What makes the shared set safe to read from surfaces that normalize
     // differently: these are `resolveFormWidgetType` OUTPUT (what the two
-    // dialogs look up), which for these four coincides with the form's
+    // dialogs look up), which for these five coincides with the form's
     // `normalizeFieldType` output (the `field:` prefix stripped). A member that
     // is not a real widget key would resolve to `text` here.
     for (const key of fromFields) {

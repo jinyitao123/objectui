@@ -40,6 +40,12 @@ export { cn } from './lib/utils';
 export { renderChildren, renderNodeSlot, isEmptyNodeSlot } from './lib/utils';
 export { cva } from 'class-variance-authority';
 export { getLazyIcon, isLucideIconName, LazyIcon, toKebabIconName } from './lib/lazy-icon';
+export {
+  ObjectFormRuntimeContext,
+  type ObjectFormController,
+  type ObjectFormRuntimeContextValue,
+  type ObjectFormValidationResult,
+} from './renderers/form/objectFormRuntime';
 
 // The member-action visibility gate — "did this action DECLARE a `visible` gate
 // at all?", the single definition objectui#3492 established and PR #3816 /
@@ -89,6 +95,19 @@ export {
 // Export raw Shadcn UI components
 export * from './ui';
 export * from './custom';
+// The profile-aware wrappers intentionally shadow the raw Shadcn exports at
+// the package boundary; their token fallbacks retain the raw primitives' sizes.
+export {
+  Button,
+  buttonVariants,
+  Input,
+  Label,
+  NativeSelect,
+  SelectItem,
+  SelectTrigger,
+  Textarea,
+} from './custom/profile-controls';
+export { Card, CardHeader, CardTitle, CardDescription, CardContent, CardFooter } from './custom/profile-card';
 
 // Export the notification surfaces — one per spec `displayType` (#3014).
 export * from './notifications';

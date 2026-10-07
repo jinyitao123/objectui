@@ -559,7 +559,13 @@ export function useNavigationSync(): UseNavigationSyncReturn {
  * > should invoke `syncPageRenamed` / `syncDashboardRenamed` explicitly.
  */
 export function NavigationSyncEffect(): null {
-  const { pages, dashboards, apps, getTypeStatus } = useMetadata();
+  const metadata = useMetadata();
+  const { dashboards, apps, getTypeStatus } = metadata;
+  // `pages` is a lazy collection getter. Read its status first so merely
+  // mounting the console does not turn an idle page bucket into a full-list
+  // request; the Studio page-management route loads it when this diff is useful.
+  const pagesReady = !getTypeStatus || getTypeStatus('page') === 'ready';
+  const pages = pagesReady ? metadata.pages : [];
   const adapter = useAdapter();
   const adapterRef = useRef(adapter);
   adapterRef.current = adapter;

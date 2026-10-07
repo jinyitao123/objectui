@@ -1057,3 +1057,70 @@ describe('DatasetWidget — dimension metadata probe (objectui#5280)', () => {
     expect(screen.queryByText('in_progress')).not.toBeInTheDocument();
   });
 });
+
+describe('DatasetWidget — dataset KPI drill action', () => {
+  it('opens the shared drill drawer only when existing options.drillDown is enabled', async () => {
+    const src = { queryDataset: vi.fn(async () => ({
+      rows: [{ revenue: 510000 }],
+      fields: [{ name: 'revenue', type: 'currency', label: 'Revenue' }],
+      object: 'showcase_deal',
+      dimensionFields: {},
+      drillRawRows: [{}],
+    })) };
+    render(
+      <DatasetWidget
+        widget={{
+          id: 'revenue',
+          type: 'metric',
+          dataset: 'sales',
+          title: 'Revenue',
+          values: ['revenue'],
+          filter: { status: 'won' },
+          options: {
+            drillDown: {
+              enabled: true,
+              target: 'dialog',
+              title: 'Revenue records',
+              columns: ['name'],
+              maxRows: 25,
+            },
+          },
+        }}
+        dataSource={src}
+      />,
+    );
+
+    fireEvent.click(await screen.findByRole('button', { name: 'Details: Revenue' }));
+    expect(await screen.findByText('Revenue records')).toBeInTheDocument();
+    expect(screen.getByTestId('drill-down-body')).toBeInTheDocument();
+    expect(src.queryDataset).toHaveBeenCalledWith('sales', {
+      dimensions: [],
+      measures: ['revenue'],
+      runtimeFilter: { status: 'won' },
+    });
+  });
+
+  it('keeps the KPI non-interactive when the existing config disables drill', async () => {
+    const src = { queryDataset: vi.fn(async () => ({
+      rows: [{ revenue: 510000 }],
+      object: 'showcase_deal',
+      dimensionFields: {},
+      drillRawRows: [{}],
+    })) };
+    render(
+      <DatasetWidget
+        widget={{
+          type: 'metric',
+          dataset: 'sales',
+          values: ['revenue'],
+          options: { drillDown: { enabled: false } },
+        }}
+        dataSource={src}
+      />,
+    );
+
+    await screen.findByText('510000');
+    expect(screen.queryByTestId('dataset-metric-drill-action')).toBeNull();
+    expect(screen.queryByTestId('drill-down-body')).toBeNull();
+  });
+});

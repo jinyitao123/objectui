@@ -13,8 +13,8 @@ import type { HostControlProps, HostGroupProps } from './toHostGroupProps.js';
 
 /**
  * The "this option list cannot be filled" state shared by every fixed-option
- * widget (`SelectField` single, `MultiSelectField`, `RadioField`,
- * `CheckboxesField`) — objectui#3231.
+ * widget (`SelectField` single, `ChoiceCardsField`, `MultiSelectField`,
+ * `RadioField`, `CheckboxesField`) — objectui#3231.
  *
  * ## One producer, one consumer
  *
@@ -26,7 +26,7 @@ import type { HostControlProps, HostGroupProps } from './toHostGroupProps.js';
  * Absent a host hint — a standalone widget, the inline grid editor, an action
  * param dialog — the widget falls back to its own copy.
  *
- * Each of the four widgets used to inline this box, destructure `emptyHint`
+ * The original four widgets used to inline this box, destructure `emptyHint`
  * into `_emptyHint` and throw it away, then render a hardcoded English literal.
  * Four independent copies is precisely why they drifted together, so the box
  * AND the copy live here only: adding a fifth option widget cannot re-introduce

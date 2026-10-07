@@ -23,6 +23,7 @@ import { FormSectionContainer } from './FormSection';
 import { SchemaRenderer, useSafeFieldLabel, usePredicateScope } from '@object-ui/react';
 import { buildSectionFields as buildSectionFieldsShared } from './sectionFields';
 import { seedCreateValues, omitServerResolvedDefaults, isCreateFormMode } from './schemaDefaults';
+import { resolveInitialRecord } from './initialRecord';
 import { usePermissions } from '@object-ui/permissions';
 import { applyAutoColSpan, containerGridColsFor } from './autoLayout';
 import { resolveSuccessNavigate, type SubmitBehavior } from './successBehavior';
@@ -33,6 +34,8 @@ import {
 } from './submitRedirectNavigation';
 import { useOccSave } from './occSave';
 import { hasInlineFieldSource, noSubmitTargetError } from './submitTarget';
+import { useUploadGate, UploadGateProvider, UploadInFlightNotice } from './uploadGate';
+import { useFormStatusTranslation } from './formStatusTranslation';
 
 /**
  * A wizard STEP — the wizard's OWN authored group shape (objectui#6237).
@@ -212,9 +215,12 @@ export interface WizardFormSchema {
   mode: 'create' | 'edit' | 'view';
   
   /**
-   * Record ID (for edit/view modes)
+   * Record ID (for edit/view modes). A string, per the one record-id rule on
+   * `DataSource` (objectui#9511) — `ObjectForm` builds this schema from the
+   * authorable `ObjectFormSchema.recordId`, which is a string, and `findOne`
+   * takes a string.
    */
-  recordId?: string | number;
+  recordId?: string;
   
   /**
    * Wizard step sections
@@ -382,8 +388,13 @@ export const WizardForm: React.FC<WizardFormProps> = ({
   className,
 }) => {
   const { fieldLabel } = useSafeFieldLabel();
+  const { t: tStatus } = useFormStatusTranslation();
   const { userId: currentUserId } = usePermissions();
   const { t } = useWizardTranslation();
+  // Upload-in-flight gate (objectui#10166). Scoped to the FINAL commit, not to
+  // step navigation: moving between steps writes nothing, and blocking Next
+  // would be a second behaviour this card did not ask for.
+  const uploadGate = useUploadGate();
   const [objectSchema, setObjectSchema] = useState<any>(null);
   const [formData, setFormData] = useState<Record<string, any>>({});
   // The persisted record as READ, kept apart from `formData` — the wizard
@@ -485,7 +496,7 @@ export const WizardForm: React.FC<WizardFormProps> = ({
           // Declared static defaults are this wizard's opening values (#4047)
           // — see `schemaDefaults` for the create-only boundary and for why
           // runtime defaults are left to the server.
-          setFormData(seedCreateValues(objectSchema, schema.initialData || schema.initialValues, { currentUserId }));
+          setFormData(seedCreateValues(objectSchema, resolveInitialRecord(schema), { currentUserId }));
           seededRef.current = true;
         }
         setLoading(false);
@@ -646,6 +657,16 @@ export const WizardForm: React.FC<WizardFormProps> = ({
     });
 
     if (isLastStep) {
+      // An upload on this step is still in flight (objectui#10166). The record
+      // would be written WITHOUT the attachment and reported as success, so the
+      // commit is refused here — before the required-field gate below, because
+      // this is about a value that has not arrived rather than one the user
+      // failed to give. The Create button is disabled and labelled for it too;
+      // this arm is the keyboard-submit guard.
+      if (uploadGate.uploading) {
+        toast.error(uploadGate.reason);
+        return;
+      }
       // Gate the submit on the FULL field set, not just this step's (see
       // missingRequiredByStep) — then point the user at the first step that is
       // short something, instead of letting the server answer with a 400 that
@@ -767,7 +788,7 @@ export const WizardForm: React.FC<WizardFormProps> = ({
               // Back to a fresh step 1 for the next entry — "fresh" means the
               // same opening values the wizard had, defaults included (#4047),
               // not a blank object the first entry never started from.
-              setFormData(seedCreateValues(objectSchema, schema.initialData || schema.initialValues, { currentUserId }));
+              setFormData(seedCreateValues(objectSchema, resolveInitialRecord(schema), { currentUserId }));
               setCompletedSteps(new Set());
               setCurrentStep(0);
               setResetNonce((n) => n + 1);
@@ -824,7 +845,7 @@ export const WizardForm: React.FC<WizardFormProps> = ({
           if (schema.resetOnSuccess && schema.mode === 'create') {
             // Back to a fresh step 1 for the next entry — same opening values
             // as the first entry, defaults included (#4047).
-            setFormData(seedCreateValues(objectSchema, schema.initialData || schema.initialValues, { currentUserId }));
+            setFormData(seedCreateValues(objectSchema, resolveInitialRecord(schema), { currentUserId }));
             setCompletedSteps(new Set());
             setCurrentStep(0);
             setResetNonce((n) => n + 1);
@@ -843,7 +864,7 @@ export const WizardForm: React.FC<WizardFormProps> = ({
       // Move to next step
       goToStep(currentStep + 1);
     }
-  }, [formData, currentStep, isLastStep, schema, objectSchema, dataSource, missingRequiredByStep, t, saveWithOcc]);
+  }, [formData, currentStep, isLastStep, schema, objectSchema, dataSource, missingRequiredByStep, t, saveWithOcc, uploadGate.uploading, uploadGate.reason]);
 
   // Navigation
   const goToStep = useCallback((step: number) => {
@@ -874,7 +895,7 @@ export const WizardForm: React.FC<WizardFormProps> = ({
   if (error) {
     return (
       <div className="p-4 border border-red-300 bg-red-50 rounded-md">
-        <h3 className="text-red-800 font-semibold">Error loading form</h3>
+        <h3 className="text-red-800 font-semibold">{tStatus('publicForm.unavailableTitle')}</h3>
         <p className="text-red-600 text-sm mt-1">{error.message}</p>
       </div>
     );
@@ -884,7 +905,7 @@ export const WizardForm: React.FC<WizardFormProps> = ({
     return (
       <div className="p-8 text-center">
         <div className="inline-block animate-spin rounded-full h-8 w-8 border-b-2 border-gray-900"></div>
-        <p className="mt-2 text-sm text-gray-600">Loading form...</p>
+        <p className="mt-2 text-sm text-gray-600">{tStatus('publicForm.loading')}</p>
       </div>
     );
   }
@@ -927,6 +948,10 @@ export const WizardForm: React.FC<WizardFormProps> = ({
     // (`@md:grid-cols-2` …), which need a container ancestor to resolve against —
     // without one the classes are inert and a multi-column step silently stayed
     // single-column. Same wrapper TabbedForm / SplitForm carry.
+    //
+    // The gate provider wraps the whole step body so every upload widget on the
+    // CURRENT step reports in (objectui#10166).
+    <UploadGateProvider gate={uploadGate}>
     <div className={cn('w-full @container', className, schema.className)}>
       {/* Step Indicator */}
       {schema.showStepIndicator !== false && (
@@ -1116,10 +1141,12 @@ export const WizardForm: React.FC<WizardFormProps> = ({
             <Button
               type="submit"
               form={stepFormId}
-              disabled={submitting || schema.mode === 'view'}
+              disabled={submitting || schema.mode === 'view' || uploadGate.uploading}
             >
               {submitting && <Loader2 className="mr-2 h-4 w-4 animate-spin" aria-hidden />}
-              {submitting ? 'Submitting...' : (schema.submitText || (schema.mode === 'create' ? 'Create' : 'Update'))}
+              {uploadGate.uploading
+                ? uploadGate.busyLabel
+                : submitting ? 'Submitting...' : (schema.submitText || (schema.mode === 'create' ? 'Create' : 'Update'))}
             </Button>
           ) : (
             <Button
@@ -1132,8 +1159,10 @@ export const WizardForm: React.FC<WizardFormProps> = ({
           )}
         </div>
       </div>
+      <UploadInFlightNotice gate={uploadGate} />
       {conflictDialog}
     </div>
+    </UploadGateProvider>
   );
 };
 

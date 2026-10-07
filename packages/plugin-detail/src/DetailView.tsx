@@ -44,8 +44,8 @@ import { ActivityTimeline } from './ActivityTimeline';
 import { HistoryTimeline } from './HistoryTimeline';
 import { RecordMetaFooter } from './RecordMetaFooter';
 import { SchemaRenderer, SchemaErrorBoundary, toRenderableSchema, useSafeFieldLabel, useDataInvalidation, useInlineEdit, useRowPredicate } from '@object-ui/react';
-import { buildExpandFields, getRecordDisplayName, formatTitleTemplate, userActionPredicates } from '@object-ui/core';
-import { usePermissions } from '@object-ui/permissions';
+import { buildExpandFields, getRecordDisplayName, isDatabaseKeyDisplay, formatTitleTemplate, userActionPredicates } from '@object-ui/core';
+import { hasReportedCapabilities, usePermissions } from '@object-ui/permissions';
 import { useLocalization, useDisplayLocale, resolveFieldCurrency } from '@object-ui/i18n';
 import type { DetailViewSchema, DataSource, ActionSchema, SchemaNode } from '@object-ui/types';
 import { useDetailTranslation } from './useDetailTranslation';
@@ -75,7 +75,7 @@ const EMPTY_DRAFT: Record<string, any> = {};
  *      floor, for records whose name lives in a field the type-aware derivation
  *      skips (e.g. an `autonumber` `name`) and whose caller set no title
  *      (objectui#2688).
- *   5. `Record #<id>` floor, else the translated "Details" fallback.
+ *   5. The translated "Details" fallback — never the database key.
  */
 function resolveDisplayTitle(
   data: any,
@@ -83,17 +83,21 @@ function resolveDisplayTitle(
   objectSchema: any,
   fallback: string,
 ): string {
+  const recordId = data && typeof data === 'object' ? ((data as any).id ?? (data as any)._id) : undefined;
+  const isDatabaseTitle = (value: unknown): boolean =>
+    typeof value === 'string' && isDatabaseKeyDisplay(value, recordId);
+
   if (data && typeof data === 'object') {
     // 1. Explicit primary field wins (author's chosen header field).
     if (schema.primaryField) {
       const v = (data as any)[schema.primaryField];
-      if (v !== null && v !== undefined && v !== '') return String(v);
+      if (v !== null && v !== undefined && v !== '' && !isDatabaseTitle(String(v))) return String(v);
     }
     // 2. titleFormat (kept first to preserve existing header behavior). The
     //    shared renderer walks dotted paths + embedded lookup objects and
     //    strips orphan separators around empty placeholders.
     const formatted = formatTitleTemplate(objectSchema?.titleFormat, data);
-    if (formatted) return formatted;
+    if (formatted && !isDatabaseTitle(formatted)) return formatted;
   }
   // 3. Unified resolver (ADR-0079): displayNameField → type-aware field
   //    derivation, so an object whose name lives in e.g. `activity_name`
@@ -102,39 +106,29 @@ function resolveDisplayTitle(
   //    the resolver's `Record #<id>` floor because the detail header prefers
   //    the object label (`schema.title`) over a bare id; detect & skip it.
   if (data && typeof data === 'object') {
-    const id = (data as any).id ?? (data as any)._id;
     // `deriveFromRecordKeys: false` → only the object-DECLARED identity
     // (displayNameField + type-aware field derivation) contributes here; a bare
     // record-key guess does NOT outrank the caller's `schema.title` object
-    // label below. We also detect & skip the resolver's `Record #<id>` floor.
+    // label below. Database-key-shaped candidates are skipped as well.
     const unified = getRecordDisplayName(objectSchema, data, { deriveFromRecordKeys: false });
-    const isFloor =
-      unified === 'Untitled' ||
-      (id !== null && id !== undefined && unified === `Record #${id}`);
+    const isFloor = unified === 'Untitled' || isDatabaseTitle(unified);
     if (!isFloor) return unified;
   }
   // 4. Caller-provided title override (object label).
-  if (schema.title) return schema.title;
+  if (schema.title && !isDatabaseTitle(schema.title)) return schema.title;
   // 4b. Record-key probe as the LAST resort before the id floor (objectui#2688).
   //     Only reached when the caller provided no title, so the "guessed key must
   //     not outrank schema.title" rule above still holds — but a name-ish value
   //     sitting right on the record (e.g. `name` typed `autonumber`, which the
   //     type-aware derivation deliberately skips) beats a bare `Record #<id>`.
   if (data && typeof data === 'object') {
-    const id = (data as any).id ?? (data as any)._id;
     const guessed = getRecordDisplayName(objectSchema, data);
-    const guessedIsFloor =
-      guessed === 'Untitled' ||
-      (id !== null && id !== undefined && guessed === `Record #${id}`);
+    const guessedIsFloor = guessed === 'Untitled' || isDatabaseTitle(guessed);
     if (!guessedIsFloor) return guessed;
   }
-  // 5. `Record #<id>` floor, else the translated "Details" fallback.
-  if (data && typeof data === 'object') {
-    const id = (data as any).id ?? (data as any)._id;
-    if (id !== null && id !== undefined && String(id).trim() !== '') {
-      return `Record #${id}`;
-    }
-  }
+  // 5. Do not expose the database key as a title. The caller's object label
+  // (or this localized fallback) is the readable identity when no record name
+  // resolves.
   return fallback;
 }
 
@@ -311,6 +305,11 @@ export const DetailView: React.FC<DetailViewProps> = ({
   // PermissionProvider is mounted, `perms.isLoaded` is false and the
   // schema passes through unchanged.
   const perms = usePermissions();
+  // Record IDs are developer diagnostics. The shared helper denies both an
+  // explicitly empty grant set and an unreported/standalone permission context.
+  const canCopyRecordId =
+    hasReportedCapabilities(perms, ['studio.access']) ||
+    hasReportedCapabilities(perms, ['setup.access']);
   const gatedSchema = React.useMemo<DetailViewSchema>(() => {
     if (!perms?.isLoaded || !rawSchema.objectName) return rawSchema;
     const canRead = (fieldName: string) =>
@@ -1136,17 +1135,35 @@ export const DetailView: React.FC<DetailViewProps> = ({
                   let display: string = String(val);
                   let percentValue: number | null = null;
                   try {
+                    // -- The locale these four option bags format in ---------------
+                    //
+                    // `displayLocale`, never the literal `undefined` (objectui#9453).
+                    // `useDisplayLocale`'s own doc comment names that literal as "the
+                    // one thing a caller must not do": `undefined` means the MACHINE's
+                    // locale, which is neither the tenant channel nor the UI-language
+                    // one. A German tenant read a German date in the list and an en-US
+                    // one beside the H1 of the record it opened, for one stored value.
+                    // The percent branch below already reads this same binding.
+                    //
+                    // The number of fraction digits, the date style and the time style
+                    // are NOT part of that repair. They are this chip's own
+                    // deliberately compact face, and whether a KPI chip beside a title
+                    // should instead read exactly like its list cell is an OPEN
+                    // question objectui#9453 recorded and did not answer.
+                    // `EN_CONTROL_ROWS` in `summaryChip.displayLocale-9453.test.tsx`
+                    // is what holds that line: those rows are green before this change
+                    // and after it, and go red the moment one of those options moves.
                     if (ftype === 'currency') {
                       const num = Number(val);
                       if (!Number.isNaN(num)) {
                         const cur = resolveFieldCurrency({ ...(objField as any), ...(sectionField as any) }, tenantCurrency);
                         display = cur
-                          ? new Intl.NumberFormat(undefined, {
+                          ? new Intl.NumberFormat(displayLocale, {
                               style: 'currency',
                               currency: cur,
                               maximumFractionDigits: 0,
                             }).format(num)
-                          : new Intl.NumberFormat(undefined, {
+                          : new Intl.NumberFormat(displayLocale, {
                               maximumFractionDigits: 0,
                             }).format(num);
                       }
@@ -1154,8 +1171,8 @@ export const DetailView: React.FC<DetailViewProps> = ({
                       const d = new Date(val);
                       if (!Number.isNaN(d.getTime())) {
                         display = ftype === 'datetime'
-                          ? d.toLocaleString(undefined, { dateStyle: 'medium', timeStyle: 'short' })
-                          : d.toLocaleDateString(undefined, { dateStyle: 'medium' } as any);
+                          ? d.toLocaleString(displayLocale, { dateStyle: 'medium', timeStyle: 'short' })
+                          : d.toLocaleDateString(displayLocale, { dateStyle: 'medium' } as any);
                       }
                     } else if (ftype === 'percent') {
                       const num = Number(val);
@@ -1366,7 +1383,7 @@ export const DetailView: React.FC<DetailViewProps> = ({
               {schema.objectName && (
                 <p className="text-sm text-muted-foreground mt-1 flex items-center gap-1">
                   <span className="font-medium">{objectLabel || schema.objectName}</span>
-                  {schema.resourceId && (
+                  {schema.resourceId && canCopyRecordId && (
                     <Tooltip>
                       <TooltipTrigger asChild>
                         <Button
@@ -1523,10 +1540,11 @@ export const DetailView: React.FC<DetailViewProps> = ({
         // approver — the very person the flag exists to let edit — never tried.
         //
         // The record's own `approval_status` is the fallback for bare/legacy
-        // DetailView usage where no host threads the state (objectui#2618 for
-        // why the record field alone is not enough). It carries no node
-        // granularity, so it can only mean "locked" — the safe read, since a
-        // wrongly-offered edit dies on the server with RECORD_LOCKED.
+        // DetailView usage or a host whose Native request read did not succeed
+        // (objectui#2618 for why the record field alone is not enough). It
+        // carries no node granularity, so it can only mean "locked" — the safe
+        // read, since a wrongly-offered edit dies on the server with
+        // RECORD_LOCKED.
         //
         // But it must NOT be OR-ed in unconditionally, because the two sources
         // genuinely disagree in a shipping configuration: a flow configuring an
@@ -1536,25 +1554,29 @@ export const DetailView: React.FC<DetailViewProps> = ({
         // "Locked for approval" on exactly the `lockRecord: false` node this
         // feature exists to free — pencils live and saves landing underneath it.
         //
-        // `approvalPending && !locked` is the tell that the host has an actual
-        // opinion. `InlineEditProvider` defaults `approvalPending` to `locked`,
-        // so a host threading only `locked` (pre-#2902) always reports the two
-        // equal and can never produce that combination; a host that resolved
-        // the pending node's `lock_record` is the only thing that can. When it
-        // speaks, it wins — it read the same snapshot the server's lock hook
-        // enforces.
+        // A successful host read is explicit: `approvalResolved` means its
+        // `approvalPending` and `locked` values also cover the empty-result
+        // case, so they supersede a stale mirror. For older hosts without that
+        // signal, `approvalPending && !locked` still identifies an editable
+        // pending node (`InlineEditProvider` otherwise defaults pending to
+        // locked), and the record mirror remains the conservative fallback.
         const approvalStatus = data?.approval_status;
         const statusPending =
           approvalStatus === 'pending' || approvalStatus === 'in_approval';
         const hostPending = inline?.approvalPending ?? false;
+        const hostResolved = inline?.approvalResolved === true;
         const hostSaysEditable = hostPending && !(inline?.locked ?? false);
-        const isLocked = hostSaysEditable
-          ? false
-          : ((inline?.locked ?? false) || statusPending);
+        const isLocked = hostResolved
+          ? !!inline?.locked
+          : hostSaysEditable
+            ? false
+            : ((inline?.locked ?? false) || statusPending);
         // A lock always implies an in-flight approval, so a host that threads
         // only `locked` (objectui#2618, before `approvalPending` existed) keeps
         // its band.
-        const isPending = isLocked || hostPending || statusPending;
+        const isPending = hostResolved
+          ? hostPending
+          : isLocked || hostPending || statusPending;
         // How many decisions the pending node still needs (objectstack#4478).
         // `lockRecord` told the approver they may not EDIT; this tells them
         // whether their own approval finalizes the step. A `quorum` node with
@@ -1811,7 +1833,7 @@ export const DetailView: React.FC<DetailViewProps> = ({
 
         return (
           <Tabs defaultValue={initialTab} onValueChange={onTabChange} className="w-full">
-            <TabsList className="w-full justify-start border-b rounded-none bg-transparent p-0">
+            <TabsList className="sticky top-0 z-20 w-full justify-start border-b rounded-none bg-background/95 p-0 backdrop-blur supports-[backdrop-filter]:bg-background/60">
               <TabsTrigger
                 value="details"
                 className="relative rounded-none border-b-2 border-transparent data-[state=active]:border-primary data-[state=active]:bg-transparent"

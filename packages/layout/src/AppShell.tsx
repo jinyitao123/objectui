@@ -120,6 +120,22 @@ function foregroundForHex(hex: string): string {
 /**
  * Apply branding CSS custom properties to the document root.
  * This is extracted as a standalone hook so it can be re-used independently.
+ *
+ * It is also the ONE writer of `document.title` for as long as a shell is
+ * mounted (objectui#8637). Ownership is scoped, not permanent: the hook
+ * captures whatever the tab already said, writes `title` over it, and puts the
+ * captured string back when the shell unmounts or `title` changes. So a host
+ * that mounts a shell for part of its route tree gets the specific title while
+ * it is there and its previous title back when it leaves, without a second
+ * writer keyed on navigation — which is what the console used to do, and what
+ * reverted the composed title to the bare product name on every in-app
+ * navigation.
+ *
+ * ⚠️ The capture is a read of the live `document.title`, so a host that lets
+ * something else write the tab title WHILE a shell is mounted hands this hook a
+ * value it did not put there, and that value is what comes back on unmount.
+ * Nesting a second title-writing surface inside a mounted shell is the shape to
+ * avoid; the console's own auth surfaces sit outside the shell for this reason.
  */
 export function useAppShellBranding(branding?: AppShellBranding, title?: string) {
   useEffect(() => {
@@ -210,13 +226,20 @@ export function useAppShellBranding(branding?: AppShellBranding, title?: string)
       }
     }
 
-    // Page title
+    // Page title. `previousTitle` stays `null` when this hook writes nothing,
+    // so the no-`title` case restores nothing either — a shell without a title
+    // leaves the tab entirely alone in both directions.
+    let previousTitle: string | null = null;
     if (title) {
+      previousTitle = document.title;
       document.title = title;
     }
 
     return () => {
       observer.disconnect();
+      if (previousTitle !== null) {
+        document.title = previousTitle;
+      }
       root.style.removeProperty('--brand-primary');
       root.style.removeProperty('--brand-primary-hsl');
       root.style.removeProperty('--brand-accent');
@@ -245,9 +268,9 @@ export function AppShell({
   useAppShellBranding(branding, branding?.title);
 
   return (
-    <SidebarProvider defaultOpen={defaultOpen} className="!flex-col h-svh overflow-hidden">
+    <SidebarProvider defaultOpen={defaultOpen} className="!flex-col h-svh overflow-hidden [--sidebar-width:var(--ui-app-sidebar-width,16rem)]!">
       {/* 1. Full-width top bar spanning entire screen */}
-      <header className="sticky top-0 z-30 flex h-14 w-full shrink-0 items-center gap-2 border-b bg-background px-2 sm:px-4">
+      <header className="sticky top-0 z-30 flex h-[var(--ui-app-topbar-height,3.5rem)] w-full shrink-0 items-center gap-2 border-b bg-background px-2 sm:px-4">
         {navbar}
       </header>
 

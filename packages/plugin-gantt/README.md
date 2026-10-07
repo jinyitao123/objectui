@@ -1,5 +1,23 @@
 # @object-ui/plugin-gantt
 
+## Host navigation callbacks
+
+The registered `object-gantt` renderer forwards the existing React
+`onRowClick` and `onTaskClick` callbacks to `ObjectGantt`. A host can therefore
+keep its own record destination with `navigation: { mode: 'none' }`. Overlay
+modes retain the native record overlay owner. These callbacks are runtime
+props, not JSON metadata properties. The renderer does not forward a host's
+paged `data` array or page size: timeline rows still come from its complete,
+governed query up to the disclosed platform ceiling.
+
+`--ui-gantt-min-height` controls the standalone timeline's minimum panel
+height (420px when omitted). The compact Console host uses zero so a short
+schedule can follow its rows instead of reserving a large empty canvas;
+explicitly sized hosts still supply their own available height.
+Toolbar groups wrap within their container; the period label stays on one line
+so a sidebar or narrow embed cannot compress it into vertical text or clip the
+remaining controls.
+
 Gantt chart plugin for Object UI - Visualize project timelines and task dependencies.
 
 ## Features
@@ -53,13 +71,15 @@ When used through `ObjectGantt` (the wiring the framework uses for the
 
   The destination route is **not** authorable here — `useNavigationOverlay`
   builds no URL out of this config, so page mode hands the record to the
-  host's `onNavigate` / `onRowClick` and the host owns where it lands. To
-  choose *which* detail view opens, use the declared `view` member (a
-  form-view name, e.g. `"summary_view"`). `navigation` is the spec's
-  `NavigationConfig`, and its schema refuses any key it does not declare: an
-  undeclared key rejects the whole config, so the `mode` beside it never
-  takes effect either. `@objectstack/spec`'s `NavigationConfigSchema` owns the
-  member list.
+  host's `onNavigate` / `onRowClick` and the host owns where it lands. *Which*
+  detail layout opens is not authorable here either: assign a `record` page to
+  the object and let `isDefault` pick the one that opens. Page assignment is
+  what resolves a detail layout; this block only decides **how** that detail
+  is surfaced (`mode`, `size`) — `@object-ui/react`'s `useNavigationOverlay`
+  docblock owns that account. `navigation` is the spec's `NavigationConfig`,
+  and its schema refuses any key it does not declare: an undeclared key
+  rejects the whole config, so the `mode` beside it never takes effect either.
+  `@objectstack/spec`'s `NavigationConfigSchema` owns the member list.
 
 
 ### Drag-and-drop rescheduling
@@ -777,6 +797,29 @@ against the host — **not** an adapter instance. The renderer guards against th
 confusion explicitly, so putting a live adapter there does not wire anything up.
 
 ## TypeScript Support
+
+### React Page runtime
+
+Console bootstrap pre-registers a lazy `GanttView` before React pages compile
+their stable scope. The public plugin component loads only when used and the
+host owns this presentation-only registration. It does not receive a data
+source: the host maps its already-authorized rows to `GanttTask[]` and supplies
+them through `tasks`. Set `readOnly` to disable timeline writes while retaining
+`onTaskClick` for host-owned navigation. Set `showToolbar={false}` when the host
+owns the surrounding controls; the default is `true`.
+
+```tsx
+<GanttView
+  tasks={authorizedTasks}
+  readOnly
+  onTaskClick={task => openWorkItem(task.data)}
+/>
+```
+
+Other hosts can explicitly register the public `GanttView` before mounting
+React pages. This is a React runtime alias, not a schema type or new
+`ObjectGanttSchema` property. The registered `object-gantt` block remains the
+record-driven schema renderer.
 
 Two different vocabularies, two different packages — don't mix them up.
 

@@ -26,6 +26,7 @@ import {
 import { useObjectTranslation } from '@object-ui/i18n';
 import { useRecordSearch } from '@object-ui/react';
 import { useMetadata } from '../providers/MetadataProvider.js';
+import { useApplicationObjects } from '../hooks/useApplicationObjects.js';
 import { useAdapter } from '../providers/AdapterProvider.js';
 import { matchAppBySegment } from '../utils/appRoute.js';
 import { resolveKeyedI18nLabel, getRecordDisplayName } from '../utils/index.js';
@@ -75,12 +76,10 @@ export function SearchResultsPage() {
   const queryParam = searchParams.get('q') || '';
   const [query, setQuery] = useState(queryParam);
 
-  const { apps: metadataApps, objects: metadataObjects } = useMetadata();
+  const { apps: metadataApps } = useMetadata();
   const apps = metadataApps || [];
-  // Stable reference so the record-search memos below don't rerun every render
-  // (useMetadata().objects can hand back a fresh array each call).
-  const objects = useMemo(() => metadataObjects || [], [metadataObjects]);
   const activeApp = matchAppBySegment(apps, appName) || apps[0];
+  const { objects } = useApplicationObjects(activeApp);
   const baseUrl = `/apps/${appName}`;
   const { user, activeOrganization } = useAuth();
   const dataSource = useAdapter();
@@ -153,14 +152,27 @@ export function SearchResultsPage() {
     getDisplayName: getRecordDisplayName,
   });
 
+  // Search hits can name a shared-core object that is not itself a navigation
+  // entry. Resolve only those hit schemas by name so localized headings stay
+  // available without turning search into a full object-catalog read.
+  const recordHitObjectNames = useMemo(
+    () => [...new Set(recordHits.map((hit) => hit.objectName).filter(Boolean))],
+    [recordHits],
+  );
+  const recordHitMetadata = useApplicationObjects(activeApp, recordHitObjectNames, recordHitObjectNames);
+  const searchableObjects = useMemo(
+    () => [...objects, ...recordHitMetadata.objects],
+    [objects, recordHitMetadata.objects],
+  );
+
   // Index object defs by name for i18n-resolved group headings and icons.
   const objectsByName = useMemo(() => {
     const map = new Map<string, any>();
-    for (const obj of objects) {
+    for (const obj of searchableObjects) {
       if (typeof obj?.name === 'string') map.set(obj.name, obj);
     }
     return map;
-  }, [objects]);
+  }, [searchableObjects]);
 
   // Group record hits by object, preserving the server's cross-object ranking
   // for which object leads.
@@ -219,11 +231,24 @@ export function SearchResultsPage() {
       </div>
 
       {/* Results count */}
+      {/*
+        Both branches select their key on `=== 1`, and they have to: the browse
+        branch used to ask for `search.itemsAvailable` at every count, so English
+        shipped `1 items available` at a single searchable item (objectui#9664).
+
+        The repo's two-key plural convention (`common.itemCount`/`itemCountOne`,
+        `detail.reactionCount`/`reactionCountOne`), NOT an i18next `_one`/`_other`
+        family. Key parity caps a family at base + `_one` + `_other`, so every
+        other CLDR category falls through to the base key — and on THIS key the
+        base would be the plural, which is what `ar` meets at 2, 3-10 and 11-99
+        and `ru` at 2-4. Picking the key here keeps `Intl.PluralRules` and
+        `fallbackLng` out of the path entirely.
+      */}
       <div className="flex items-center gap-2 text-sm text-muted-foreground">
         <span>
           {query.trim()
             ? t(totalCount === 1 ? 'search.resultsCount' : 'search.resultsCountPlural', { count: totalCount, query })
-            : t('search.itemsAvailable', { count: allItems.length })}
+            : t(allItems.length === 1 ? 'search.itemsAvailableOne' : 'search.itemsAvailable', { count: allItems.length })}
         </span>
         {recordsSearching && (
           <span

@@ -44,6 +44,7 @@ import { isObjectProvider, deriveStaticTableColumns, composeSeriesLabel } from '
 import { classifyWidgetType, METRIC_LIKE_TYPES } from './widgetDispatch';
 import { LEGACY_RETIRED_WIDGET_SCHEMA, isLegacyRetiredWidget } from './legacyRetiredWidget';
 import { DatasetWidget } from './DatasetWidget';
+import { MetricHeaderTitle } from './MetricCardChrome';
 import { useWidgetSubCaption } from './widgetSubCaption';
 import { DashboardFilterBar } from './DashboardFilterBar';
 
@@ -898,8 +899,17 @@ const DashboardRendererInner = forwardRef<HTMLDivElement, DashboardRendererProps
         // a title + border like the kpi/gauge widgets (otherwise it shows as bare
         // text with no title, inconsistent with its neighbours).
         const isSelfContained = widget.type === 'metric' && !datasetBound;
+        const isKpiWidget = widget.type === 'metric';
         const resolvedTitle = tWidgetTitle(widget);
         const resolvedDescription = tWidgetDescription(widget);
+        const metricOptions = widget.options && typeof widget.options === 'object'
+          ? widget.options as Record<string, unknown>
+          : {};
+        const metricIcon = isKpiWidget && typeof metricOptions.icon === 'string'
+          ? metricOptions.icon
+          : undefined;
+        const hasMetricHeaderAdornment = isKpiWidget && (!!metricIcon || !!resolvedDescription);
+        const showWidgetCardHeader = !!resolvedTitle || hasMetricHeaderAdornment;
         const widgetKey = widget.id || resolvedTitle || `widget-${index}`;
         const isSelected = designMode && selectedWidgetId === widget.id;
 
@@ -916,7 +926,7 @@ const DashboardRendererInner = forwardRef<HTMLDivElement, DashboardRendererProps
 
         const selectionClasses = designMode
           ? cn(
-              "cursor-pointer rounded-lg transition-all outline-none",
+              "cursor-pointer rounded-[var(--ui-card-radius,0.5rem)] transition-all outline-none",
               "focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2",
               isSelected
                 ? "ring-2 ring-primary shadow-md bg-primary/5 dark:bg-primary/10"
@@ -943,10 +953,10 @@ const DashboardRendererInner = forwardRef<HTMLDivElement, DashboardRendererProps
                  {designMode && <div className="absolute inset-0 z-10" aria-hidden="true" data-testid="widget-click-overlay" />}
             </div>
         ) : (
-            <Card
-                className={cn(
-                    "overflow-hidden border-border/50 shadow-sm transition-all hover:shadow-md",
-                    "bg-card/50 backdrop-blur-sm",
+                <Card data-dashboard-card="" data-dashboard-metric-card={isKpiWidget ? '' : undefined}
+                    className={cn(
+                    "overflow-hidden border-border/50 shadow-sm transition-all hover:shadow-md bg-card/50 backdrop-blur-sm",
+                    isKpiWidget && "min-h-[var(--ui-dashboard-metric-card-min-height,auto)]",
                     forceMobileFullWidth && "w-full",
                     designMode && "relative",
                     selectionClasses
@@ -954,18 +964,54 @@ const DashboardRendererInner = forwardRef<HTMLDivElement, DashboardRendererProps
                 style={innerGridSpanStyle}
                 {...designModeProps}
             >
-                {resolvedTitle && (
-                    <CardHeader className="pb-2 border-b border-border/40 bg-muted/20 px-3 sm:px-6">
-                        <CardTitle className="text-sm sm:text-base font-medium tracking-tight truncate" title={resolvedTitle}>
+                {showWidgetCardHeader && (
+                    <CardHeader data-dashboard-card-header="" className={cn(
+                      "border-border/40 bg-muted/20",
+                      isKpiWidget
+                        ? "pt-[var(--ui-dashboard-metric-padding-y,1.5rem)] pb-[var(--ui-dashboard-metric-header-padding-bottom,0.5rem)] px-[var(--ui-dashboard-metric-padding-x,0.75rem)] sm:px-[var(--ui-dashboard-metric-padding-x,1.5rem)] [--ui-card-divider-display:none] border-b-[length:var(--ui-dashboard-metric-header-border-width,1px)]"
+                        : "pt-[var(--ui-card-padding,1.5rem)] pb-[var(--ui-card-header-padding-bottom,0.5rem)] border-b-[length:var(--ui-dashboard-header-border-width,1px)] px-[var(--ui-card-padding,0.75rem)] sm:px-[var(--ui-card-padding,1.5rem)]"
+                    )}>
+                        {hasMetricHeaderAdornment ? (
+                          <MetricHeaderTitle
+                            className="flex-1"
+                            icon={metricIcon}
+                            description={resolvedDescription}
+                            colorVariant={widget.colorVariant}
+                            title={(
+                              resolvedTitle ? <CardTitle className={cn(
+                                "tracking-tight truncate",
+                                "text-[length:var(--ui-dashboard-metric-title-font-size,0.875rem)] sm:text-[length:var(--ui-dashboard-metric-title-font-size,1rem)] leading-[var(--ui-dashboard-metric-title-line-height,1.25rem)] sm:leading-[var(--ui-dashboard-metric-title-line-height,1.5rem)] [font-weight:var(--ui-dashboard-metric-title-font-weight,500)]",
+                              )} title={resolvedTitle}>
+                                {resolvedTitle}
+                              </CardTitle> : null
+                            )}
+                          />
+                        ) : resolvedTitle ? (
+                          <CardTitle className={cn(
+                            "tracking-tight truncate",
+                            isKpiWidget
+                              ? "text-[length:var(--ui-dashboard-metric-title-font-size,0.875rem)] sm:text-[length:var(--ui-dashboard-metric-title-font-size,1rem)] leading-[var(--ui-dashboard-metric-title-line-height,1.25rem)] sm:leading-[var(--ui-dashboard-metric-title-line-height,1.5rem)] [font-weight:var(--ui-dashboard-metric-title-font-weight,500)]"
+                              : "text-[length:var(--ui-card-title-font-size,0.875rem)] sm:text-[length:var(--ui-card-title-font-size,1rem)] leading-[var(--ui-card-title-line-height,1.25rem)] sm:leading-[var(--ui-card-title-line-height,1.5rem)] [font-weight:var(--ui-card-title-font-weight,500)]"
+                          )} title={resolvedTitle}>
                             {resolvedTitle}
-                        </CardTitle>
+                          </CardTitle>
+                        ) : null}
                         {resolvedDescription && (
-                            <p className="text-xs text-muted-foreground mt-0.5 line-clamp-2">{resolvedDescription}</p>
+                            <p className={cn(
+                              "text-xs text-muted-foreground mt-0.5 line-clamp-2",
+                              isKpiWidget && "[display:var(--ui-dashboard-metric-header-description-display,block)]",
+                            )} data-dashboard-metric-header-description={isKpiWidget ? '' : undefined}>{resolvedDescription}</p>
                         )}
                     </CardHeader>
                 )}
                 <CardContent className="p-0">
-                    <div className={cn("h-full w-full", "p-3 sm:p-4 md:p-6", designMode && "pointer-events-none")}>
+                    <div className={cn(
+                      "h-full w-full",
+                      isKpiWidget
+                        ? "px-[var(--ui-dashboard-metric-padding-x,0.75rem)] sm:px-[var(--ui-dashboard-metric-padding-x,1rem)] md:px-[var(--ui-dashboard-metric-padding-x,1.5rem)] pt-[var(--ui-dashboard-metric-content-padding-top,0.75rem)] sm:pt-[var(--ui-dashboard-metric-content-padding-top,1rem)] md:pt-[var(--ui-dashboard-metric-content-padding-top,1.5rem)] pb-[var(--ui-dashboard-metric-padding-y,0.75rem)] sm:pb-[var(--ui-dashboard-metric-padding-y,1rem)] md:pb-[var(--ui-dashboard-metric-padding-y,1.5rem)]"
+                        : "px-[var(--ui-card-padding,0.75rem)] sm:px-[var(--ui-card-padding,1rem)] md:px-[var(--ui-card-padding,1.5rem)] pt-[var(--ui-card-content-padding-top,0.75rem)] sm:pt-[var(--ui-card-content-padding-top,1rem)] md:pt-[var(--ui-card-content-padding-top,1.5rem)] pb-[var(--ui-card-padding,0.75rem)] sm:pb-[var(--ui-card-padding,1rem)] md:pb-[var(--ui-card-padding,1.5rem)]",
+                      designMode && "pointer-events-none"
+                    )}>
                         {datasetBound
                           ? <DatasetWidget
                               widget={effectiveWidget}
@@ -1126,7 +1172,9 @@ const DashboardRendererInner = forwardRef<HTMLDivElement, DashboardRendererProps
      * What may legitimately become a DOM attribute on this container
      * (objectui#4432, migration step 2 of objectui#4425 phase 2).
      *
-     * `view:dashboard` resolves to this component, so `SchemaRenderer` hands it
+     * `plugin-dashboard:dashboard` resolves to this component (it was
+     * `view:dashboard` until objectui#9533 converged the bare key), so
+     * `SchemaRenderer` hands it
      * the dashboard node's OWN keys, the contents of the node's `props`
      * container, the ARIA it resolved, its evaluated `disabled` verdict and the
      * host's trailing props. Everything this component does not destructure
@@ -1188,14 +1236,14 @@ const DashboardRendererInner = forwardRef<HTMLDivElement, DashboardRendererProps
       const otherWidgets = schema.widgets?.filter((w: DashboardWidgetSchema) => w.type !== 'metric') || [];
 
       const mobileBody = (
-        <div ref={ref} {...hostDomProps} className={cn("flex flex-col gap-4 px-4", className)} data-user-actions={userActionsAttr} onClick={handleHostClick}>
+        <div ref={ref} {...hostDomProps} className={cn("flex flex-col gap-[var(--ui-dashboard-grid-gap,1rem)] px-4", className)} data-user-actions={userActionsAttr} onClick={handleHostClick}>
           {headerSection}
           {filterBar}
           {refreshButton}
 
           {/* Metric cards: 2-column grid */}
           {metricWidgets.length > 0 && (
-            <div className="grid grid-cols-2 gap-3" onClick={handleBackgroundClick}>
+            <div className="grid grid-cols-2 gap-[var(--ui-dashboard-grid-gap,0.75rem)]" onClick={handleBackgroundClick}>
               <SortableContext items={metricIds} strategy={rectSortingStrategy} disabled={!dragEnabled}>
                 {metricWidgets.map((widget: DashboardWidgetSchema, index: number) => renderWidget(widget, index))}
               </SortableContext>
@@ -1204,7 +1252,7 @@ const DashboardRendererInner = forwardRef<HTMLDivElement, DashboardRendererProps
 
           {/* Other widgets (charts, tables): full-width vertical stack */}
           {otherWidgets.length > 0 && (
-            <div className="flex flex-col gap-4" onClick={handleBackgroundClick}>
+            <div className="flex flex-col gap-[var(--ui-dashboard-grid-gap,1rem)]" onClick={handleBackgroundClick}>
               <SortableContext items={otherIds} strategy={verticalListSortingStrategy} disabled={!dragEnabled}>
                 {otherWidgets.map((widget: DashboardWidgetSchema, index: number) => renderWidget(widget, index, true))}
               </SortableContext>
@@ -1235,14 +1283,14 @@ const DashboardRendererInner = forwardRef<HTMLDivElement, DashboardRendererProps
           // spanned row a floor (so `gridRow: span 4` => a real ~20rem box)
           // while still letting taller widgets (tables) grow.
           !hasExplicitColumns && "auto-rows-min grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4",
+          hasExplicitColumns && "auto-rows-[minmax(var(--ui-dashboard-grid-row-height,5rem),auto)]",
           className
         )}
         style={{
             ...(hasExplicitColumns && {
               gridTemplateColumns: `repeat(${columns}, minmax(0, 1fr))`,
-              gridAutoRows: 'minmax(5rem, auto)',
             }),
-            gap: `${gap * 0.25}rem`
+            gap: schema.gap != null ? `${gap * 0.25}rem` : 'var(--ui-dashboard-grid-gap, 1rem)'
         }}
         data-user-actions={userActionsAttr}
         onClick={handleHostClick}

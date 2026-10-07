@@ -148,11 +148,18 @@ export const FormSectionContainer: React.FC<FormSectionContainerProps> = ({
       className={cn(
         'flex items-start gap-2',
         !wrapInCard && 'mb-4',
-        collapsible && 'cursor-pointer select-none'
+        collapsible && 'cursor-pointer select-none focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring'
       )}
       onClick={handleToggle}
       role={collapsible ? 'button' : undefined}
+      tabIndex={collapsible ? 0 : undefined}
       aria-expanded={collapsible ? !isCollapsed : undefined}
+      onKeyDown={collapsible ? (event) => {
+        if (event.key === 'Enter' || event.key === ' ') {
+          event.preventDefault();
+          handleToggle();
+        }
+      } : undefined}
     >
       {collapsible && (
         <span className="mt-0.5 text-muted-foreground">
@@ -179,7 +186,7 @@ export const FormSectionContainer: React.FC<FormSectionContainerProps> = ({
   ) : null;
 
   const contentNode = !isCollapsed ? (
-    <div className={cn('grid gap-4', gridClassName || gridCols[columns])}>
+    <div className={cn('grid gap-x-[var(--ui-form-column-gap,1rem)] gap-y-[var(--ui-form-row-gap,1rem)]', gridClassName || gridCols[columns])}>
       {children}
     </div>
   ) : null;

@@ -69,7 +69,11 @@ one build-time Vite variable:
 - **Discovery + metadata** — `AdapterProvider` (`@object-ui/app-shell`) constructs the
   `ObjectStackAdapter`, `connect()`s it (one `/api/v1/discovery` probe, cached per base URL),
   and the metadata provider pulls apps, objects and views from the server's metadata API on
-  demand.
+  demand. Route-backed custom pages use a package-scoped by-name read for the active app, so
+  opening one page does not enumerate every page. The unscoped page lookup runs only when the
+  active package returns not found; transport and authorization failures remain errors. Object
+  definitions are fetched when an action actually opens parameter collection, not when a page
+  first mounts.
 
 Apps and objects **are** authored declaratively — but in the ObjectStack **server** project
 (`objectstack.config.ts` there, or through Studio), not in this repo. The console is a pure
@@ -101,12 +105,20 @@ current.
 | Route Pattern | Component | Purpose |
 |---------------|-----------|---------|
 | `/apps/:appName` | Home redirect | Redirects to the first object in navigation |
-| `/apps/:appName/:objectName` | `ObjectView` | Object list with view switcher |
+| `/apps/:appName/:entryName` | `AppEntryRoute` | Resolves pages in the active app package and objects in that package or an explicitly referenced shared package; same-name page/object collisions are refused as ambiguous |
 | `/apps/:appName/:objectName/view/:viewId` | `ObjectView` | Specific view for an object |
 | `/apps/:appName/:objectName/data` | `ObjectDataPage` | Bare data surface — URL `filter[<field>]=<value>` conditions, not bound to any saved view (ADR-0055) |
 | `/apps/:appName/:objectName/record/:recordId` | `RecordDetailView` | Single-record detail |
 | `/apps/:appName/create-app` | `CreateAppPage` | App creation wizard (4-step) |
 | `/apps/:appName/edit-app/:editAppName` | `EditAppPage` | Edit existing app configuration |
+
+Custom page navigation uses the same bare entry route as object navigation (for
+example, `/apps/com.acme.crm/crm_home`). The active app's package ID scopes page
+lookups and is tried first for objects. A shared object is eligible only when
+the active app explicitly references it in navigation. The retired
+`/apps/:appName/page/:pageName` path has no redirect or compatibility route.
+Record detail headings and breadcrumbs use a resolved business title or the
+object label; they never use the database key as visible copy.
 
 ## Key Patterns
 
@@ -218,6 +230,27 @@ light-mode HSL triple and does not follow the light/dark toggle, whereas `--prim
 `--brand-*` names as an alias kept for whatever already consumes it.
 
 ## Development Mode
+
+### List host geometry
+
+The optional compact Console profile renders the public ListView utility tools
+as a wrapping row and exposes list search in its own persistent row. Host CSS
+variables control the cluster chrome, insets and search placement; view
+metadata continues to control available actions, searchable fields, sorting,
+filters, density and pagination. Both search surfaces use the same query state,
+so clearing or refreshing does not introduce a second search implementation.
+Default hosts retain the segmented cluster and desktop search popover. See the
+plugin-list README for the host variables.
+
+The native Gantt query receives the list's current filter and search slice.
+Its registered renderer forwards only the declared host navigation callbacks,
+so custom workspaces can keep their record destination without supplying a
+paged timeline. Gantt refresh remains on its own toolbar.
+
+The native approvals center includes cancelled requests in the submitted/all
+status filters. Switching to the pending queue continues to query only pending
+requests assigned to the current approver; a terminal-status choice from another
+queue cannot widen that scope.
 
 There is **no bundled mock backend** — offline development is not a thing here. In dev exactly as
 in production, `ObjectStackAdapter` talks over HTTP to a live ObjectStack server at

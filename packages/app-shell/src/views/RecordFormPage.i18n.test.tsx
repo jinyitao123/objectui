@@ -105,6 +105,11 @@ const metadataState = {
 };
 vi.mock('../providers/MetadataProvider', () => ({
   useMetadata: () => metadataState,
+  useMetadataItem: (_type: string, name?: string) => ({
+    item: name ? metadataState.objects.find((object: any) => object.name === name) ?? null : null,
+    loading: false,
+    error: null,
+  }),
 }));
 vi.mock('../providers/AdapterProvider', () => ({
   useAdapter: () => null,
