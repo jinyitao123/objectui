@@ -59,8 +59,8 @@ test('a saved view filter reaches $filter as AST, and the server answers 200', a
 
   await page.goto(`/apps/${APP}/showcase_task/view/showcase_task.in_progress`);
 
-  // The filter applied: 2 of the 10 seeded tasks are in_progress.
-  await expect(page.getByTestId('record-count-bar')).toContainText(/^2 /, { timeout: 20000 });
+  // The server-paged table owns its footer: 2 of the 10 seeded tasks are in_progress.
+  await expect(page.getByText('2 total', { exact: true })).toBeVisible({ timeout: 20000 });
 
   // And it applied by being ACCEPTED, not by some later rescue.
   expect(refused, `data requests the backend refused:\n${refused.join('\n')}`).toEqual([]);

@@ -16,7 +16,7 @@ import { selectOption, fillLookup } from './helpers';
  * harness injects a bearer token that the data API accepts for reads but not
  * the transactional /batch write, so we assert the outgoing request instead.)
  */
-const PAGE = '/apps/showcase_app/page/showcase_project_workspace';
+const PAGE = '/apps/showcase_app/showcase_project_workspace';
 
 async function captureBatch(page: import('@playwright/test').Page) {
   const reqs: any[] = [];
