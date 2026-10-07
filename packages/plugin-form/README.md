@@ -10,7 +10,7 @@ own exclusivity rule. See `RelationshipCollectionEditor.test.tsx` for the
 controlled row-action regression.
 
 Loading this plugin registers `DocumentWorkspace`, `DocumentSection`,
-`CompositeDialog`, `RelationshipCollectionEditor`, and `GridField` in the trusted
+`CompositeDialog`, `RelationshipCollectionEditor`, `Switch`, and `GridField` in the trusted
 React page runtime. Workspace and section slots are presentation-only. A direct
 `GridField` accepts the fields package's React-only `getRowKey` and
 `renderSelectionToolbar` callbacks, retaining controlled draft edits and readonly
@@ -1162,7 +1162,7 @@ anything.
 
 ## Trusted React Page runtime components
 
-The `@object-ui/plugin-form` package entry registers two reviewed direct
+The `@object-ui/plugin-form` package entry registers reviewed direct
 components for the host's `kind:'react'` runtime scope:
 
 - `<RelationshipCollectionEditor>` receives the authenticated host adapter and
@@ -1173,6 +1173,10 @@ components for the host's `kind:'react'` runtime scope:
 - `<ExportConfigurationDialog>` collects a host-owned export scope, ordered
   display fields, format, and file name. It receives no `dataSource` and does
   not create an export job or persist a template.
+- `<Switch>` reuses the standard accessible component from
+  `@object-ui/components`. Its `checked`, `onCheckedChange`, `disabled`, and
+  accessible name are controlled by the host page. It receives no adapter and
+  performs no persistence.
 
 These registrations are code-only runtime entries, not schema registrations or
 `PUBLIC_BLOCKS`/`REACT_BLOCKS` authoring declarations. The host imports this

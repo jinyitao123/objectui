@@ -16,7 +16,7 @@ import {
   type ElementDataSourceMapping,
 } from '@object-ui/react';
 import type { DataSource, ObjectFormSchema } from '@object-ui/types';
-import { CompositeDialog, DocumentWorkspace, DocumentSection, type ObjectFormController } from '@object-ui/components';
+import { CompositeDialog, DocumentWorkspace, DocumentSection, Switch, type ObjectFormController } from '@object-ui/components';
 import { GridField } from '@object-ui/fields';
 import { ObjectForm } from './ObjectForm';
 import { ExportConfigurationDialog } from './ExportConfigurationDialog';
@@ -586,6 +586,7 @@ ComponentRegistry.registerReactRuntimeComponent('ExportConfigurationDialog', Exp
 });
 ComponentRegistry.registerReactRuntimeComponent('DocumentWorkspace', DocumentWorkspace, { injectDataSource: false });
 ComponentRegistry.registerReactRuntimeComponent('DocumentSection', DocumentSection, { injectDataSource: false });
+ComponentRegistry.registerReactRuntimeComponent('Switch', Switch, { injectDataSource: false });
 ComponentRegistry.registerReactRuntimeComponent('GridField', GridField);
 
 // A development module replacement creates new component constructors. Release
@@ -601,6 +602,7 @@ formHot?.dispose(() => {
     ['ExportConfigurationDialog', ExportConfigurationDialog],
     ['DocumentWorkspace', DocumentWorkspace],
     ['DocumentSection', DocumentSection],
+    ['Switch', Switch],
     ['GridField', GridField],
   ] as const) {
     const registration = ComponentRegistry.getReactRuntimeComponents()

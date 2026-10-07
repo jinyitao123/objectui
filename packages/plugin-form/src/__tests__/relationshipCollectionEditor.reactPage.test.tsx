@@ -296,4 +296,30 @@ function Page() {
     expect(adapter.create).not.toHaveBeenCalled();
     expect(adapter.update).not.toHaveBeenCalled();
   });
+
+  it('injects the controlled accessible Switch without adapter access or persistence', async () => {
+    const adapter = makeAdapter();
+    const registration = ComponentRegistry.getReactRuntimeComponents().find(entry => entry.name === 'Switch');
+    expect(registration?.injectDataSource).toBe(false);
+    renderReactPage(adapter, `
+function Page() {
+  const [checked, setChecked] = React.useState(false);
+  const [disabled, setDisabled] = React.useState(false);
+  return <>
+    <Switch aria-label="Project module" checked={checked} onCheckedChange={setChecked} disabled={disabled} />
+    <button onClick={() => setDisabled(true)}>Lock module</button>
+  </>;
+}`);
+    const control = await screen.findByRole('switch', { name: 'Project module' });
+    expect(control).toHaveAttribute('aria-checked', 'false');
+    fireEvent.click(control);
+    expect(control).toHaveAttribute('aria-checked', 'true');
+    fireEvent.click(screen.getByRole('button', { name: 'Lock module' }));
+    expect(control).toBeDisabled();
+    fireEvent.click(control);
+    expect(control).toHaveAttribute('aria-checked', 'true');
+    expect(adapter.getObjectSchema).not.toHaveBeenCalled();
+    expect(adapter.create).not.toHaveBeenCalled();
+    expect(adapter.update).not.toHaveBeenCalled();
+  });
 });

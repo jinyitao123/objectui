@@ -174,7 +174,9 @@ fails in production.
 keeps its function-valued `children` slot; the latter is presentation-only and
 does not receive an injected `dataSource`. It also registers
 `<ExportConfigurationDialog>` as a presentation-only export-configuration
-dialog. These tags and their runtime props
+dialog, and the standard `<Switch>` control. A page owns the switch's checked
+value, change handler, disabled state, and accessible name; the control receives
+no adapter and does not persist settings. These tags and their runtime props
 are not part of the generated `@objectstack/spec` React Page authoring contract.
 Runtime availability does not mean `os validate` or publish validation accepts
 them.
