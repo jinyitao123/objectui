@@ -224,6 +224,7 @@ emits an empty value. Read-only and disabled controls cannot open, pick or clear
 In this optional mode, pointer presses on calendar buttons defer input blur
 until the click can finish, so a controlled parent's blur render cannot consume
 the first navigation or date-selection click. Keyboard focus is unchanged.
+The year/month caption leaves the neighboring month-arrow hit areas uncovered.
 Restoring focus after dismissal does not reopen the popup. With `openOnFocus`
 or `year-month` navigation, Escape closes only the date popup, preserving the
 containing dialog's own cancellation path.

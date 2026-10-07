@@ -251,7 +251,7 @@ function DatePickerMonthCaption({
         aria-expanded={picker.monthPickerOpen}
         aria-controls={picker.monthPickerOpen ? picker.monthPickerId : undefined}
         onClick={picker.onToggleMonthPicker}
-        className={cn("gap-1 font-medium", picker.yearMonthNavigation && "h-auto py-0")}
+        className={cn("gap-1 font-medium", picker.yearMonthNavigation && "pointer-events-auto h-auto py-0")}
       >
         {monthCaption}
         {!picker.yearMonthNavigation && <ChevronDown className="h-4 w-4" aria-hidden="true" />}
@@ -781,7 +781,7 @@ export function DatePicker({
               classNames={yearMonthNavigation ? {
                 button_previous: cn(buttonVariants({ variant: "ghost", size: "icon" }), "h-[var(--ui-calendar-nav-size,26.5px)] w-[var(--ui-calendar-nav-size,26.5px)] p-0 aria-disabled:opacity-50"),
                 button_next: cn(buttonVariants({ variant: "ghost", size: "icon" }), "h-[var(--ui-calendar-nav-size,26.5px)] w-[var(--ui-calendar-nav-size,26.5px)] p-0 aria-disabled:opacity-50"),
-                month_caption: "flex h-[var(--ui-calendar-nav-size,26.5px)] w-full items-center justify-center px-[var(--ui-calendar-nav-size,26.5px)]",
+                month_caption: "pointer-events-none flex h-[var(--ui-calendar-nav-size,26.5px)] w-full items-center justify-center px-[var(--ui-calendar-nav-size,26.5px)]",
               } : undefined}
               mode="single"
               selected={selectedDate}

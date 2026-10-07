@@ -14,6 +14,8 @@ With focus-open or year/month navigation, a pointer press on a calendar button
 keeps input focus until that button's click runs, avoiding blur-driven draft
 renders interrupting the first selection. Keyboard focus remains available;
 clicking the focus-open input again keeps its existing popup open.
+The optional year/month caption's full-width container passes pointer events
+through to the adjacent month arrows; only its title button receives clicks.
 
 `calendarNavigation="year-month"` replaces the caption's month overlay with a
 twelve-year grid (the decade plus one adjacent year at each end), followed by
