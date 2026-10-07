@@ -191,7 +191,10 @@ survive. It neither infers filled-field counters nor submits fields.
 `SegmentedRadioGroup` takes controlled `value`/`onValueChange`, an `options`
 array of string `value`/`label` pairs with optional per-option `disabled`, group
 `disabled`, an accessible name and `className`. It preserves radio semantics
-and keyboard selection in a horizontal equal-width presentation. Host CSS can
+and keyboard selection in a horizontal equal-width presentation. The host can
+set direction with `dir="rtl"` and disable wrapping with `loop={false}`.
+Left/Right select synchronously even for a quick press; Home/End only move
+focus, and Space selects. Disabled choices are skipped. Host CSS can
 set `--ui-control-height`, `--ui-control-font-size`, `--ui-control-line-height`,
 `--ui-control-radius` and `--ui-button-padding-x`; palette comes from the theme.
 These direct React props are not new Spec fields or schema block types.

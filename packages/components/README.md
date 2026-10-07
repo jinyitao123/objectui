@@ -112,7 +112,7 @@ handling remain in the existing main form. See
 `src/__tests__/composite-dialog.test.tsx` for draft preservation during cancellation.
 
 `SegmentedRadioGroup` is a controlled, horizontal group of equal-width radio
-choices. It reuses Radix radio selection, focus movement and disabled behavior;
+choices. It preserves Radix radio semantics, form participation and disabled behavior;
 it does not change the existing `RadioGroup` or declare a serialized field type.
 The host supplies `value`, `onValueChange`, and `options` containing string
 `value`/`label` pairs with optional per-option `disabled`. Group `disabled`,
@@ -120,6 +120,10 @@ The host supplies `value`, `onValueChange`, and `options` containing string
 reach the native radio group. Arrow keys select enabled choices; Home and End
 move focus, and Space selects the focused choice. Clicking the selected choice
 never clears it.
+Left/Right movement and selection happen together, including quick key taps.
+Navigation follows `dir`, skips disabled choices and respects `loop={false}`.
+Home/End move focus without selecting; the callback fires only for a changed
+selection, once per navigation event.
 
 ```tsx
 import { SegmentedRadioGroup } from '@object-ui/components';

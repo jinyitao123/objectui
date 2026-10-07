@@ -1,6 +1,6 @@
 import React from 'react';
 import { describe, expect, it, vi } from 'vitest';
-import { fireEvent, render, screen, waitFor } from '@testing-library/react';
+import { act, fireEvent, render, screen, waitFor } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import '@testing-library/jest-dom';
 import { SegmentedRadioGroup, type SegmentedRadioOption } from '../segmented-radio-group';
@@ -46,11 +46,9 @@ describe('SegmentedRadioGroup', () => {
 
     await user.tab();
     expect(high).toHaveFocus();
-    // Radix defers roving focus; retain keydown until that focus event runs.
-    await user.keyboard('{ArrowRight>}');
+    await user.keyboard('{ArrowRight}');
     await waitFor(() => expect(low).toHaveFocus());
     expect(low).toBeChecked();
-    await user.keyboard('{/ArrowRight}');
     await user.keyboard('{Home}');
     await waitFor(() => expect(high).toHaveFocus());
     expect(low).toBeChecked();
@@ -61,11 +59,77 @@ describe('SegmentedRadioGroup', () => {
     expect(high).toBeChecked();
     await user.keyboard(' ');
     expect(low).toBeChecked();
-    await user.keyboard('{ArrowRight>}');
+    await user.keyboard('{ArrowRight}');
     await waitFor(() => expect(high).toHaveFocus());
     expect(high).toBeChecked();
-    await user.keyboard('{/ArrowRight}');
     expect(screen.getByRole('radio', { name: 'Medium' })).toBeDisabled();
+  });
+
+  it('selects exactly once after a complete quick key press before deferred focus runs', async () => {
+    const changed = vi.fn();
+    function Draft() {
+      const [value, setValue] = React.useState('medium');
+      return <SegmentedRadioGroup aria-label="Priority" value={value} options={options}
+        onValueChange={next => { changed(next); setValue(next); }} />;
+    }
+    render(<Draft />);
+    const medium = screen.getByRole('radio', { name: 'Medium' });
+    act(() => medium.focus());
+    fireEvent.keyDown(medium, { key: 'ArrowRight' });
+    fireEvent.keyUp(medium, { key: 'ArrowRight' });
+    const low = screen.getByRole('radio', { name: 'Low' });
+    await waitFor(() => {
+      expect(low).toHaveFocus();
+      expect(low).toBeChecked();
+    });
+    expect(changed).toHaveBeenCalledExactlyOnceWith('low');
+  });
+
+  it('keeps held-key navigation single-callback and End focus-only', () => {
+    const changed = vi.fn();
+    function Draft() {
+      const [value, setValue] = React.useState('medium');
+      return <SegmentedRadioGroup aria-label="Priority" value={value} options={options}
+        onValueChange={next => { changed(next); setValue(next); }} />;
+    }
+    render(<Draft />);
+    const medium = screen.getByRole('radio', { name: 'Medium' });
+    const low = screen.getByRole('radio', { name: 'Low' });
+    const high = screen.getByRole('radio', { name: 'High' });
+    act(() => medium.focus());
+    fireEvent.keyDown(medium, { key: 'ArrowRight' });
+    expect(low).toBeChecked();
+    fireEvent.keyDown(low, { key: 'ArrowRight', repeat: true });
+    expect(high).toBeChecked();
+    expect(changed.mock.calls).toEqual([['low'], ['high']]);
+    fireEvent.keyDown(high, { key: 'End' });
+    expect(low).toHaveFocus();
+    expect(high).toBeChecked();
+    expect(changed).toHaveBeenCalledTimes(2);
+    fireEvent.keyUp(low, { key: 'ArrowRight' });
+  });
+
+  it('honors RTL direction and non-looping boundaries without duplicate callbacks', async () => {
+    const user = userEvent.setup();
+    const changed = vi.fn();
+    function Draft() {
+      const [value, setValue] = React.useState('medium');
+      return <SegmentedRadioGroup aria-label="Priority" dir="rtl" loop={false} value={value} options={options}
+        onValueChange={next => { changed(next); setValue(next); }} />;
+    }
+    render(<Draft />);
+    await user.tab();
+    await user.keyboard('{ArrowRight}');
+    const high = screen.getByRole('radio', { name: 'High' });
+    expect(high).toHaveFocus();
+    expect(high).toBeChecked();
+    expect(changed).toHaveBeenCalledExactlyOnceWith('high');
+    await user.keyboard('{ArrowRight}');
+    expect(high).toHaveFocus();
+    expect(changed).toHaveBeenCalledTimes(1);
+    await user.keyboard('{ArrowLeft}');
+    expect(screen.getByRole('radio', { name: 'Medium' })).toBeChecked();
+    expect(changed.mock.calls).toEqual([['high'], ['medium']]);
   });
 
   it('blocks disabled groups and disabled options without changing the controlled value', async () => {
