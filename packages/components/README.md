@@ -4,6 +4,14 @@ Standard UI component library for Object UI, built with Shadcn UI + Tailwind CSS
 
 ## Host geometry tokens
 
+`DatePicker` optionally reports its existing parsing/range verdict through
+`onValidityChange(valid)`, alongside each native custom-validity update and
+when a controlled value is applied. Empty input reports `true`; required-field
+checks remain the host's responsibility. A parent can retain this verdict in
+a ref when a collapsible section unmounts the control, and combine it with
+the form's `reportValidity()` before submission. The callback adds no parsing
+rules or persistence.
+
 Native grouped forms also support optional visual section numbers. A host can
 set `--ui-section-step-display: inline-flex` on the form's containing surface;
 the default is `none`. Each native form owns a separate counter, and only

@@ -192,7 +192,11 @@ The same plugin registers the existing `<DatePicker>` with no adapter access.
 Use controlled `value`/`onValueChange` for strings: valid dates emit
 `YYYY-MM-DD`, clearing emits `''`, and invalid input retains its draft text and
 sets native input custom validity. Before a host-owned submit, call the outer
-form's `reportValidity()`. Display formatting follows the active display locale
+form's `reportValidity()`. `onValidityChange(valid)` optionally reports the same date parsing and
+range verdict; empty input is date-valid, independently of required-field
+validation. Retain that verdict in the parent if a section can unmount the
+control, and check both the retained verdict and native form validity before
+submitting. Display formatting follows the active display locale
 on blur. The control keeps its existing `label`, `aria-label`, `name`,
 `required`, `placeholder`, `className`, `disabled`, `minDate`/`maxDate` and
 Date-valued `date`/`onDateChange` API; registration adds no date parsing rules

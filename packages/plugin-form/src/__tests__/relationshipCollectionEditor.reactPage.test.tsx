@@ -210,10 +210,14 @@ function Page() {
   const [valid, setValid] = React.useState('unchecked');
   const [submits, setSubmits] = React.useState(0);
   const form = React.useRef(null);
+  const dateValid = React.useRef(true);
   return <form ref={form} aria-label="Date draft" onSubmit={event => { event.preventDefault(); setSubmits(count => count + 1); }}>
+    <FormSectionContainer label="Dates" collapsible showBorder={false}>
     <DatePicker aria-label="Planned start" label="Planned start" name="planned_start"
-      value={value} onValueChange={setValue} disabled={disabled} placeholder="Choose date" className="host-date" />
-    <button type="button" onClick={() => setValid(String(form.current.reportValidity()))}>Check validity</button>
+      value={value} onValueChange={setValue} onValidityChange={next => { dateValid.current = next; }}
+      disabled={disabled} placeholder="Choose date" className="host-date" />
+    </FormSectionContainer>
+    <button type="button" onClick={() => setValid(String(form.current.reportValidity() && dateValid.current))}>Check validity</button>
     <button type="button" onClick={() => setDisabled(current => !current)}>Toggle date editing</button>
     <output aria-label="Date value">{value}</output>
     <output aria-label="Form validity">{valid}</output>
@@ -223,7 +227,7 @@ function Page() {
       </AdapterCtx.Provider>
     </I18nProvider>);
 
-    const input = await screen.findByRole('textbox', { name: 'Planned start' }) as HTMLInputElement;
+    let input = await screen.findByRole('textbox', { name: 'Planned start' }) as HTMLInputElement;
     expect(input).toHaveClass('host-date');
     expect(input).toHaveAttribute('placeholder', 'Choose date');
     expect(input.form).toBe(screen.getByRole('form', { name: 'Date draft' }));
@@ -242,8 +246,20 @@ function Page() {
     expect(screen.getByRole('status', { name: 'Date value' })).toHaveTextContent('2026-02-30');
     expect(screen.getByRole('status', { name: 'Form validity' })).toHaveTextContent('false');
 
+    await user.click(screen.getByRole('button', { name: 'Dates' }));
+    expect(screen.queryByRole('textbox', { name: 'Planned start' })).not.toBeInTheDocument();
+    const form = screen.getByRole('form', { name: 'Date draft' }) as HTMLFormElement;
+    expect(form.reportValidity()).toBe(true);
+    await user.click(screen.getByRole('button', { name: 'Check validity' }));
+    expect(screen.getByRole('status', { name: 'Form validity' })).toHaveTextContent('false');
+    await user.click(screen.getByRole('button', { name: 'Dates' }));
+    input = screen.getByRole('textbox', { name: 'Planned start' }) as HTMLInputElement;
+    expect(input).toHaveValue('2026-02-30');
+
     await user.clear(input);
     await user.type(input, '2026-10-07');
+    await user.click(screen.getByRole('button', { name: 'Check validity' }));
+    expect(screen.getByRole('status', { name: 'Form validity' })).toHaveTextContent('true');
     await user.click(screen.getByRole('button', { name: 'Calendar' }));
     await screen.findByRole('grid');
     const dayLabel = new Intl.DateTimeFormat('en', { dateStyle: 'full', calendar: 'gregory' }).format(new Date(2026, 9, 8));
@@ -255,6 +271,8 @@ function Page() {
     expect(input).toHaveValue('');
     expect(input.validity.valid).toBe(true);
     expect(screen.getByRole('status', { name: 'Date value' })).toBeEmptyDOMElement();
+    await user.click(screen.getByRole('button', { name: 'Check validity' }));
+    expect(screen.getByRole('status', { name: 'Form validity' })).toHaveTextContent('true');
 
     await user.click(screen.getByRole('button', { name: 'Toggle date editing' }));
     expect(input).toBeDisabled();

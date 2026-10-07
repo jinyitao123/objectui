@@ -1193,6 +1193,9 @@ components for the host's `kind:'react'` runtime scope:
   `onValueChange`: valid dates emit `YYYY-MM-DD`, clearing emits `''`, and
   invalid input emits the draft text while setting native custom validity.
   The host can call its surrounding form's `reportValidity()` before writing.
+  Optional `onValidityChange(valid)` reports the same parsing/range verdict,
+  including `true` for empty input. Cache it in the host when a collapsible
+  section unmounts the control, and keep required-field checks separate.
   `label`, input accessibility props, `placeholder`, `className`, `disabled`,
   and `minDate`/`maxDate` retain their existing behavior. The existing
   `date`/`onDateChange` channel remains available for Date-valued callers.

@@ -31,6 +31,8 @@ export interface DatePickerProps extends TextInputProps {
   /** DateField uses this string-valued channel to preserve its form contract. */
   value?: string
   onValueChange?: (value: string) => void
+  /** Date parsing/range validity; empty input is valid, independently of required. */
+  onValidityChange?: (valid: boolean) => void
   /** Existing field/schema copy and metadata remain the source of the label. */
   label?: string
   placeholder?: string
@@ -301,6 +303,7 @@ export function DatePicker({
   onDateChange,
   value: valueProp,
   onValueChange,
+  onValidityChange,
   label,
   placeholder,
   className,
@@ -313,6 +316,12 @@ export function DatePicker({
   const { t, language } = useObjectTranslation()
   const datePlaceholder = placeholder ?? t("calendar.datePickerPlaceholder")
   const inputRef = React.useRef<HTMLInputElement>(null)
+  const validityCallback = React.useRef(onValidityChange)
+  React.useEffect(() => { validityCallback.current = onValidityChange }, [onValidityChange])
+  const reportDateValidity = (error: string | undefined) => {
+    inputRef.current?.setCustomValidity(error ?? "")
+    validityCallback.current?.(!error)
+  }
   const editingRef = React.useRef(false)
   const inputErrorId = React.useId()
   const monthPickerId = React.useId()
@@ -374,7 +383,7 @@ export function DatePicker({
       : ""
     setDraft(parsed && !nextError ? formatCalendarDate(parsed, locale) : selectedValue)
     setInputError(nextError ?? "")
-    inputRef.current?.setCustomValidity(nextError ?? "")
+    reportDateValidity(nextError)
     // The translation language is included separately from the display locale:
     // tenant locale controls date formatting; the active UI language controls errors.
     // eslint-disable-next-line react-hooks/exhaustive-deps
@@ -393,7 +402,7 @@ export function DatePicker({
     setDraft(nextDate && !nextError ? formatCalendarDate(nextDate, locale) : nextValue)
     setInputError(nextError ?? "")
     if (nextDate) setDisplayMonth(nextDate)
-    inputRef.current?.setCustomValidity(nextError ?? "")
+    reportDateValidity(nextError)
     emitDate(nextDate)
     setOpen(false)
   }
@@ -402,7 +411,7 @@ export function DatePicker({
     setDraft(nextValue)
     if (!nextValue.trim()) {
       setInputError("")
-      inputRef.current?.setCustomValidity("")
+      reportDateValidity("")
       emitDate(undefined)
       return
     }
@@ -410,7 +419,7 @@ export function DatePicker({
     const parsed = parseDateText(nextValue, locale)
     const nextError = parsed ? rangeError(parsed) : invalidFormatMessage()
     setInputError(nextError ?? "")
-    inputRef.current?.setCustomValidity(nextError ?? "")
+    reportDateValidity(nextError)
     if (!parsed) {
       onValueChange?.(nextValue)
       onDateChange?.(undefined)
@@ -426,12 +435,12 @@ export function DatePicker({
     if (parsed) {
       const nextError = rangeError(parsed)
       setInputError(nextError ?? "")
-      event.currentTarget.setCustomValidity(nextError ?? "")
+      reportDateValidity(nextError)
       if (!nextError) setDraft(formatCalendarDate(parsed, locale))
     } else if (event.currentTarget.value.trim()) {
       const message = invalidFormatMessage()
       setInputError(message)
-      event.currentTarget.setCustomValidity(message)
+      reportDateValidity(message)
     }
     inputProps.onBlur?.(event)
   }
