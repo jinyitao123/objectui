@@ -704,9 +704,9 @@ header.sticky {
   background-color: hsl(135 59% 49%) !important;
 }
 
-/* iOS sheet/dialog: extra-rounded corners. */
+/* Retain the default dialog corners unless the host supplies a radius. */
 [role="dialog"] {
-  border-radius: 1.25rem !important;
+  border-radius: var(--ui-modal-radius, 1.25rem) !important;
 }
 
 /* iOS-blue tinted text selection. */

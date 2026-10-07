@@ -390,6 +390,9 @@ continues to own tab roles, selection and arrow-key navigation.
 and above it on narrow screens. The host may set `--ui-dialog-sidebar-width`;
 the default is 236px. Keep editable model fields in `children` so validation,
 busy disabling and the discard guard continue to use the same mounted draft.
+The Console's dialog corner rule consumes `--ui-modal-radius`, falling back to
+`1.25rem`. For a page-specific radius, set the token through the dialog's
+`className` scope so it reaches the portaled dialog element.
 
 For compact related rows, `RelationshipCollectionEditor` renders a declared
 boolean `primaryField` as a pressed star action beside removal. The field's

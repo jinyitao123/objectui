@@ -25,6 +25,9 @@ The profile sets host CSS tokens in `src/index.css` for control, form, modal,
 toolbar and table geometry. It does not replace field metadata, validation,
 permissions or business actions. Without that build option, the token
 fallbacks keep the existing Console dimensions.
+Dialogs accept a host-scoped `--ui-modal-radius`; its fallback remains
+`1.25rem`. Set it on the portaled dialog itself or on an ancestor that contains
+the portal, rather than only on the page's main content.
 The compact profile sets the AppShell top bar to `68px` at widths of `768px` and
 above, and `60px` below `768px`, through `--ui-app-topbar-height`.
 

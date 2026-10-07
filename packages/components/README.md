@@ -503,6 +503,10 @@ MobileDialogContent, modal geometry tokens, accessible title/description, and
 independent body scrolling as the form containers. It is not a serialized
 FormView variant or a persistence API.
 
+When hosted in the Console, the dialog corner override consumes
+`--ui-modal-radius` with a `1.25rem` fallback. Set the token on the dialog's
+`className` scope or an ancestor of its portal to override the Console default.
+
 `footer` accepts a React node or `({ requestClose, busy }) => ReactNode`. Route
 footer cancellation through `requestClose` to share the Escape/backdrop/Close
 guard. With `confirmOnDiscard`, closing requests confirmation and continuing
