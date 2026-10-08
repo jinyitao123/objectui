@@ -261,6 +261,12 @@ export interface ListViewProps {
    * viewports. This prop is not part of ListView metadata.
    */
   mobileLayout?: 'cards' | 'table';
+  /** React-only grid presentation choices; never persisted in ListView metadata. */
+  showRowNumbers?: boolean;
+  hideHeaderWhenEmpty?: boolean;
+  hidePaginationWhenEmpty?: boolean;
+  /** React-only content for a successfully resolved empty grid; errors retain their own panel. */
+  emptyStateContent?: React.ReactNode;
   /**
    * Data-source adapter. Read directly (`dataSource.find`,
    * `dataSource.getObjectSchema`, `dataSource.onMutation`) and forwarded to the
@@ -1065,6 +1071,10 @@ export const ListView = React.forwardRef<ListViewHandle, ListViewProps>(({
   schema: propSchema,
   className,
   mobileLayout,
+  showRowNumbers,
+  hideHeaderWhenEmpty = false,
+  hidePaginationWhenEmpty = false,
+  emptyStateContent: hostEmptyStateContent,
   onViewChange,
   onFilterChange,
   onSortChange,
@@ -1245,6 +1255,10 @@ export const ListView = React.forwardRef<ListViewHandle, ListViewProps>(({
   // not tell a user to "create your first record" when the fetch actually
   // failed. Captured here so the render can show a retryable error panel.
   const [loadError, setLoadError] = React.useState<string | null>(null);
+  // Used only by the opt-in empty-chrome props: no-source and malformed
+  // responses still follow their existing rendering path without authorizing
+  // a successful-empty presentation.
+  const [emptyResultReady, setEmptyResultReady] = React.useState(false);
   // What KIND of failure `loadError` is — drives which error panel copy shows.
   // Classified by the shared `classifyLoadError` (`@object-ui/react`,
   // objectui#4693 — lifted from this file so `RecordAttachmentsPanel` can
@@ -2006,6 +2020,7 @@ export const ListView = React.forwardRef<ListViewHandle, ListViewProps>(({
   React.useEffect(() => {
     let isMounted = true;
     const requestId = ++fetchRequestIdRef.current;
+    setEmptyResultReady(false);
 
     // Check for inline data via schema.data provider: 'value'
     if (schema.data && typeof schema.data === 'object' && !Array.isArray(schema.data)) {
@@ -2021,6 +2036,7 @@ export const ListView = React.forwardRef<ListViewHandle, ListViewProps>(({
           );
         }
         setData(items);
+        setEmptyResultReady(true);
         setLoading(false);
         setDataLimitReached(false);
         return;
@@ -2038,6 +2054,7 @@ export const ListView = React.forwardRef<ListViewHandle, ListViewProps>(({
         );
       }
       setData(items);
+      setEmptyResultReady(true);
       setLoading(false);
       setDataLimitReached(false);
       return;
@@ -2378,15 +2395,20 @@ export const ListView = React.forwardRef<ListViewHandle, ListViewProps>(({
         if (!isMounted || requestId !== fetchRequestIdRef.current) return;
         
         let items: any[] = [];
+        let hasRowsPayload = false;
         if (Array.isArray(results)) {
             items = results;
+            hasRowsPayload = true;
         } else if (results && typeof results === 'object') {
            if (Array.isArray((results as any).data)) {
-              items = (results as any).data; 
+              items = (results as any).data;
+              hasRowsPayload = true;
            } else if (Array.isArray((results as any).records)) {
               items = (results as any).records;
+              hasRowsPayload = true;
            } else if (Array.isArray((results as any).value)) {
               items = (results as any).value;
+              hasRowsPayload = true;
            }
         }
         
@@ -2403,6 +2425,14 @@ export const ListView = React.forwardRef<ListViewHandle, ListViewProps>(({
           ? (results as any).total
           : undefined;
         const knownTotal = typeof rawTotal === 'number' ? rawTotal : null;
+        const hasMore = results && typeof results === 'object'
+          ? (results as Record<string, unknown>).hasMore
+          : undefined;
+        // A missing match total leaves the server window's completeness unknown.
+        setEmptyResultReady(
+          hasRowsPayload && rawTotal === 0
+          && (hasMore === undefined || hasMore === false),
+        );
         // RAW, not gated on the surface: `serverTotal` applies that gate at
         // render (objectui#7394), so this effect no longer has to re-run just
         // because a different visualization is now drawing the same rows.
@@ -3911,7 +3941,9 @@ export const ListView = React.forwardRef<ListViewHandle, ListViewProps>(({
   // grid is rendered by ObjectGrid. This is a React-only handoff: the node is
   // never added to the persisted ListView schema or its metadata projection.
   const gridEmptyStateContent = currentView === 'grid' && data.length === 0
-    ? (() => {
+    ? (hostEmptyStateContent != null && emptyResultReady && !loading && !loadError && perms.isLoaded
+      ? hostEmptyStateContent
+      : (() => {
         const iconName = schema.emptyState?.icon;
         // objectui#5935: normalisation through the ONE seam. The `Inbox`
         // fallback remains this surface's decision for an empty list.
@@ -3953,7 +3985,7 @@ export const ListView = React.forwardRef<ListViewHandle, ListViewProps>(({
             ) : undefined}
           />
         );
-      })()
+      })())
     : undefined;
 
   // A not-yet-resolved field policy is not permission to reveal column names.
@@ -4770,6 +4802,11 @@ export const ListView = React.forwardRef<ListViewHandle, ListViewProps>(({
             schema={viewComponentSchema}
             {...props}
             {...(mobileLayout ? { mobileLayout } : {})}
+            {...(currentView === 'grid' ? {
+              showRowNumbers,
+              hideHeaderWhenEmpty: hideHeaderWhenEmpty && emptyResultReady && !loading && !loadError,
+              hidePaginationWhenEmpty: hidePaginationWhenEmpty && emptyResultReady && !loading && !loadError,
+            } : {})}
             {...(gridEmptyStateContent ? { emptyStateContent: gridEmptyStateContent } : {})}
             {...(ganttOwnsData
               // Withheld, not dropped. See `ganttOwnsData` above for why this

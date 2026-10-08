@@ -764,10 +764,15 @@ function columnsAreEquivalent(a: readonly unknown[], b: readonly unknown[]): boo
 const DataTableRenderer = ({
   schema,
   emptyStateContent: hostEmptyStateContent,
+  hideHeaderWhenEmpty = false,
+  hidePaginationWhenEmpty = false,
 }: {
   schema: DataTableSchema;
   /** Internal React-only slot; it is not a DataTableSchema metadata key. */
   emptyStateContent?: React.ReactNode;
+  /** React-only choices for a host that has confirmed a successful empty read. */
+  hideHeaderWhenEmpty?: boolean;
+  hidePaginationWhenEmpty?: boolean;
 }) => {
   const {
     caption,
@@ -1064,66 +1069,6 @@ const DataTableRenderer = ({
   const [measuredStickyOffsets, setMeasuredStickyOffsets] = useState<MeasuredStickyOffsets | null>(null);
   const utilityColumnCount = (selectable ? 1 : 0) + (showRowNumbers ? 1 : 0);
 
-  useLayoutEffect(() => {
-    const headerRow = headerRowRef.current;
-    if (!headerRow) {
-      setMeasuredStickyOffsets(null);
-      return;
-    }
-
-    const headerCells = Array.from(headerRow.children) as HTMLElement[];
-    const isPinnedLeftHeader = headerCells.map((_, index) => {
-      if (index < utilityColumnCount) return frozenColumns > 0;
-      const columnIndex = index - utilityColumnCount;
-      return columnIndex < columnPinSides.length && columnPinSides[columnIndex] === 'left';
-    });
-    const isPinnedRightHeader = headerCells.map((_, index) => {
-      const columnIndex = index - utilityColumnCount;
-      return columnIndex >= 0
-        && columnIndex < columnPinSides.length
-        && columnPinSides[columnIndex] === 'right';
-    });
-
-    if (!isPinnedLeftHeader.some(Boolean) && !isPinnedRightHeader.some(Boolean)) {
-      setMeasuredStickyOffsets(null);
-      return;
-    }
-
-    const measure = () => {
-      const left = Array<number | undefined>(headerCells.length).fill(undefined);
-      const right = Array<number | undefined>(headerCells.length).fill(undefined);
-
-      let leftOffset = 0;
-      headerCells.forEach((cell, index) => {
-        if (!isPinnedLeftHeader[index]) return;
-        left[index] = leftOffset;
-        leftOffset += cell.getBoundingClientRect().width;
-      });
-
-      let rightOffset = 0;
-      for (let index = headerCells.length - 1; index >= 0; index -= 1) {
-        if (!isPinnedRightHeader[index]) continue;
-        right[index] = rightOffset;
-        rightOffset += headerCells[index].getBoundingClientRect().width;
-      }
-
-      const next = { left, right };
-      setMeasuredStickyOffsets((previous) =>
-        stickyOffsetsEqual(previous, next) ? previous : next
-      );
-    };
-
-    measure();
-    if (typeof ResizeObserver === 'undefined') return;
-    // Header-cell widths ARE the column widths, and they change outside React
-    // (column resize drag, density toggle, content growth), so re-measure on
-    // any pinned cell resizing; only pinned widths contribute to an offset.
-    const observer = new ResizeObserver(measure);
-    headerCells.forEach((cell, index) => {
-      if (isPinnedLeftHeader[index] || isPinnedRightHeader[index]) observer.observe(cell);
-    });
-    return () => observer.disconnect();
-  }, [columnPinSignature, columns, frozenColumns, selectable, showRowNumbers, utilityColumnCount]);
   const [draggedColumn, setDraggedColumn] = useState<number | null>(null);
   const [dragOverColumn, setDragOverColumn] = useState<number | null>(null);
   const [editingCell, setEditingCell] = useState<{ rowIndex: number; columnKey: string } | null>(null);
@@ -1322,6 +1267,75 @@ const DataTableRenderer = ({
   const paginatedData = (pagination && !manualPagination)
     ? sortedData.slice((currentPage - 1) * pageSize, currentPage * pageSize)
     : sortedData;
+
+  // An absent/malformed row payload is not a successful empty result. A
+  // server window also needs a known zero total; a blank page with matches
+  // elsewhere must keep its paging controls. Async hosts gate these React
+  // props on their own loading/error state before handing the rows down.
+  const confirmedEmpty = Array.isArray(schema.data) && sortedData.length === 0
+    && (!manualPagination || rowCount === 0);
+  const headerVisible = !(hideHeaderWhenEmpty && confirmedEmpty);
+
+  useLayoutEffect(() => {
+    const headerRow = headerRowRef.current;
+    if (!headerRow) {
+      setMeasuredStickyOffsets(null);
+      return;
+    }
+
+    const headerCells = Array.from(headerRow.children) as HTMLElement[];
+    const isPinnedLeftHeader = headerCells.map((_, index) => {
+      if (index < utilityColumnCount) return frozenColumns > 0;
+      const columnIndex = index - utilityColumnCount;
+      return columnIndex < columnPinSides.length && columnPinSides[columnIndex] === 'left';
+    });
+    const isPinnedRightHeader = headerCells.map((_, index) => {
+      const columnIndex = index - utilityColumnCount;
+      return columnIndex >= 0
+        && columnIndex < columnPinSides.length
+        && columnPinSides[columnIndex] === 'right';
+    });
+
+    if (!isPinnedLeftHeader.some(Boolean) && !isPinnedRightHeader.some(Boolean)) {
+      setMeasuredStickyOffsets(null);
+      return;
+    }
+
+    const measure = () => {
+      const left = Array<number | undefined>(headerCells.length).fill(undefined);
+      const right = Array<number | undefined>(headerCells.length).fill(undefined);
+
+      let leftOffset = 0;
+      headerCells.forEach((cell, index) => {
+        if (!isPinnedLeftHeader[index]) return;
+        left[index] = leftOffset;
+        leftOffset += cell.getBoundingClientRect().width;
+      });
+
+      let rightOffset = 0;
+      for (let index = headerCells.length - 1; index >= 0; index -= 1) {
+        if (!isPinnedRightHeader[index]) continue;
+        right[index] = rightOffset;
+        rightOffset += headerCells[index].getBoundingClientRect().width;
+      }
+
+      const next = { left, right };
+      setMeasuredStickyOffsets((previous) =>
+        stickyOffsetsEqual(previous, next) ? previous : next
+      );
+    };
+
+    measure();
+    if (typeof ResizeObserver === 'undefined') return;
+    // Header-cell widths ARE the column widths, and they change outside React
+    // (column resize drag, density toggle, content growth), so re-measure on
+    // any pinned cell resizing; only pinned widths contribute to an offset.
+    const observer = new ResizeObserver(measure);
+    headerCells.forEach((cell, index) => {
+      if (isPinnedLeftHeader[index] || isPinnedRightHeader[index]) observer.observe(cell);
+    });
+    return () => observer.disconnect();
+  }, [columnPinSignature, columns, frozenColumns, selectable, showRowNumbers, utilityColumnCount, headerVisible]);
 
   // Route page / page-size changes to the parent under manual pagination,
   // otherwise drive the internal state.
@@ -2152,7 +2166,7 @@ const DataTableRenderer = ({
             and is only reachable after scrolling to the last row. */}
         <Table containerClassName="overflow-visible">
           {caption && <TableCaption>{caption}</TableCaption>}
-          <TableHeader className="sticky top-0 bg-background z-10">
+          {headerVisible && <TableHeader className="sticky top-0 bg-background z-10">
             <TableRow ref={headerRowRef}>
               {selectable && (
                 <TableHead className={cn(tableHeaderGeometryClass, "w-10 bg-background px-3", frozenColumns > 0 && "sticky left-0 z-20")}>
@@ -2288,7 +2302,7 @@ const DataTableRenderer = ({
                 </TableHead>
               )}
             </TableRow>
-          </TableHeader>
+          </TableHeader>}
           <TableBody>
             {paginatedData.length === 0 ? (
               <TableRow
@@ -2804,7 +2818,7 @@ const DataTableRenderer = ({
       </div>
 
       {/* Server totals and page size remain useful for a single or empty page. */}
-      {pagination && (manualPagination || (sortedData.length > 0 && totalPages > 1)) && (
+      {pagination && !(hidePaginationWhenEmpty && confirmedEmpty) && (manualPagination || (sortedData.length > 0 && totalPages > 1)) && (
         <div className="flex flex-col sm:flex-row items-center justify-between gap-2 px-3 sm:px-4 py-2">
           <div className="flex items-center gap-2">
             {manualPagination && <span className="text-[length:var(--ui-table-font-size,0.875rem)] text-muted-foreground">{t('table.totalRecords', { count: rowCount ?? sortedData.length })}</span>}

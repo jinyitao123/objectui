@@ -97,6 +97,23 @@ applies. `emptyStateContent` is a React composition prop, not a
 node's natural minimum height; the standalone default retains its existing
 fixed `h-48` viewport geometry.
 
+`RecordTable` and the `data-table` renderer also accept React-only
+`hideHeaderWhenEmpty` and `hidePaginationWhenEmpty` props, both defaulting to
+`false`. A confirmed empty row array can suppress either region independently;
+manual server paging additionally requires `rowCount: 0`. An empty page with an
+unknown or positive total retains both regions. These props are not
+`DataTableSchema` keys. The table performs no reads and cannot infer a host's
+loading or error state: an asynchronous host must enable suppression only after
+a successful, complete empty read. ListView and ObjectGrid apply that gate for
+the reads they own. `showRowNumbers` remains the existing DataTable schema key,
+including for direct RecordTable composition.
+
+The `SchemaRenderer` bridge refuses authored `hideHeaderWhenEmpty`,
+`hidePaginationWhenEmpty` and `emptyStateContent` values at schema top level or
+inside `props`/`properties` for DataTable registrations. Explicit React host
+props still take precedence. The existing `schema.showRowNumbers` metadata key
+is preserved.
+
 Interactive `data-table` columns may set `fixed: 'left'` or `fixed: 'right'`.
 The renderer pins both header and body cells and measures rendered header widths
 so multiple fixed columns on the same side receive cumulative offsets. The
