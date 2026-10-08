@@ -72,10 +72,13 @@ import { toHostGroupProps } from './toHostGroupProps.js';
  * column. This is the renderer for the `field:grid` widget and the cell
  * engine behind the master-detail subform (see ADR-0001).
  *
- * Column config (a subset of `GridColumnDefinition`):
+ * Column config (the runtime subset of `GridColumnDefinition`):
  *   { name, label?, type?, options?, width?, required?, prefix?, step? }
  *   type ∈ 'text' | 'number' | 'currency' | 'date' | 'datetime' | 'time'
  *        | 'select' | 'lookup' | 'file'
+ * `placeholder`, `min`, and `max` below are React runtime display/input props;
+ * they do not extend the serialized GridColumnDefinition contract. The local
+ * `GridColumn` interface also serves direct React callers and resolver results.
  *
  * Field-level config (from `GridFieldMetadata`):
  *   columns, min_rows, max_rows, allow_add, allow_delete, total_field
@@ -111,6 +114,11 @@ export interface GridColumn {
   type?: 'text' | 'number' | 'currency' | 'date' | 'datetime' | 'time' | 'select' | 'lookup' | 'file';
   options?: Array<{ label: string; value: string }>;
   width?: number;
+  /** Displayed when a cell has no value, with the shared dash as fallback. */
+  placeholder?: string;
+  /** Runtime input bounds for numeric controls. */
+  min?: number;
+  max?: number;
   required?: boolean;
   prefix?: string;
   step?: number;
@@ -194,6 +202,16 @@ export type GridSelectionToolbarRenderer = (
   context: GridSelectionToolbarContext,
 ) => React.ReactNode;
 
+/** Runtime-only per-row control overrides for the labelled rows presentation. */
+export type GridColumnRuntimeOverrides = Partial<Pick<GridColumn, 'options' | 'placeholder' | 'min' | 'max'>>;
+
+/** Resolve static cell options and presentation values from the current row. */
+export type GridColumnResolver = (
+  column: Readonly<GridColumn>,
+  row: Readonly<GridSelectionRow>,
+  rowIndex: number,
+) => GridColumnRuntimeOverrides | undefined;
+
 /**
  * Runtime-only GridField affordances. Keep this separate from GridColumn and
  * field metadata: a React callback cannot be authored in ObjectStack JSON.
@@ -211,9 +229,57 @@ export interface GridFieldRuntimeProps {
   getRowKey?: (row: Readonly<GridSelectionRow>) => GridSelectionRowKey;
   /** Direct React slot; ObjectForm hosts may expose it through a code wrapper. */
   renderSelectionToolbar?: GridSelectionToolbarRenderer;
+  /**
+   * Runtime-only per-row cell options/presentation for `displayMode="rows"`.
+   * It does not issue queries; lookup options are consumed locally by LookupField.
+   */
+  resolveColumn?: GridColumnResolver;
+  /**
+   * React-only computation for editable `displayMode="rows"`. Receives the
+   * complete row and its resolved columns, and replaces expression computation.
+   * Return derived values without changing the row's identity. Omitted fields
+   * stay on the row; initial/external rows are derived for display only, while
+   * every emitted row is recomputed after its final position is assigned.
+   * Keep this callback pure: readonly snapshots and grid/list modes ignore it.
+   */
+  computeRow?: (
+    row: Readonly<GridSelectionRow>,
+    columns: readonly GridColumn[],
+  ) => GridSelectionRow;
 }
 
 type Row = Record<string, any>;
+const EMPTY_GRID_COLUMNS: GridColumn[] = [];
+
+function resolveGridRowColumn(
+  column: GridColumn,
+  row: Readonly<GridSelectionRow>,
+  rowIndex: number,
+  resolver?: GridColumnResolver,
+): GridColumn {
+  const overrides = resolver?.({ ...column }, row, rowIndex);
+  if (!overrides) return column;
+  const resolved = { ...column };
+  // The callback configures inputs, not column identity, type or field rules.
+  for (const key of ['options', 'placeholder', 'min', 'max'] as const) {
+    if (Object.prototype.hasOwnProperty.call(overrides, key)) {
+      Object.assign(resolved, { [key]: overrides[key] });
+    }
+  }
+  return resolved;
+}
+
+function computeHostRow(
+  row: Row,
+  rowIndex: number,
+  columns: GridColumn[],
+  computer: NonNullable<GridFieldRuntimeProps['computeRow']>,
+  resolver?: GridColumnResolver,
+): Row {
+  const resolvedColumns = columns.map((column) =>
+    resolveGridRowColumn(column, row as GridSelectionRow, rowIndex, resolver));
+  return { ...row, ...computer(row as GridSelectionRow, resolvedColumns) };
+}
 
 const isNumeric = (t?: string) => t === 'number' || t === 'currency';
 
@@ -536,6 +602,8 @@ export function GridField({
   totalUnavailable = false,
   getRowKey,
   renderSelectionToolbar,
+  resolveColumn,
+  computeRow: hostComputeRow,
   ...props
 }: FieldWidgetComponentProps<Row[]> & GridFieldRuntimeProps & {
   /** When provided, each row shows an "expand" button that opens the row in a
@@ -543,10 +611,11 @@ export function GridField({
    *  writes the edited values back). Lets a "fat" child be edited in a real form
    *  while the grid stays a quick at-a-glance editor. */
   onRowExpand?: (rowIndex: number) => void;
-  /** 'grid' (default) = editable cells; 'list' = read-only rows whose primary
+  /** 'grid' (default) = spreadsheet cells; 'list' = read-only rows whose primary
    *  action is per-row edit (via `onRowExpand`) and whose Add opens a new row
-   *  in the full form (via `onAdd`). The form-factor for "fat" children. */
-  displayMode?: 'grid' | 'list';
+   *  in the full form (via `onAdd`). 'rows' = labelled cells with only a
+   *  trailing Remove action; the host owns any Add action. */
+  displayMode?: 'grid' | 'list' | 'rows';
   /** In 'list' mode, "Add" calls this (host opens the full form for a new row)
    *  instead of inserting a blank inline row. */
   onAdd?: () => void;
@@ -557,12 +626,10 @@ export function GridField({
 }) {
   const { t } = useFieldTranslation();
   const cfg = (field || {}) as any;
-  const allColumns: GridColumn[] = runtimeColumns ?? cfg.columns ?? [];
+  const allColumns: GridColumn[] = runtimeColumns ??
+    (cfg.columns as GridColumn[] | undefined)?.map(({ placeholder: _placeholder, min: _min, max: _max, ...column }) => column) ??
+    EMPTY_GRID_COLUMNS;
   const rows: Row[] = Array.isArray(value) ? value : [];
-  // Keep the rows parent-owned, but derive formula cells for display on every
-  // render. Initial data and async controlled replacements should not need an
-  // unrelated user edit before read-only computed values become visible.
-  const computedRows = rows.map((row) => computeRow(allColumns, row));
   const [selectedRowKeys, setSelectedRowKeys] = React.useState<Set<string>>(() => new Set());
   const localRowKeys = useRef(new WeakMap<Row, string>());
   const nextLocalRowKey = useRef(1);
@@ -634,6 +701,23 @@ export function GridField({
   const columns: GridColumn[] = allColumns.filter(
     (c) => !c.defaultHidden || c.required || extraShown.has(c.name),
   );
+  // The labelled rows mode has no column chooser, so every configured column
+  // stays visible there even when the standard grid would start it hidden.
+  const rowColumns = displayMode === 'rows' ? allColumns : columns;
+  const resolveRowColumn = (column: GridColumn, row: Row, rowIndex: number): GridColumn => {
+    if (displayMode !== 'rows') return column;
+    return resolveGridRowColumn(column, row as GridSelectionRow, rowIndex, resolveColumn);
+  };
+  const usesHostComputation = displayMode === 'rows' && !readonly && !!hostComputeRow;
+  // Initial and externally replaced rows derive for display without changing
+  // the parent-owned value or emitting an unrelated onChange.
+  const computedRows = rows.map((row, rowIndex) => {
+    // Saved rows are business snapshots; opening them must not recalculate
+    // amounts with either current host rules or the default expression engine.
+    if (displayMode === 'rows' && readonly) return row;
+    if (usesHostComputation && hostComputeRow) return computeHostRow(row, rowIndex, allColumns, hostComputeRow, resolveColumn);
+    return computeRow(allColumns, row);
+  });
   const toggleColumn = useCallback((fieldName: string) => {
     setExtraShown((prev) => {
       const next = new Set(prev);
@@ -663,8 +747,15 @@ export function GridField({
 
   const emit = useCallback(
     (next: Row[]) => {
-      const output = sortField ? next.map((row, index) => ({ ...row, [sortField]: index })) : next;
-      if (sortField) next.forEach((row, index) => preserveLocalRowKey(row, output[index]));
+      const ordered = sortField ? next.map((row, index) => ({ ...row, [sortField]: index })) : next;
+      if (sortField) next.forEach((row, index) => preserveLocalRowKey(row, ordered[index]));
+      // All mutation paths pass here, including removal and reorder. Resolve
+      // columns against each final row/position before the host computes it.
+      const output = usesHostComputation && hostComputeRow ? ordered.map((row, index) => {
+        const derived = computeHostRow(row, index, allColumns, hostComputeRow, resolveColumn);
+        preserveLocalRowKey(row, derived);
+        return derived;
+      }) : ordered;
       const remainingKeys = new Set(resolveRowKeys(output));
       setSelectedRowKeys((previous) => {
         const kept = new Set([...previous].filter((key) => remainingKeys.has(key)));
@@ -672,7 +763,7 @@ export function GridField({
       });
       onChange?.(output);
     },
-    [onChange, sortField, preserveLocalRowKey, resolveRowKeys],
+    [onChange, sortField, preserveLocalRowKey, resolveRowKeys, usesHostComputation, hostComputeRow, allColumns, resolveColumn],
   );
 
   // External value replacement may produce new row objects. A host key lets
@@ -704,17 +795,19 @@ export function GridField({
       const isGhost = rowIdx >= rows.length;
       if (isGhost) {
         if (maxRows != null && rows.length >= maxRows) return;
-        emit([...rows, computeRow(columns, { ...blankRow(), ...patch })]);
+        const added = { ...blankRow(), ...patch };
+        emit([...rows, usesHostComputation ? added : computeRow(rowColumns, added)]);
         return;
       }
       emit(rows.map((row, index) => {
         if (index !== rowIdx) return row;
-        const updated = computeRow(columns, { ...row, ...patch });
+        const patched = { ...row, ...patch };
+        const updated = usesHostComputation ? patched : computeRow(rowColumns, patched);
         preserveLocalRowKey(row, updated);
         return updated;
       }));
     },
-    [rows, columns, maxRows, blankRow, emit, preserveLocalRowKey],
+    [rows, rowColumns, maxRows, blankRow, emit, preserveLocalRowKey, usesHostComputation],
   );
 
   const applyCell = useCallback(
@@ -731,9 +824,9 @@ export function GridField({
    */
   const applyLookupSelection = useCallback(
     (rowIdx: number, col: GridColumn, record: any) => {
-      applyPatch(rowIdx, lookupAutofillPatch(columns, col, record));
+      applyPatch(rowIdx, lookupAutofillPatch(rowColumns, col, record));
     },
-    [columns, applyPatch],
+    [rowColumns, applyPatch],
   );
 
   /** Set a cell to an already-typed value (lookup ids, etc.) without coercion. */
@@ -760,8 +853,9 @@ export function GridField({
   // (and into the ever-present ghost row, so tabbing past the last cell starts
   // a new line). Cells carry data-cell="row-col" so we can target neighbours.
   const gridRef = useRef<HTMLTableElement>(null);
+  const rowsRef = useRef<HTMLDivElement>(null);
   const focusCell = useCallback((rowIdx: number, colIdx: number) => {
-    const el = gridRef.current?.querySelector<HTMLElement>(`[data-cell="${rowIdx}-${colIdx}"]`);
+    const el = (rowsRef.current ?? gridRef.current)?.querySelector<HTMLElement>(`[data-cell="${rowIdx}-${colIdx}"]`);
     if (el) {
       el.focus();
       if (el instanceof HTMLInputElement) el.select();
@@ -769,6 +863,7 @@ export function GridField({
   }, []);
   const onCellKeyDown = useCallback(
     (e: React.KeyboardEvent, rowIdx: number, colIdx: number) => {
+      if (e.nativeEvent.isComposing) return;
       if (e.key === 'ArrowDown' || e.key === 'Enter') {
         e.preventDefault();
         focusCell(rowIdx + 1, colIdx);
@@ -868,14 +963,15 @@ export function GridField({
       }
 
       if (Object.keys(writablePatch).length === 0) return row;
-      const updated = computeRow(allColumns, { ...row, ...writablePatch });
+      const patched = { ...row, ...writablePatch };
+      const updated = usesHostComputation ? patched : computeRow(allColumns, patched);
       preserveLocalRowKey(row, updated);
       changed = true;
       return updated;
     });
 
     if (changed) emit(next);
-  }, [canPatchSelected, selectedIndices, rows, allColumns, cellRules, preserveLocalRowKey, emit]);
+  }, [canPatchSelected, selectedIndices, rows, allColumns, cellRules, preserveLocalRowKey, emit, usesHostComputation]);
 
   const removeSelected = useCallback(() => {
     if (!canRemoveSelected) return;
@@ -910,7 +1006,7 @@ export function GridField({
   const total = showTotal ? sumColumn(computedRows, totalField!) : 0;
   // Align the running total under the column it sums (not blindly under the
   // last column). The label sits right-aligned immediately to its left.
-  const totalColIndex = showTotal ? Math.max(0, columns.findIndex((c) => c.name === totalField)) : -1;
+  const totalColIndex = showTotal ? Math.max(0, rowColumns.findIndex((c) => c.name === totalField)) : -1;
 
   // Column chooser — reveal/hide the optional (default-hidden) columns. Only
   // rendered when there are optional columns to manage.
@@ -960,6 +1056,76 @@ export function GridField({
 
   // ── Read-only / view rendering ────────────────────────────────────────────
   if (readonly) {
+    if (displayMode === 'rows') {
+      return (
+        <div
+          {...toHostGroupProps(props, 'instead-of-the-inputs')}
+          className={cn('space-y-2', className)}
+          data-testid="line-items-readonly-rows"
+        >
+          <div className="overflow-x-auto" data-testid="line-items-row-scroll">
+            <div className="min-w-[var(--ui-grid-field-row-min-width,1040px)] space-y-[var(--ui-grid-field-row-gap,7px)] [--ui-grid-field-row-base-control-height:var(--ui-control-height,2rem)]">
+              {rows.length === 0 ? (
+                <div className="py-2 text-sm text-muted-foreground">{t('common.noData')}</div>
+              ) : rows.map((row, rowIdx) => {
+                const computedRow = computedRows[rowIdx] ?? row;
+                return (
+                  <div
+                    key={rowKeys[rowIdx]}
+                    className="flex items-end gap-[var(--ui-grid-field-row-gap,7px)]"
+                    data-testid={`line-items-row-${rowIdx}`}
+                  >
+                    <div className="grid min-w-0 flex-1 grid-flow-col auto-cols-[minmax(var(--ui-grid-field-row-min-cell-width,90px),1fr)] grid-cols-[var(--ui-grid-field-row-template,none)] gap-[var(--ui-grid-field-row-gap,7px)]">
+                      {rowColumns.map((baseColumn) => {
+                        const c = resolveRowColumn(baseColumn, row, rowIdx);
+                        const displayValue = c.computed ? computedRow[c.name] : row[c.name];
+                        const staticOptionsOnly = displayMode === 'rows' && c.options !== undefined;
+                        let content: React.ReactNode;
+                        if (c.type === 'lookup' && displayValue != null && displayValue !== '') {
+                          content = (
+                            <LookupField
+                              value={displayValue}
+                              onChange={() => {}}
+                              readonly
+                              compact
+                              field={{
+                                ...(!staticOptionsOnly && c.reference ? { reference: c.reference } : {}),
+                                displayField: c.displayField,
+                                idField: c.idField,
+                                options: c.options,
+                                placeholder: c.placeholder ?? '—',
+                              } as any}
+                            />
+                          );
+                        } else {
+                          content = displayText(c, displayValue, displayLocale, t);
+                        }
+                        return (
+                          <div key={c.name} className="flex min-w-0 flex-col">
+                            <span className="mb-[var(--ui-grid-field-row-label-margin-bottom,5.25px)] block truncate text-[length:var(--ui-grid-field-row-label-font-size,12px)] leading-[var(--ui-grid-field-row-label-line-height,18px)] font-medium text-muted-foreground">
+                              {c.label || c.name}
+                            </span>
+                            <div className="flex min-h-[var(--ui-grid-field-row-control-height,var(--ui-grid-field-row-base-control-height))] min-w-0 items-center truncate text-[length:var(--ui-control-font-size,0.875rem)] text-foreground">
+                              {content}
+                            </div>
+                          </div>
+                        );
+                      })}
+                    </div>
+                  </div>
+                );
+              })}
+            </div>
+          </div>
+          {showTotal && (
+            <div className="flex justify-end gap-2 text-sm font-medium" data-testid="line-items-total">
+              <span>{t('report.total')}</span>
+              <span className="tabular-nums">{totalUnavailable ? '—' : total.toLocaleString()}</span>
+            </div>
+          )}
+        </div>
+      );
+    }
     return (
       <div
         // No input of the field's own renders here, so this surface is the only
@@ -1145,13 +1311,26 @@ export function GridField({
       );
     }
     if (c.type === 'lookup') {
+      // In the rows presentation, an explicitly supplied options array is a
+      // local choice set. Do not give LookupField a reference key in that case:
+      // with a host DataSource present, that key would enable a record query and
+      // make the static per-row options secondary to the remote result.
+      const staticOptionsOnly = displayMode === 'rows' && c.options !== undefined;
       return (
         <LookupField
           value={val}
           onChange={(v: any) => setCellValue(rowIdx, c.name, v)}
           onSelectRecord={(rec: any) => applyLookupSelection(rowIdx, c, rec)}
           compact
-          field={{ reference: c.reference, displayField: c.displayField, idField: c.idField, multiple: c.multiple, options: c.options, placeholder: '—' } as any}
+          aria-label={c.label || c.name}
+          field={{
+            ...(!staticOptionsOnly && c.reference ? { reference: c.reference } : {}),
+            displayField: c.displayField,
+            idField: c.idField,
+            multiple: c.multiple,
+            options: c.options,
+            placeholder: c.placeholder ?? '—',
+          } as any}
           disabled={locked}
           // The published `error` slot, not a hand-rolled attribute: LookupField
           // already puts `aria-invalid` on its own focusable trigger from it.
@@ -1187,7 +1366,7 @@ export function GridField({
             aria-label={c.label || c.name}
             aria-invalid={invalid || undefined}
           >
-            <SelectValue placeholder="—" />
+            <SelectValue placeholder={c.placeholder ?? '—'} />
           </SelectTrigger>
           <SelectContent>
             {(c.options || []).map((o) => (
@@ -1238,7 +1417,10 @@ export function GridField({
                     : 'text'
           }
           step={isNumeric(c.type) ? c.step ?? 'any' : undefined}
+          min={isNumeric(c.type) ? c.min : undefined}
+          max={isNumeric(c.type) ? c.max : undefined}
           aria-label={c.label || c.name}
+          placeholder={c.placeholder}
           // A temporal cell holding the API's ISO shape (`2026-06-17T14:30:00.000Z`)
           // is SILENTLY rejected by the native control — the attribute lands in
           // the DOM but `input.value` reads back `''` and the cell paints empty
@@ -1280,6 +1462,82 @@ export function GridField({
   // IDREF (objectui#3961) — standalone rendering (a bare SDUI node) hands down
   // no `aria-labelledby`, emits no role, and keeps its markup unchanged.
   const isLabelledGroup = groupDomProps['aria-labelledby'] != null;
+
+  // Code-only row presentation for hosts composing dense line-entry forms.
+  // Keep only the per-cell control and the row's Remove affordance here: Add,
+  // selection, reorder, duplicate, expand, chooser, and the ghost row belong to
+  // the standard grid mode or to the host's surrounding section actions.
+  if (displayMode === 'rows') {
+    return (
+      <div
+        {...groupDomProps}
+        role={isLabelledGroup ? 'group' : undefined}
+        className={cn('space-y-0', className)}
+        data-testid="line-items-rows"
+        ref={rowsRef}
+      >
+        <div className="overflow-x-auto" data-testid="line-items-row-scroll">
+          <div className="min-w-[var(--ui-grid-field-row-min-width,1040px)] space-y-[var(--ui-grid-field-row-gap,7px)] [--ui-grid-field-row-base-control-height:var(--ui-control-height,2rem)]">
+            {rows.length === 0 ? (
+              <div className="py-2 text-sm text-muted-foreground">{t('common.noData')}</div>
+            ) : rows.map((row, rowIdx) => {
+              const computedRow = computedRows[rowIdx] ?? row;
+              return (
+                <div
+                  key={rowKeys[rowIdx]}
+                  className="flex items-end gap-[var(--ui-grid-field-row-gap,7px)]"
+                  data-testid={`line-items-row-${rowIdx}`}
+                >
+                  <div className="grid min-w-0 flex-1 grid-flow-col auto-cols-[minmax(var(--ui-grid-field-row-min-cell-width,90px),1fr)] grid-cols-[var(--ui-grid-field-row-template,none)] gap-[var(--ui-grid-field-row-gap,7px)]">
+                    {rowColumns.map((baseColumn, colIdx) => {
+                      const c = resolveRowColumn(baseColumn, row, rowIdx);
+                      const required = cellRules(c, row).required;
+                      const invalid = required && !c.computed && (row[c.name] == null || row[c.name] === '');
+                      const controlHeightClass = c.type === 'lookup' || c.type === 'select'
+                        ? '[--ui-control-height:var(--ui-grid-field-row-select-height,var(--ui-grid-field-row-base-control-height))]'
+                        : '[--ui-control-height:var(--ui-grid-field-row-control-height,var(--ui-grid-field-row-base-control-height))]';
+                      return (
+                        <div key={c.name} className={cn('flex min-w-0 flex-col', controlHeightClass)}>
+                          <span className="mb-[var(--ui-grid-field-row-label-margin-bottom,5.25px)] block truncate text-[length:var(--ui-grid-field-row-label-font-size,12px)] leading-[var(--ui-grid-field-row-label-line-height,18px)] font-medium text-muted-foreground">
+                            {c.label || c.name}
+                            {required && !c.computed && <span className="text-destructive"> *</span>}
+                          </span>
+                          <div className="flex min-h-[var(--ui-control-height,2rem)] min-w-0 items-center">
+                            {renderCellInput(c, colIdx, rowIdx, row, invalid, computedRow)}
+                          </div>
+                        </div>
+                      );
+                    })}
+                  </div>
+                  {cfg.allow_delete !== false && (
+                    <Button
+                      type="button"
+                      variant="ghost"
+                      size="icon"
+                      className="mb-[var(--ui-grid-field-row-remove-offset,3.5px)] h-[var(--ui-grid-field-row-remove-height,24.5px)] w-[var(--ui-grid-field-row-remove-width,28px)] shrink-0 p-0 text-muted-foreground hover:text-destructive"
+                      aria-label={t('grid.removeRow')}
+                      title={t('grid.removeRow')}
+                      data-testid={`line-items-remove-${rowIdx}`}
+                      onClick={() => removeRow(rowIdx)}
+                      disabled={disabled || rows.length <= minRows}
+                    >
+                      <Trash2 className="h-3.5 w-3.5" />
+                    </Button>
+                  )}
+                </div>
+              );
+            })}
+          </div>
+        </div>
+        {showTotal && (
+          <div className="flex justify-end gap-2 text-sm font-medium" data-testid="line-items-total">
+            <span>{t('report.total')}</span>
+            <span className="tabular-nums">{totalUnavailable ? '—' : total.toLocaleString()}</span>
+          </div>
+        )}
+      </div>
+    );
+  }
 
   return (
     <div

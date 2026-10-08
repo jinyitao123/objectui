@@ -730,7 +730,7 @@ function withoutAuthoredDataKey<T extends object>(bag: T, refuse: boolean): T {
 
 const TABLE_HOST_PRESENTATION_KEYS = ['hideHeaderWhenEmpty', 'hidePaginationWhenEmpty', 'emptyStateContent'] as const;
 const VIEW_HOST_PRESENTATION_KEYS = [...TABLE_HOST_PRESENTATION_KEYS, 'showRowNumbers'] as const;
-// These are the registrations of DataTable, ObjectGrid and ListView. Bare
+// These are the registrations of the table views and GridField. Bare
 // `grid`/`list` belong to other renderers and must retain their authored props.
 const HOST_PRESENTATION_KEYS_BY_TYPE = new Map<string, readonly string[]>([
   ['data-table', TABLE_HOST_PRESENTATION_KEYS],
@@ -741,14 +741,25 @@ const HOST_PRESENTATION_KEYS_BY_TYPE = new Map<string, readonly string[]>([
   ['list-view', VIEW_HOST_PRESENTATION_KEYS],
   ['plugin-list:list-view', VIEW_HOST_PRESENTATION_KEYS],
   ['view:list', VIEW_HOST_PRESENTATION_KEYS],
+  ['field:grid', ['displayMode', 'resolveColumn', 'computeRow']],
 ]);
 
 /** Refuse authored values only; the explicit React host props are spread last. */
-function withoutAuthoredTablePresentationKeys<T extends object>(bag: T, type: string): T {
+function withoutAuthoredHostPresentationKeys<T extends object>(bag: T, type: string): T {
   const keys = HOST_PRESENTATION_KEYS_BY_TYPE.get(type);
-  if (!keys?.some(key => Object.prototype.hasOwnProperty.call(bag, key))) return bag;
+  const authoredColumns = type === 'field:grid' ? (bag as Record<string, unknown>).columns : undefined;
+  if (!keys?.some(key => Object.prototype.hasOwnProperty.call(bag, key)) && !Array.isArray(authoredColumns)) return bag;
   const rest = { ...bag } as Record<string, unknown>;
-  for (const key of keys) delete rest[key];
+  for (const key of keys ?? []) delete rest[key];
+  // Preserve native column metadata in every authoring carrier while keeping
+  // the new React-only input bounds/placeholders out of the runtime prop seat.
+  if (Array.isArray(authoredColumns)) {
+    rest.columns = authoredColumns.map((column: unknown) => {
+      if (!column || typeof column !== 'object') return column;
+      const { placeholder: _placeholder, min: _min, max: _max, ...metadata } = column as Record<string, unknown>;
+      return metadata;
+    });
+  }
   // DataTable's existing showRowNumbers schema key is deliberately not stripped.
   return rest as T;
 }
@@ -1927,7 +1938,7 @@ export const SchemaRenderer: ForwardRefExoticComponent<
   if (__DEV__ && dataFilteredPropsBag !== aliasBagAsAuthored) {
     reportRefusedDataPropSpread(evaluatedSchema.type, evaluatedSchema.id);
   }
-  const outgoingPropsBag = withoutAuthoredTablePresentationKeys(dataFilteredPropsBag, evaluatedSchema.type);
+  const outgoingPropsBag = withoutAuthoredHostPresentationKeys(dataFilteredPropsBag, evaluatedSchema.type);
 
   // Dev-build diagnostic (objectui#6708, maintainer ruling 2026-08-29, option
   // 2): those keys are spread as React props and never hoisted onto the node,
@@ -2020,7 +2031,7 @@ export const SchemaRenderer: ForwardRefExoticComponent<
   if (__DEV__ && dataFilteredComponentProps !== componentProps) {
     reportRefusedDataPropSpread(evaluatedSchema.type, evaluatedSchema.id);
   }
-  const outgoingComponentProps = withoutAuthoredTablePresentationKeys(dataFilteredComponentProps, evaluatedSchema.type);
+  const outgoingComponentProps = withoutAuthoredHostPresentationKeys(dataFilteredComponentProps, evaluatedSchema.type);
 
   // SDUI scoped styling (ADR-0065) — computed in the memo hoisted above the
   // early returns; see the doc comment there for why it cannot live here.
