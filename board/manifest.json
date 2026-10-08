@@ -1,8 +1,8 @@
 {
   "schema": 1,
   "repo": "jinyitao123/objectui",
-  "generated_at": "2026-10-08T09:01:08.179Z",
-  "walk_phase": "history",
+  "generated_at": "2026-10-08T19:58:07.593Z",
+  "walk_phase": "incremental",
   "walk": {
     "open_set": {
       "complete": true,
@@ -10,9 +10,9 @@
       "cursor": null
     },
     "delta": {
-      "complete": false,
-      "cursor": null,
-      "since": null,
+      "complete": true,
+      "cursor": "2026-10-08T05:44:46Z",
+      "since": "2026-10-08T05:44:46Z",
       "slice": 300
     },
     "history": {
@@ -20,8 +20,8 @@
       "cursor": "2026-10-08T05:44:46Z"
     }
   },
-  "since": null,
-  "since_reason": "no previous manifest — the first run is full, and it starts with the open board",
+  "since": "2026-10-08T05:44:46Z",
+  "since_reason": "incremental from the previous run's next_since (2026-10-08T05:44:46Z)",
   "next_since": "2026-10-08T05:44:46Z",
   "resume": null,
   "counts": {
@@ -34,7 +34,7 @@
   "board": {
     "open_issues_count": 0,
     "open_pull_requests": 0,
-    "read_at": "2026-10-08T09:01:04.901Z"
+    "read_at": "2026-10-08T19:58:07.592Z"
   },
   "count_check": {
     "verdict": "ok",
@@ -51,12 +51,12 @@
     "pending_since": null,
     "reason": null
   },
-  "requests": 15,
+  "requests": 6,
   "run": {
-    "numbers_read": 4,
-    "files_written": 7,
+    "numbers_read": 1,
+    "files_written": 0,
     "walk_complete": true,
-    "open_set_completed_here": true,
+    "open_set_completed_here": false,
     "delta_ran": false,
     "delta_completed_here": false,
     "delta_requests": 0
