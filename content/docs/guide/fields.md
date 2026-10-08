@@ -235,6 +235,62 @@ These callbacks are React-only. Register `GridField` as a direct React runtime
 component for trusted React Pages rather than passing functions through
 `<Block>` schema or field metadata.
 
+### Labelled GridField rows
+
+Direct React hosts may use `displayMode="rows"` for a horizontally scrollable,
+labelled line-item editor. Each row contains its configured cells and, when
+deletion is allowed, only one trailing Remove icon. This mode has no internal
+Add button, duplicate/expand actions, selection, reorder handles, column chooser,
+or ghost row; a host may provide Add in its surrounding section. The standard
+`grid` and `list` defaults remain unchanged. Read-only mode shows labelled values;
+disabled mode keeps the controls visible and disabled.
+
+`resolveColumn(column, row, rowIndex)` is an optional React-only callback for
+per-row static lookup/select options, placeholders, and numeric bounds. Static
+lookup options do not trigger a reference query in `rows` mode. A value missing
+from the current options remains in the controlled row and shows the configured
+placeholder; a host that needs an old item's display name can provide it as a
+snapshot option. Edits and computed values still flow through `onChange`.
+Runtime overrides accept only `options`, `placeholder`, `min`, and `max`;
+column identity, type, computed state, and field predicates remain unchanged.
+
+For calculations shared with a backend, a direct React host can pass
+`computeRow(row, columns)` with the signature
+`(row: Readonly<GridSelectionRow>, columns: readonly GridColumn[]) => GridSelectionRow`.
+The complete row and its `resolveColumn`-resolved columns reach this callback.
+Return derived fields without changing identity fields; omitted fields stay on
+the complete row and stable keys survive internal edits. Keep the callback pure.
+It replaces expression computation in editable `rows` mode, allowing integer-cent
+rounding without a later floating-point overwrite. A host-computed column only
+needs `computed: true` in React `columns`; `expr` is optional there. Serialized
+computed columns still require `expr`. Returning `null` or `undefined` for an
+unavailable amount displays the empty dash instead of a zero.
+
+Initial rows and controlled host Add/reorder replacements derive for display
+without calling `onChange`. Every internal change computes all emitted rows
+after final `sort_field` positions are assigned, including edits, insertion,
+removal, and reorder. Read-only `rows` preserves saved cells and totals without
+running either calculation path. Standard `grid`/`list` modes ignore the
+callback, and editable `rows` without it retains expression computation. The
+callback is a React runtime property, not ObjectStack metadata.
+
+The public `GridColumn`, `GridColumnResolver`, `GridColumnRuntimeOverrides`, and
+`GridFieldRuntimeProps` types are exported by `@object-ui/fields`. Authored
+`field:grid` nodes cannot supply `displayMode`, `resolveColumn`, or `computeRow`
+through the node itself or its `props`/`properties` bags. Metadata columns cannot
+supply the new input `placeholder`/`min`/`max` either. Existing native columns
+are preserved; explicit React host props remain effective. These controls do
+not grant data or field permissions. See the package README's labelled rows
+example for a complete host implementation.
+
+Hosts may set `--ui-grid-field-row-template` for data-cell widths only; the
+Remove column remains a separate 28px track. The default scroll region is
+1040px wide, with 90px minimum implicit cell tracks, a 7px row/cell gap, and
+12px/18px labels separated from controls by 5.25px. Control and Remove geometry
+can be tuned with `--ui-grid-field-row-control-height`,
+`--ui-grid-field-row-select-height`, `--ui-grid-field-row-remove-width`,
+`--ui-grid-field-row-remove-height`, and `--ui-grid-field-row-remove-offset`.
+
 ## GridField computed columns
 
 Serialized `GridFieldMetadata.columns` can declare read-only computed cells with
@@ -257,6 +313,8 @@ numeric sibling-field references written as `record.field` or `field`. Missing
 or nonnumeric inputs display as an em dash. The grid derives these cells for
 initial and externally replaced rows without calling `onChange`; editing or
 batch-patching a row includes recomputed values in the controlled update.
+The labelled `rows` mode uses the host-calculation and read-only snapshot rules
+described above.
 `GridColumnDefinition` is available from `@object-ui/types`, and its strict
 validator is `GridColumnDefinitionSchema` from `@object-ui/types/zod`.
 

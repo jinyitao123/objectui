@@ -259,6 +259,112 @@ ObjectStack field or column metadata. A React Page host must expose GridField as
 a direct React runtime component; do not put callback functions into `<Block>`
 schema props or persisted JSON.
 
+### Labelled line rows in GridField
+
+Trusted React hosts can pass `displayMode="rows"` to render each configured
+line as labelled cells above their controls. The horizontal scroll region keeps
+all configured columns visible and presents only a trailing Remove icon; it does
+not add an Add button, duplicate/expand actions, selection, drag handles, column
+chooser, or ghost row. Put Add in the surrounding `DocumentSection` or host
+toolbar and set `allow_add: false` when the component must never insert a row.
+The default `grid` and existing `list` modes are unchanged. `readonly` keeps the
+same row presentation with values instead of controls; `disabled` keeps controls
+and disables edits/removal.
+
+`resolveColumn(column, row, rowIndex)` is a React-only callback for row-specific
+static options, placeholders, and numeric `min`/`max` bounds. In `rows` mode,
+lookup options supplied by this resolver are handed to `LookupField` as a local
+option set, without a reference query. If a stored lookup ID is absent from the
+current options, GridField keeps the value and displays the placeholder; hosts
+that need a name for a stale item can include its display snapshot in the options.
+This callback only configures controls; all value changes continue through the
+controlled `onChange` array. Only `options`, `placeholder`, `min`, and `max` are
+accepted at runtime; resolver results cannot replace the column name, type,
+computed flag, or required/read-only predicates.
+
+`computeRow(row, columns)` is a React-only callback for host-owned calculations
+in editable `rows` mode. Its typed signature is
+`(row: Readonly<GridSelectionRow>, columns: readonly GridColumn[]) => GridSelectionRow`.
+It receives the complete row and all columns after `resolveColumn` has applied
+that row's overrides. Return derived values from the same shared rules as the
+backend, such as integer-cent monetary rounding. Returned fields merge onto the
+complete row, retaining omitted fields and the row's stable identity; keep
+identity fields unchanged and make the callback pure. A computed cell needs
+`computed: true` but does not need an `expr` when the host supplies its value
+through React `columns`. Serialized computed columns still require `expr`.
+Return `null` or `undefined` for an unavailable amount to display the empty dash.
+
+The callback replaces the default expression computation, so its result is
+never overwritten by floating-point `expr` evaluation. Initial rows and external
+Add/reorder replacements derive for display without emitting `onChange`. Every
+internal change recomputes all emitted rows after assigning their final
+`sort_field` positions, including cell edits, insertion, deletion, and reorder.
+Read-only `rows` mode displays saved values and totals without recalculation.
+The `grid` and `list` modes ignore the callback; editable `rows` without it keep
+the existing expression behavior. These callbacks are code-only and do not add
+ObjectStack field or column metadata.
+
+`GridColumn`, `GridColumnResolver`, `GridColumnRuntimeOverrides`, and
+`GridFieldRuntimeProps` are exported from `@object-ui/fields`. `displayMode`,
+`resolveColumn`, and `computeRow` are host props: `SchemaRenderer` ignores them
+in authored `field:grid` nodes, including their `props`/`properties` bags.
+It also ignores the new `placeholder`/`min`/`max` column attributes in metadata.
+Native column metadata remains usable; explicit React host props still take
+precedence. The resolver is presentation configuration, not authorization.
+
+```tsx
+import React, { useState } from 'react';
+import {
+  GridField,
+  type GridColumn,
+  type GridColumnResolver,
+  type GridFieldRuntimeProps,
+  type GridSelectionRow,
+} from '@object-ui/fields';
+
+const columns: GridColumn[] = [
+  { name: 'quantity', label: 'Quantity', type: 'number' },
+  { name: 'doubled', label: 'Doubled quantity', type: 'number', computed: true },
+];
+const resolveColumn: GridColumnResolver = (column) =>
+  column.name === 'quantity' ? { min: 1, max: 100 } : undefined;
+const computeRow: NonNullable<GridFieldRuntimeProps['computeRow']> = (row) => ({
+  doubled: row.quantity == null ? null : Number(row.quantity) * 2,
+});
+
+export function LabelledRowsEditor() {
+  const [rows, setRows] = useState<GridSelectionRow[]>([{ quantity: 1 }]);
+  return (
+    <GridField
+      field={{ name: 'items', type: 'grid', allow_add: false }}
+      value={rows}
+      onChange={setRows}
+      columns={columns}
+      displayMode="rows"
+      resolveColumn={resolveColumn}
+      computeRow={computeRow}
+    />
+  );
+}
+```
+
+The host can set these CSS variables on a wrapper around GridField:
+
+| Token | Default | Purpose |
+| --- | --- | --- |
+| `--ui-grid-field-row-template` | `none` | Data-cell tracks only; leave the trailing Remove slot out of this template. |
+| `--ui-grid-field-row-min-width` | `1040px` | Minimum width of the scrollable row region. |
+| `--ui-grid-field-row-min-cell-width` | `90px` | Minimum width for an implicit data-cell track. |
+| `--ui-grid-field-row-gap` | `7px` | Horizontal cell gap and vertical row gap. |
+| `--ui-grid-field-row-label-font-size` | `12px` | Cell-label size. |
+| `--ui-grid-field-row-label-line-height` | `18px` | Cell-label line height. |
+| `--ui-grid-field-row-label-margin-bottom` | `5.25px` | Space between label and control. |
+| `--ui-grid-field-row-control-height` | inherited control height | Input and control height for regular row cells. |
+| `--ui-grid-field-row-select-height` | inherited control height | Lookup and select trigger height. |
+| `--ui-grid-field-row-remove-width` | `28px` | Remove-button width. |
+| `--ui-grid-field-row-remove-height` | `24.5px` | Remove-button height. |
+| `--ui-grid-field-row-remove-offset` | `3.5px` | Bottom offset for the Remove button. |
+
 ### Multi-value selects
 
 A `select` field declared `multiple: true` selects zero-or-more values (spec
@@ -423,7 +529,7 @@ MIT — see [LICENSE](./LICENSE).
 
 Compact currency grid cells display the authored `prefix` and `scale` (two decimal places when unspecified). The default profile retains its existing formatting.
 
-`GridFieldMetadata.columns` uses the same strict `GridColumnDefinition` contract as inline grids. Computed columns declare `computed: true`, an arithmetic `expr`, and optional `scale`; `record.field` and bare field references read numeric sibling cells. `GridColumnDefinitionSchema` is exported from `@object-ui/types/zod`. Initial rows and externally replaced controlled rows show derived values without firing `onChange`; user edits and batch patches still emit the computed result through the controlled row array.
+`GridFieldMetadata.columns` uses the same strict `GridColumnDefinition` contract as inline grids. Computed columns declare `computed: true`, an arithmetic `expr`, and optional `scale`; `record.field` and bare field references read numeric sibling cells. `GridColumnDefinitionSchema` is exported from `@object-ui/types/zod`. Initial rows and externally replaced controlled rows show derived values without firing `onChange`; user edits and batch patches still emit the computed result through the controlled row array. The labelled `rows` presentation has the host-computation and saved-snapshot behavior described in "Labelled line rows in GridField".
 # Compact single-record relations
 
 The `compact-enterprise` host profile puts a single lookup or user field's
