@@ -466,7 +466,7 @@ side and render it from a dataset rather than from grid grouping.
 
 **The adapter is not a schema key.** A schema is a serialisable document; a live
 adapter is an object with methods, so it cannot travel in one. The grid reads its
-adapter from React context — `useSchemaContext()` at `src/index.tsx:80` — which the
+adapter from React context — `useSchemaContext()` in the registry wrapper — which the
 host installs once, above the whole tree:
 
 ```tsx
@@ -588,6 +588,25 @@ table's handlers itself and never reads any of these nine off the schema.
 `'cards'` (the default) or `'table'`; choose `'table'` when a host needs a
 horizontally scrollable grid on narrow screens. It is not an `ObjectGridSchema`
 key or an authoring input.
+
+React hosts may also pass `showRowNumbers={false}` to remove the number column;
+the existing grid default remains `true`, and the selection column remains
+independent. `hideHeaderWhenEmpty` and `hidePaginationWhenEmpty` default to
+`false` and independently suppress the corresponding table region after a
+successful empty read with an explicit `total: 0`. Explicit synchronous empty
+rows are accepted. Missing or malformed row payloads, unfinished reads, errors,
+an unknown or positive total, or a
+`hasMore: true` response do not authorize suppression. Hosts supplying external
+rows must gate these options on their own read state; ListView does so for its
+owned queries. All three are `ObjectGridComponentProps`, not ObjectGrid
+metadata or designer inputs. The grid forwards the number choice through the
+existing DataTable `showRowNumbers` key, while the empty choices remain React
+props throughout.
+
+`SchemaRenderer` strips these React-only choices, and the `emptyStateContent`
+handoff, from authored top-level, `props` and `properties` values for ObjectGrid
+registrations. Explicit React host props remain available and take precedence
+even when metadata contains the same keys. Other renderer types are unaffected.
 
 The one callback the grid does read off the schema is `onNavigate`, declared on
 `ObjectGridSchema` for programmatic callers only. It is a function value too, so

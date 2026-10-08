@@ -728,6 +728,31 @@ function withoutAuthoredDataKey<T extends object>(bag: T, refuse: boolean): T {
   return rest as T;
 }
 
+const TABLE_HOST_PRESENTATION_KEYS = ['hideHeaderWhenEmpty', 'hidePaginationWhenEmpty', 'emptyStateContent'] as const;
+const VIEW_HOST_PRESENTATION_KEYS = [...TABLE_HOST_PRESENTATION_KEYS, 'showRowNumbers'] as const;
+// These are the registrations of DataTable, ObjectGrid and ListView. Bare
+// `grid`/`list` belong to other renderers and must retain their authored props.
+const HOST_PRESENTATION_KEYS_BY_TYPE = new Map<string, readonly string[]>([
+  ['data-table', TABLE_HOST_PRESENTATION_KEYS],
+  ['ui:data-table', TABLE_HOST_PRESENTATION_KEYS],
+  ['object-grid', VIEW_HOST_PRESENTATION_KEYS],
+  ['plugin-grid:object-grid', VIEW_HOST_PRESENTATION_KEYS],
+  ['view:grid', VIEW_HOST_PRESENTATION_KEYS],
+  ['list-view', VIEW_HOST_PRESENTATION_KEYS],
+  ['plugin-list:list-view', VIEW_HOST_PRESENTATION_KEYS],
+  ['view:list', VIEW_HOST_PRESENTATION_KEYS],
+]);
+
+/** Refuse authored values only; the explicit React host props are spread last. */
+function withoutAuthoredTablePresentationKeys<T extends object>(bag: T, type: string): T {
+  const keys = HOST_PRESENTATION_KEYS_BY_TYPE.get(type);
+  if (!keys?.some(key => Object.prototype.hasOwnProperty.call(bag, key))) return bag;
+  const rest = { ...bag } as Record<string, unknown>;
+  for (const key of keys) delete rest[key];
+  // DataTable's existing showRowNumbers schema key is deliberately not stripped.
+  return rest as T;
+}
+
 /**
  * The props `SchemaRenderer` DECLARES and reads itself (objectui#4548).
  *
@@ -1898,10 +1923,11 @@ export const SchemaRenderer: ForwardRefExoticComponent<
     evaluatedSchema.props,
     evaluatedSchema.properties
   );
-  const outgoingPropsBag = withoutAuthoredDataKey(aliasBagAsAuthored, refusesAuthoredDataProp);
-  if (__DEV__ && outgoingPropsBag !== aliasBagAsAuthored) {
+  const dataFilteredPropsBag = withoutAuthoredDataKey(aliasBagAsAuthored, refusesAuthoredDataProp);
+  if (__DEV__ && dataFilteredPropsBag !== aliasBagAsAuthored) {
     reportRefusedDataPropSpread(evaluatedSchema.type, evaluatedSchema.id);
   }
+  const outgoingPropsBag = withoutAuthoredTablePresentationKeys(dataFilteredPropsBag, evaluatedSchema.type);
 
   // Dev-build diagnostic (objectui#6708, maintainer ruling 2026-08-29, option
   // 2): those keys are spread as React props and never hoisted onto the node,
@@ -1987,13 +2013,14 @@ export const SchemaRenderer: ForwardRefExoticComponent<
    * ⛔ Still no validator refusal: whether the alias exists at all is
    * objectui#4795's pending question ②, and nothing else it carries moves.
    */
-  const outgoingComponentProps = withoutAuthoredDataKey(
+  const dataFilteredComponentProps = withoutAuthoredDataKey(
     componentProps,
     refusesAuthoredDataProp
   );
-  if (__DEV__ && outgoingComponentProps !== componentProps) {
+  if (__DEV__ && dataFilteredComponentProps !== componentProps) {
     reportRefusedDataPropSpread(evaluatedSchema.type, evaluatedSchema.id);
   }
+  const outgoingComponentProps = withoutAuthoredTablePresentationKeys(dataFilteredComponentProps, evaluatedSchema.type);
 
   // SDUI scoped styling (ADR-0065) — computed in the memo hoisted above the
   // early returns; see the doc comment there for why it cannot live here.

@@ -508,6 +508,11 @@ export interface ObjectGridComponentProps extends ObjectGridExternalPaginationPr
    * This is a host prop and is never authored in ObjectGrid metadata.
    */
   mobileLayout?: 'cards' | 'table';
+  /** React-only row-number choice; defaults to the grid's existing `true`. */
+  showRowNumbers?: DataTableSchema['showRowNumbers'];
+  /** Hide this chrome only after the grid has confirmed a successful empty read. */
+  hideHeaderWhenEmpty?: boolean;
+  hidePaginationWhenEmpty?: boolean;
   /**
    * Internal ListView-to-grid React handoff for its existing empty-state node.
    * This is runtime composition only and is never authored in metadata.
@@ -1286,6 +1291,9 @@ export const ObjectGrid: React.FC<ObjectGridComponentProps> = ({
   schema,
   dataSource,
   mobileLayout = 'cards',
+  showRowNumbers = true,
+  hideHeaderWhenEmpty = false,
+  hidePaginationWhenEmpty = false,
   emptyStateContent,
   onEdit,
   onDelete,
@@ -1319,6 +1327,9 @@ export const ObjectGrid: React.FC<ObjectGridComponentProps> = ({
   const [data, setData] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<Error | null>(null);
+  // Only authorizes the optional empty-chrome suppression; existing data and
+  // loading/error behavior do not depend on this marker.
+  const [emptyResultReady, setEmptyResultReady] = useState(false);
   // Tenant default currency (ADR-0053) backstops amount cells that lack a code.
   const { currency: tenantCurrency } = useLocalization();
   // The one date/number locale resolver: tenant regional default → active UI
@@ -1811,6 +1822,7 @@ export const ObjectGrid: React.FC<ObjectGridComponentProps> = ({
          }
          return prev;
        });
+       setEmptyResultReady(Array.isArray(dataConfig.items));
        setLoading(false);
     }
   }, [hasInlineData, dataConfig]);
@@ -1862,6 +1874,7 @@ export const ObjectGrid: React.FC<ObjectGridComponentProps> = ({
     const loadSchemaAndData = async () => {
       setLoading(true);
       setError(null);
+      setEmptyResultReady(false);
       try {
         // --- Step 1: Resolve object schema ---
         let resolvedSchema: any = null;
@@ -2314,6 +2327,11 @@ export const ObjectGrid: React.FC<ObjectGridComponentProps> = ({
           const result = await dataSource.find(objectName, params);
           if (cancelled) return;
           setData(result.data || []);
+          setEmptyResultReady(
+            Array.isArray(result.data)
+            && result.total === 0
+            && (result.hasMore === undefined || result.hasMore === false),
+          );
           // Capture total matching count + the params we used, so the bulk
           // selection banner can offer "Select all N matching" and the
           // dispatcher can re-issue the query to expand selection.
@@ -4738,7 +4756,7 @@ export const ObjectGrid: React.FC<ObjectGridComponentProps> = ({
           : rowHeightMode === 'extra_tall'
             ? 'px-[var(--ui-table-cell-padding-x,0.75rem)] py-3.5 text-[length:var(--ui-table-font-size,0.875rem)] leading-relaxed'
             : 'px-[var(--ui-table-cell-padding-x,0.75rem)] py-1.5 text-[length:var(--ui-table-font-size,13px)] leading-normal',
-    showRowNumbers: true,
+    showRowNumbers,
     // [#5148] The authored request ∧ the principal's verdict — the conjunction
     // #5143 spelled for `editable` and #4646 / PR #5145 spelled for the
     // related-list "+ New" (`objectCanCreate = affordances.create ∧
@@ -5580,7 +5598,12 @@ export const ObjectGrid: React.FC<ObjectGridComponentProps> = ({
   ) : (
     <div className="flex flex-col flex-1 min-h-0">
       <div className="flex flex-col flex-1 min-h-0">
-        <SchemaRenderer schema={dataTableSchema} emptyStateContent={emptyStateContent} />
+        <SchemaRenderer
+          schema={dataTableSchema}
+          emptyStateContent={emptyStateContent}
+          hideHeaderWhenEmpty={hideHeaderWhenEmpty && emptyResultReady && !loading && !error}
+          hidePaginationWhenEmpty={hidePaginationWhenEmpty && emptyResultReady && !loading && !error}
+        />
       </div>
       {summaryFooter}
     </div>

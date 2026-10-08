@@ -515,6 +515,31 @@ For a host that needs a full-width table on a narrow screen, pass
 `mobileLayout="table"` to `<ListView>`; the default `"cards"` keeps the existing
 populated mobile card layout. This is a React runtime prop, not a serialized
 ListView or ObjectGrid schema key.
+
+The same React surface accepts `showRowNumbers={false}` to remove the grid's
+number column while retaining selection. `hideHeaderWhenEmpty` and
+`hidePaginationWhenEmpty` are independent React props, both defaulting to
+`false`; neither is a ListView or ObjectGrid metadata key. ListView and
+ObjectGrid authorize these choices only after an explicit synchronous row array
+or a successful array response reporting `total: 0` has settled, with no
+loading/error state and no reported remaining rows. A missing source, malformed
+response, unknown or positive total, or `hasMore: true` retains the existing
+table chrome. Populated tables keep
+headers and paging even when these flags are enabled.
+A direct `RecordTable` host can pass the same two empty props, but must gate them
+on its own successful read state because the table performs no requests. In
+manual paging mode the table additionally requires `rowCount: 0`; an unknown
+or positive total retains its header and pager. Direct RecordTable row numbers
+continue to use the existing `schema.showRowNumbers` key.
+`ListView` also accepts React `emptyStateContent` for a settled empty grid;
+the content remains outside metadata and cannot override its loading or error
+panel. Use a host status line when the page needs simpler empty copy.
+The SchemaRenderer bridge does not promote these React-only options from schema
+top level or either `props`/`properties` bag. Explicit React host props still
+work, including when metadata carries a value under the same name. This strip
+is limited to the corresponding table/view registrations; the existing
+DataTable `schema.showRowNumbers` key and other renderer types are unchanged.
+
 For a direct `data-table` schema, a column may declare `fixed: 'left'` or
 `fixed: 'right'`; the renderer pins its header and body cells using offsets
 measured from the rendered column widths, so multiple fixed columns do not

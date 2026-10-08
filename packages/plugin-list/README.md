@@ -269,6 +269,50 @@ grid as a horizontally scrollable table on narrow screens. The default remains
 `"cards"` for populated mobile grids. `mobileLayout` is forwarded as a React
 prop to ObjectGrid and is not part of `ListViewSchema` or persisted metadata.
 
+The React-only `showRowNumbers` prop selects whether the child grid shows its
+number column (the grid's existing default is `true`). Hosts may independently
+opt into `hideHeaderWhenEmpty` and `hidePaginationWhenEmpty`, both defaulting to
+`false`. ListView forwards empty suppression only for an explicit synchronous
+row array or a successful row-array response reporting `total: 0`, after loading
+and errors settle. Missing sources, malformed payloads, unknown or positive
+totals and `hasMore: true` keep
+the original presentation. These choices are never copied into ListView or
+ObjectGrid metadata. For example, this host keeps empty headers while removing
+the empty server pager:
+
+```tsx
+import { ListView } from '@object-ui/plugin-list';
+import type { DataSource, ListViewSchema } from '@object-ui/types';
+
+const listSchema: ListViewSchema = {
+  type: 'list-view',
+  objectName: 'quotation',
+  columns: [{ field: 'name', label: 'Name' }],
+  pagination: { pageSize: 20 },
+};
+
+export function QuotationList({ dataSource }: { dataSource: DataSource }) {
+  return (
+    <ListView
+      schema={listSchema}
+      dataSource={dataSource}
+      showRowNumbers={false}
+      hidePaginationWhenEmpty
+    />
+  );
+}
+```
+
+Render this host inside the application's standard providers with its grid
+plugin registered. `SchemaRenderer` ignores these presentation keys at schema
+top level and inside `props` or `properties`; pass them as explicit React props.
+Explicit host props still take precedence when metadata contains the same keys.
+
+A React host may also provide `emptyStateContent` for a settled empty grid,
+such as a plain business status line. The slot is not metadata. It is used only
+after a valid empty result, loading/errors have settled and field permissions
+are ready; it does not replace loading, forbidden or other error panels.
+
 ## Page binding — `dataSource` (referencing a saved view by name)
 
 On a metadata page, a `list-view` component can bind its data through the spec's
