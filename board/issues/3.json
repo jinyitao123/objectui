@@ -1,0 +1,36 @@
+{
+  "number": 3,
+  "kind": "pull_request",
+  "title": "Add host-controlled empty table presentation and row numbers",
+  "state": "closed",
+  "state_reason": null,
+  "draft": false,
+  "author": {
+    "login": "jinyitao123",
+    "id": 260412432,
+    "type": "User"
+  },
+  "labels": [
+    "documentation",
+    "package: components",
+    "package: react",
+    "plugin",
+    "tests"
+  ],
+  "assignees": [],
+  "milestone": null,
+  "type": null,
+  "created_at": "2026-10-08T04:35:23Z",
+  "updated_at": "2026-10-08T05:24:16Z",
+  "closed_at": "2026-10-08T05:16:57Z",
+  "closed_by": {
+    "login": "jinyitao123",
+    "id": 260412432,
+    "type": "User"
+  },
+  "merged_at": "2026-10-08T05:16:57Z",
+  "comments": 2,
+  "locked": false,
+  "html_url": "https://github.com/jinyitao123/objectui/pull/3",
+  "body": "Hosts need consistent empty tables and optional row numbers without changing stored view metadata or hiding loading, errors, or unknown server totals. This change adds opt-in React presentation props to DataTable, ObjectGrid, and ListView. Empty header/pagination suppression only applies to explicit synchronous empty rows or a settled successful response with an explicit zero total.\n\nThe real SchemaRenderer bridge removes these host-only options from authored metadata for the registered table/view aliases, while retaining explicit host overrides, DataTable’s existing row-number metadata, and unrelated renderers. Fixed-column offsets are remeasured when a hidden empty header returns. Package and guide documentation plus changesets cover the public props.\n\nValidation: 205 focused regression checks pass; source/test type checks and builds pass for the four affected packages; ESLint reports no errors. The README example compiles against built package declarations. An independent review reproduced and then verified closure of the metadata-spread and documentation-snippet defects, including 18 additional real-bridge comparisons. Cloud Build & E2E, Live E2E, lint, and full documentation-link validation have since passed. The full Type Check job exposed an existing test-build dependency issue: ListView.recordCountPager.test.tsx imports plugin-grid source directly while plugin-detail declarations may not yet be built. That import and dependency configuration are unchanged from the base; the focused source/test type checks passed locally after dependency builds. This remaining CI issue is recorded for follow-up rather than reported as green.\n\nThis is the first reviewed extraction from the preserved table WIP. The original WIP bytes remain unchanged; GridField row editing and Forge business changes are outside this PR. This does not claim browser or cross-product business acceptance.\n"
+}

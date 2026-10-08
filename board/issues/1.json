@@ -1,0 +1,37 @@
+{
+  "number": 1,
+  "kind": "pull_request",
+  "title": "feat(form): share document layout and accessible dialog controls",
+  "state": "closed",
+  "state_reason": null,
+  "draft": false,
+  "author": {
+    "login": "jinyitao123",
+    "id": 260412432,
+    "type": "User"
+  },
+  "labels": [
+    "apps",
+    "documentation",
+    "package: components",
+    "package: fields",
+    "plugin",
+    "tests"
+  ],
+  "assignees": [],
+  "milestone": null,
+  "type": null,
+  "created_at": "2026-10-06T13:41:28Z",
+  "updated_at": "2026-10-07T10:32:47Z",
+  "closed_at": "2026-10-07T10:12:10Z",
+  "closed_by": {
+    "login": "jinyitao123",
+    "id": 260412432,
+    "type": "User"
+  },
+  "merged_at": "2026-10-07T10:12:10Z",
+  "comments": 0,
+  "locked": false,
+  "html_url": "https://github.com/jinyitao123/objectui/pull/1",
+  "body": "Native compound forms need reusable document layout, guarded dialogs, and accessible controls for reference-led page composition. This draft adds presentation capabilities without a new business model, persistence API, or Spec schema property.\n\nChanges:\n- Honor disabled file controls while preserving readonly view/download behavior.\n- Add opt-in native section numbers and a DocumentWorkspace sidebar/footer.\n- Preserve opener focus across CompositeDialog and nested discard prompts; omit absent descriptions.\n- Register existing Switch, FormSectionContainer and DatePicker for trusted React Pages without adapter injection.\n- Add a controlled SegmentedRadioGroup with Radix semantics and host geometry tokens. Quick arrow taps move focus and selection together; disabled choices, RTL, loop boundaries and single callbacks are covered.\n- Support a host-owned dialog radius, retaining the existing default.\n- Expose optional DatePicker validity, inline clearing, ISO editing, focus opening and year/month navigation using the existing parser. Preserve default consumers; fix first-pointer actions after input blur and prevent the caption wrapper from covering month navigation.\n\nValidation:\n- Date controls passed 24 targeted tests; the subsequent pointer hit-area correction passed 14 behavior tests. Types, builds, targeted lint, changeset checks and clean Console builds passed. Counts overlap and are not additive.\n- Final ObjectUI 869b0954 paired with Forge 9bb655bb: actual UI verified first caption click after typing, previous/next month, year/month keyboard selection, first day click and inline clearing. Native UI exposed both click loss and caption overlap despite prior component tests; the failures and fixes remain documented.\n- An original settings account created a type through the existing page. After two full server restarts against the same isolated PostgreSQL database, the original consumer account read it back. No permissions were widened; project/plan/task/member counts stayed zero.\n- Full-size reference/candidate JPEGs support the observations. Year/month panel dimensions and final radius were checked; overall calendar height, cell sizes, weekday/month copy and focus/Escape behavior still differ. Complete visual replication is not claimed.\n- One 15-minute fixture timeout is preserved as failure; the later fixture completed and was cleaned up. Inline privileged type creation remains unverified. Prior file/document/segmented-control evidence retains its original tested revisions and scope.\n- Existing documentation-link and Forge financial-image gate failures remain separate.\n\nDraft paired with [Forge page changes](https://github.com/jinyitao123/inoForge/pull/31), targeting codex/forge-risemap-objectui. Original grid/empty-state WIP is preserved. The public Forge Console lock does not yet include these registrations, so paired integration is required. No merge, deployment, complete visual acceptance or full business replication is claimed.\n"
+}
