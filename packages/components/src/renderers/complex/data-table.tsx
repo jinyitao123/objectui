@@ -25,9 +25,10 @@ import {
   TableRow, 
   TableCell, 
   TableCaption 
-} from '../../ui/table';
+} from '../../custom/profile-table';
 import { Button, Input } from '../../custom/profile-controls';
 import { DataEmptyState } from '../../custom/view-states';
+import { TableColumnSettings, TableHorizontalScrollbar } from '../../custom/table-controls';
 import { Checkbox } from '../../ui/checkbox';
 import {
   Select,
@@ -766,6 +767,8 @@ const DataTableRenderer = ({
   emptyStateContent: hostEmptyStateContent,
   hideHeaderWhenEmpty = false,
   hidePaginationWhenEmpty = false,
+  hostColumnSettingsProvided = false,
+  hostHorizontalScrollbarProvided = false,
 }: {
   schema: DataTableSchema;
   /** Internal React-only slot; it is not a DataTableSchema metadata key. */
@@ -773,6 +776,9 @@ const DataTableRenderer = ({
   /** React-only choices for a host that has confirmed a successful empty read. */
   hideHeaderWhenEmpty?: boolean;
   hidePaginationWhenEmpty?: boolean;
+  /** React-only host controls; not serialized metadata keys. */
+  hostColumnSettingsProvided?: boolean;
+  hostHorizontalScrollbarProvided?: boolean;
 }) => {
   const {
     caption,
@@ -1033,7 +1039,13 @@ const DataTableRenderer = ({
   const [selectedRowIds, setSelectedRowIds] = useState<Set<any>>(new Set());
   const [currentPage, setCurrentPage] = useState(1);
   const [pageSize, setPageSize] = useState(initialPageSize);
-  const [columns, setColumns] = useState(initialColumns);
+  const [columnState, setColumns] = useState(initialColumns);
+  const [hiddenColumnKeys, setHiddenColumnKeys] = useState<Set<string>>(() => new Set());
+  const columns = useMemo(() => columnState.filter(column => column.accessorKey === initialColumns[0]?.accessorKey || column.fixed === 'right' || !hiddenColumnKeys.has(column.accessorKey)), [columnState, hiddenColumnKeys, initialColumns]);
+  const tableViewportRef = useRef<HTMLDivElement>(null);
+  const requiredColumnKey = initialColumns[0]?.accessorKey;
+  const settingsColumns = columnState.map(column => ({ key: column.accessorKey, label: String(column.header || column.accessorKey), required: column.accessorKey === requiredColumnKey || column.fixed === 'right', movable: column.fixed !== 'right' }));
+  const columnSettingsControl = <TableColumnSettings columns={settingsColumns} hiddenKeys={hiddenColumnKeys} onToggle={key => setHiddenColumnKeys(current => { const next = new Set(current); if (next.has(key)) next.delete(key); else next.add(key); return next; })} onReorder={reorderEnabled ? keys => { const reordered = keys.map(key => columnState.find(column => column.accessorKey === key)).filter((column): column is TableColumn => !!column); setColumns(reordered); schema.onColumnsReorder?.(reordered); } : undefined} onReset={() => { setColumns(initialColumns); setHiddenColumnKeys(new Set()); setColumnWidths({}); }} />;
   const [columnWidths, setColumnWidths] = useState<Record<string, number>>({});
 
   const columnPinSides = columns.map((column: TableColumn, index: number) =>
@@ -1658,16 +1670,17 @@ const DataTableRenderer = ({
     const [removed] = newColumns.splice(draggedColumn, 1);
     newColumns.splice(dropIndex, 0, removed);
 
-    setColumns(newColumns);
+    const reorderedColumns = [...newColumns, ...columnState.filter(column => !columns.some(visible => visible.accessorKey === column.accessorKey))];
+    setColumns(reorderedColumns);
     setDraggedColumn(null);
     setDragOverColumn(null);
 
     // Call callback if provided
     if (schema.onColumnsReorder) {
-      schema.onColumnsReorder(newColumns);
+      schema.onColumnsReorder(reorderedColumns);
     }
     // Design host: persist the new order to the object's field metadata.
-    fieldAuthoring?.onReorderFields?.(newColumns.map((c) => c.accessorKey));
+    fieldAuthoring?.onReorderFields?.(reorderedColumns.map((c) => c.accessorKey));
   };
 
   const handleColumnDragEnd = () => {
@@ -2123,6 +2136,7 @@ const DataTableRenderer = ({
               </>
             )}
             
+            {!hostColumnSettingsProvided && columnSettingsControl}
             {exportable && (
               <Button
                 variant="outline"
@@ -2144,12 +2158,14 @@ const DataTableRenderer = ({
         </div>
       )}
 
+      {!showToolbar && !hostColumnSettingsProvided && <div className="flex justify-end shrink-0 px-2">{columnSettingsControl}</div>}
+
       {/* Table - horizontal scroll indicator via inset shadow on mobile.
           When `borderless`, drop the rounded frame AND the inset shadow so
           the table sits flush against its container without a floating
           right-edge gradient that looked odd without a surrounding border. */}
-      <div className={cn(
-        "relative bg-background",
+      <div ref={tableViewportRef} className={cn(
+        "relative bg-background data-[table-scrollbar-owner=custom]:overflow-x-hidden [&::-webkit-scrollbar]:h-0",
         // When embedded in a shared scroll container (grouped grid), let the
         // table overflow outward instead of creating its own scrollbar so all
         // sub-tables share one horizontal scrollbar with aligned columns.
@@ -2816,6 +2832,8 @@ const DataTableRenderer = ({
           </div>
         )}
       </div>
+
+      {!disableInnerScroll && !hostHorizontalScrollbarProvided && <TableHorizontalScrollbar viewportRef={tableViewportRef} />}
 
       {/* Server totals and page size remain useful for a single or empty page. */}
       {pagination && !(hidePaginationWhenEmpty && confirmedEmpty) && (manualPagination || (sortedData.length > 0 && totalPages > 1)) && (

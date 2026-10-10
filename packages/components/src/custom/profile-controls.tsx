@@ -59,6 +59,9 @@ export function buttonVariants(options?: ButtonVariantProps): string {
   return cn(
     uiButtonVariants(variantProps),
     'gap-[var(--ui-button-gap,0.5rem)] rounded-[var(--ui-control-radius,0.375rem)] text-[length:var(--ui-control-font-size,0.875rem)] leading-[var(--ui-control-line-height,1.25rem)]',
+    size === 'icon'
+      ? '[&_svg]:size-[var(--ui-icon-button-icon-size,1rem)]'
+      : '[&_svg]:size-[var(--ui-button-icon-size,1rem)]',
     sizeClasses,
     className,
     classProp,
@@ -72,6 +75,8 @@ export const Button = React.forwardRef<HTMLButtonElement, ButtonProps>(
       ref={ref}
       size={size}
       variant={variant}
+      data-ui-control="button"
+      data-ui-button-size={size ?? 'default'}
       className={buttonVariants({ size, variant, className })}
     />
   ),

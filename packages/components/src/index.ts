@@ -145,3 +145,6 @@ export * from './debug';
 
 // Platform share-link dialog (Notion / Figma-style "anyone with the link")
 export * from './share';
+
+export { Table, TableHeader, TableBody, TableRow, TableHead, TableCell } from './custom/profile-table';
+export { TableColumnSettings, TableHorizontalScrollbar, type TableSettingsColumn } from './custom/table-controls';
