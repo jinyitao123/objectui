@@ -871,3 +871,5 @@ const navGroups: NavGroup[] = [
 ### AppShell geometry profile
 
 `AppShell` consumes host CSS custom properties `--ui-app-sidebar-width` and `--ui-app-topbar-height`. Their defaults remain `16rem` and `3.5rem`. The compact Console profile supplies a `240px` sidebar and a `68px` top bar at widths of `768px` and above; below `768px` it sets the top bar to `60px`. These dimensions belong to application chrome, independently of dialog summary columns and page content. Sidebar collapse and mobile behavior continue to use the native sidebar component.
+
+The shared presentation also preserves caller field permissions and native submit behavior. Column controls remain outside the data viewport; their eager payload is covered by the console component-chunk budget and the unchanged aggregate and regression-sensitivity checks.

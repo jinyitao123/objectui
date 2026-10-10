@@ -1165,7 +1165,12 @@ export const PER_CHUNK_GZIP_CEILINGS = Object.freeze({
   // ⚠️ That reasoning is why this key was taken out of the declared-allowance
   // table objectui#8554 kept, which objectui#10148 then retired outright — the
   // re-pin is what discharged the debt, and it reads the same either way.
-  'ui-components': 289_000,
+  // Shared table settings, scroll controls, tree keyboard handling and page
+  // feedback are intentional eager functionality. Re-pin this chunk to the
+  // locally measured fa29ca7c15db0eed10682355b3f7171fa1c8030e console artifact
+  // (ui-components-DtbA8Lgd.js), retaining the previous 23,063-byte headroom.
+  // The aggregate ceiling and live regression-sensitivity checks are unchanged.
+  'ui-components': 313_682,
 });
 
 /**
@@ -1309,10 +1314,12 @@ export const PER_CHUNK_BASELINE = Object.freeze({
   // BASELINE's. Moved with the ceiling in the same commit, per the maintainer
   // ruling of 2026-09-08 and the rule stated under "Raising one".
   framework: 72_245,
-  // `bbf6b02d9`, the same console build as BASELINE above, so the two are
-  // directly comparable, and the same instrument and container as the control
-  // build it is subtracted from (objectui#9251).
-  'ui-components': 265_937,
+  // fa29ca7c15db0eed10682355b3f7171fa1c8030e, macOS / Node 25.6.1.
+  // Read from eager-closure.json and independently re-gzipped from the named
+  // artifact. This is a fresh absolute reading; it includes earlier drift and
+  // is not a claim that the shared controls alone account for the full growth.
+  // The CI artifact has the same content hash; compression versions may differ.
+  'ui-components': 290_619,
 });
 
 /**

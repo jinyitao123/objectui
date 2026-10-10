@@ -701,3 +701,5 @@ error severities. Expiration only removes the visual message. The `onClose`
 callback runs on explicit dismissal, so failed reads remain failed until the
 page obtains an authoritative successful result. It adds no persisted business
 notifications, query behavior or serialized schema keys.
+
+Shared presentation integration checks cover themed stylesheet output and the authored tree beneath its decorative heading. The console component-chunk budget is pinned to a measured artifact, while aggregate payload and live regression sensitivity remain guarded.
