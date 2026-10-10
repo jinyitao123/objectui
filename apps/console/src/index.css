@@ -14,6 +14,12 @@
   --ui-icon-button-size: 28px;
   --ui-menu-item-padding-y: 7px;
   --ui-button-gap: 5.25px;
+  --ui-button-font-weight: 500;
+  --ui-button-icon-size: 14px;
+  --ui-icon-button-icon-size: 16px;
+  --ui-icon-stroke-width: 2;
+  --ui-toolbar-action-gap: 10.5px;
+  --ui-toolbar-tool-gap: 3.5px;
   --ui-button-padding-x: 14px;
   --ui-button-padding-y: 0px;
   --ui-button-small-padding-x: 10.5px;
@@ -113,7 +119,16 @@
   --ui-modal-full-max-width: min(1120px, 95vw);
   --ui-table-font-size: 12.25px;
   --ui-table-header-font-size: 10.5px;
+  --ui-table-header-height: 35px;
+  --ui-table-header-line-height: 14px;
+  --ui-table-header-font-weight: 600;
+  --ui-table-header-letter-spacing: 0.04em;
+  --ui-table-header-color: #5e6c84;
+  --ui-table-header-background: #f4f5f7;
+  --ui-table-header-padding-x: 10.5px;
+  --ui-table-header-padding-y: 10.5px;
   --ui-table-cell-padding-x: 10.5px;
+  --ui-table-cell-padding-y: 10.5px;
   --ui-table-cell-line-height: 17.5px;
   --ui-list-toolbar-gap: 7px;
   --ui-list-toolbar-padding-x: 14px;
@@ -152,7 +167,7 @@
   --ui-workspace-header-icon-size: 35px;
   --ui-workspace-header-row-gap: 14px;
   --ui-workspace-header-min-height: 105px;
-  --ui-table-header-line-height: 14px;
+  --ui-table-header-line-height: 18px;
   --ui-table-header-font-weight: 600;
   --ui-table-border-width: 1px;
   --ui-space-1: 3.5px;
@@ -757,4 +772,19 @@ header.sticky {
   box-shadow:
     0 1px 4px rgb(0 0 0 / 0.25),
     0 0 0 0.5px rgb(0 0 0 / 0.06) !important;
+}
+
+/* A single custom horizontal control owns table scrolling. */
+[data-table-scrollbar-owner="custom"] {
+  overflow-x: hidden !important;
+  scrollbar-width: auto;
+  overscroll-behavior-x: contain;
+}
+[data-table-scrollbar-owner="custom"]::-webkit-scrollbar:horizontal {
+  height: 0 !important;
+  display: none !important;
+}
+:root[data-ui-profile="compact-enterprise"] table > thead > tr > th {
+  border-bottom: 0;
+  box-shadow: inset 0 -1px 0 hsl(var(--border));
 }

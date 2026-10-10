@@ -260,6 +260,14 @@ set `--ui-control-height`, `--ui-control-font-size`, `--ui-control-line-height`,
 `--ui-control-radius` and `--ui-button-padding-x`; palette comes from the theme.
 These direct React props are not new Spec fields or schema block types.
 
+The public `Button` preserves its primitive props and refs and marks its DOM
+with `data-ui-control="button"` plus `data-ui-button-size`. Host foundation font
+resets should exclude marked controls so they do not erase the button's font
+weight. `--ui-button-icon-size` and `--ui-icon-button-icon-size` optionally set
+SVG sizes, with the original `1rem` fallback; the compact Console profile uses
+14px and 16px respectively. Caller classes keep their normal precedence.
+
+
 ```tsx
 import { useState } from 'react';
 import { SegmentedRadioGroup } from '@object-ui/components';
@@ -919,3 +927,13 @@ structured props (`<flex direction gap>`, `<grid columns>`) and add CSS as a JSO
 - [Slotted Pages](./slotted-pages.md) — `kind:'full'` / `kind:'slotted'` record pages.
 - [Schema Rendering](./schema-rendering.md) — the schema tree the other kinds compile to.
 - [Component Registry](./component-registry.md) — how blocks are registered and what makes one public.
+
+### Transient page feedback
+
+Trusted React pages can render the runtime `PageMessage` component with
+ReactNode children, a severity, an optional duration and an explicit-dismissal
+callback. It uses the host's existing toaster at the top center. Error messages
+should not occupy data rows or pagination space. Keep failed-read flags and
+unavailable counts in page state when a visual message expires; clear them only
+through a successful read or an explicit page action. Use inline content for
+persistent business explanations and confirmation impact information.

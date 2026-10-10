@@ -8,19 +8,21 @@
 
 import { ComponentRegistry } from '@object-ui/core';
 import type { TreeViewSchema, TreeNode } from '@object-ui/types';
-import { ChevronRight, ChevronDown, Folder, File, FolderOpen } from 'lucide-react';
+import { ChevronRight, ChevronDown, Folder, File, FolderOpen, FolderTree } from 'lucide-react';
 import { useState } from 'react';
 import { cn } from '../../lib/utils';
 import { useDataScope } from '@object-ui/react';
 
 const TreeNodeComponent = ({ 
   node, 
-  onNodeClick
+  onNodeClick,
+  selectedId
 }: { 
   node: TreeNode; 
   onNodeClick?: (node: TreeNode) => void;
+  selectedId?: string;
 }) => {
-  const [isOpen, setIsOpen] = useState(false);
+  const [isOpen, setIsOpen] = useState(node.defaultExpanded ?? false);
   const hasChildren = node.children && node.children.length > 0;
 
   const handleToggle = (e: React.MouseEvent) => {
@@ -37,16 +39,34 @@ const TreeNodeComponent = ({
   return (
     <div className="relative">
       <div
+        role="treeitem"
+        tabIndex={0}
+        aria-selected={selectedId === node.id}
+        aria-expanded={hasChildren ? isOpen : undefined}
+        onKeyDown={(event) => {
+          if (event.key === 'Enter' || event.key === ' ') {
+            event.preventDefault();
+            handleClick();
+          } else if (event.key === 'ArrowRight' && hasChildren) {
+            event.preventDefault();
+            setIsOpen(true);
+          } else if (event.key === 'ArrowLeft' && hasChildren) {
+            event.preventDefault();
+            setIsOpen(false);
+          }
+        }}
         className={cn(
-          'group flex items-center py-1.5 px-2 rounded-sm cursor-pointer transition-colors',
+          'group flex min-w-0 items-center gap-1 py-1.5 px-2 rounded-md cursor-pointer transition-colors outline-none focus-visible:ring-2 focus-visible:ring-ring',
           'hover:bg-accent hover:text-accent-foreground',
-          isOpen && hasChildren && 'bg-accent/50' 
+          selectedId === node.id && 'bg-primary/10 text-primary font-medium'
         )}
         onClick={handleClick}
       >
         {hasChildren ? (
           <button type="button"
             onClick={handleToggle}
+            aria-label={`${isOpen ? 'Collapse' : 'Expand'} ${node.label}`}
+            aria-expanded={isOpen}
             className="mr-2 p-0.5 h-5 w-5 flex items-center justify-center rounded-sm hover:bg-muted text-muted-foreground transition-colors"
           >
             {isOpen ? (
@@ -57,7 +77,7 @@ const TreeNodeComponent = ({
           </button>
         ) : (
           <span className="mr-2 w-5 flex justify-center">
-             <div className="w-1 h-1 rounded-full bg-muted-foreground/50" />
+             <span aria-hidden="true" />
           </span>
         )}
         
@@ -70,20 +90,24 @@ const TreeNodeComponent = ({
         )}
         
         <span className={cn(
-            "text-sm transition-colors",
-            isOpen ? "font-medium text-foreground" : "text-muted-foreground group-hover:text-foreground"
+            "min-w-0 flex-1 truncate text-sm transition-colors",
+            selectedId === node.id ? "font-medium text-primary" : "text-foreground"
         )}>
             {node.label}
         </span>
+        {typeof node.data?.count === 'number' && Number.isFinite(node.data.count) && (
+          <span className="ml-auto shrink-0 text-xs font-normal tabular-nums text-muted-foreground">{node.data.count}</span>
+        )}
       </div>
 
       {hasChildren && isOpen && (
-        <div className="relative ml-[11px] pl-3 border-l border-border animate-in slide-in-from-left-2 fade-in duration-200">
+        <div role="group" className="relative ml-4 pl-2 border-l border-border/50">
           {node.children!.map((child) => (
             <TreeNodeComponent
               key={child.id}
               node={child}
               onNodeClick={onNodeClick}
+              selectedId={selectedId}
             />
           ))}
         </div>
@@ -94,7 +118,10 @@ const TreeNodeComponent = ({
 
 ComponentRegistry.register('tree-view',
   ({ schema, className, ...props }: { schema: TreeViewSchema; className?: string; [key: string]: any }) => {
+    const [selectedId, setSelectedId] = useState<string | undefined>(schema.defaultSelectedIds?.[0]);
+    const activeId = schema.selectedIds !== undefined ? schema.selectedIds[0] : selectedId;
     const handleNodeClick = (node: TreeNode) => {
+      if (node.selectable !== false) setSelectedId(node.id);
       if (schema.onNodeClick) {
         schema.onNodeClick(node);
       }
@@ -107,22 +134,24 @@ ComponentRegistry.register('tree-view',
 
     return (
       <div className={cn(
-          'relative border rounded-lg p-3 bg-card text-card-foreground',
+          'relative flex min-w-0 flex-col overflow-hidden border border-border rounded-xl bg-card text-card-foreground shadow-sm',
           className
         )} 
         {...props}
       >
         {schema.title && (
-          <div className="flex items-center gap-2 mb-3 pb-2 border-b">
+          <div className="flex items-center gap-2 px-3 py-3 border-b border-border">
+            <FolderTree className="h-4 w-4 text-muted-foreground" aria-hidden="true" />
             <h3 className="text-sm font-semibold">{schema.title}</h3>
           </div>
         )}
-        <div className="space-y-1">
+        <div role="tree" aria-label={schema.title} className="min-h-0 flex-1 overflow-y-auto space-y-1 p-1.5">
           {nodes.map((node: TreeNode) => (
             <TreeNodeComponent
               key={node.id}
               node={node}
               onNodeClick={handleNodeClick}
+              selectedId={activeId}
             />
           ))}
         </div>

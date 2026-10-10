@@ -80,6 +80,15 @@ row. Hosts can scope values through a wrapper or the existing
 for a stable selector. Column `className` and `cellClassName` remain explicit
 overrides. Selection and action columns keep their utility sizing.
 
+The public `Table` wrappers consume the same geometry tokens as
+`RecordTable`. The compact enterprise profile supplies a 35px header,
+12.25px data text, 10.5px header text and 10.5px vertical cell padding.
+Rows remain content-driven, so multiline cells and inline editors are not
+clipped to a fixed height. Header separators and horizontal scrollbar styling
+belong to the shared wrappers. `data-slot="table-container"`, `table`,
+`table-header`, `table-body`, `table-row`, `table-head` and `table-cell` identify
+these surfaces without adding new schema properties or data behavior.
+
 In the default scroll mode, an empty table keeps its header and spacer row but
 renders the empty content beside the table track, pinned to the visible
 horizontal viewport. A wide `DataTableSchema.className` table therefore does
@@ -235,6 +244,14 @@ and textarea height/padding variables. The Console's opt-in
 The profile supplies a common compact table text and cell-padding baseline.
 Surface-specific header and row geometry stays host-scoped because measured
 contact, project and quote tables use different dimensions.
+
+Public buttons carry `data-ui-control="button"` and `data-ui-button-size` so host
+foundation CSS can exclude them from broad font resets. Icon geometry consumes
+`--ui-button-icon-size` and `--ui-icon-button-icon-size`, both falling back to
+`1rem` as in the primitive. The opt-in compact profile uses 14px icons for text
+buttons and 16px icons for icon buttons. Caller `className` overrides remain
+last; this does not introduce schema fields or change the theme palette.
+
 
 The form renderer also consumes `--ui-form-row-gap`, `--ui-form-column-gap`,
 `--ui-field-stack-gap`, and section heading variables. Explicit schema layout
@@ -658,3 +675,31 @@ See [full documentation](https://objectui.org/docs/components) for detailed API 
 ## License
 
 MIT — see [LICENSE](./LICENSE).
+
+Shared `TableColumnSettings` and `TableHorizontalScrollbar` controls live in
+`src/custom/table-controls.tsx`. Native data tables expose visibility, order and
+reset controls without changing record data. Their visible horizontal track
+is independent of operating-system overlay scrollbar settings and supports
+dragging, track clicks and keyboard scrolling. Its viewport suppresses native
+horizontal chrome through explicit ownership; horizontal wheel and Shift-wheel
+input is routed to scrollLeft, while native vertical scrolling remains available. A host that supplies its own
+controls can pass the React-only `hostColumnSettingsProvided` and
+`hostHorizontalScrollbarProvided` flags to `RecordTable`; these are not
+serialized schema properties. The bounded data viewport remains separate
+from the toolbar and pagination. Grouped tables retain the shared outer
+scroll owner through `disableInnerScroll`.
+
+The `tree-view` renderer uses a separate card heading and scrollable node body.
+Nodes have semantic tree roles, focus states, expansion buttons and a selected
+state; supplied numeric `node.data.count` values align at the trailing edge.
+The existing `onNodeClick` callback remains the business interaction boundary.
+
+`PageMessage` is a React-only runtime component for transient page feedback.
+It reuses the existing Sonner host at the top center, deduplicates matching
+messages, retains ReactNode action content, and supports info/success/warning/
+error severities. Expiration only removes the visual message. The `onClose`
+callback runs on explicit dismissal, so failed reads remain failed until the
+page obtains an authoritative successful result. It adds no persisted business
+notifications, query behavior or serialized schema keys.
+
+Shared presentation integration checks cover themed stylesheet output and the authored tree beneath its decorative heading. The console component-chunk budget is pinned to a measured artifact, while aggregate payload and live regression sensitivity remain guarded.

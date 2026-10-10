@@ -35,8 +35,8 @@ function permissions(amountReadable: boolean, taxReadable = true): MePermissions
     roles: ['finance_reader'],
     permissionSets: ['finance_reader'],
     objects: {
-      invoice: { allowRead: true, allowEdit: true },
-      invoice_line: { allowRead: true, allowEdit: true },
+      invoice: { allowRead: true, allowEdit: true, allowCreate: true },
+      invoice_line: { allowRead: true, allowEdit: true, allowCreate: true },
     },
     fields: {
       'invoice.reference': { readable: true, editable: true },

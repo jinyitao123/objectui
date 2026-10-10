@@ -9,6 +9,38 @@ ObjectUI provides a comprehensive layout system through the `@object-ui/layout` 
 
 ## Overview
 
+### Shared table presentation
+
+Public table wrappers and `RecordTable` share the host's `--ui-table-*`
+geometry tokens. The compact enterprise profile sets header height, text size
+and cell padding centrally. Header separators and horizontal scrollbar styling
+come from the profile-aware wrappers; cell content can still wrap and grow the row.
+Existing metadata owns sorting, selection, column widths, pinned columns and
+pagination. Theme changes do not add data requests or change those callbacks.
+Use the shared table `data-slot` markers for host styling rather than separate
+per-page table skins. When a bounded viewport already owns scrolling, retain
+`containerClassName="overflow-visible"` on `Table` to avoid nesting scrollbars.
+
+Column settings expose visible columns, required-column markers, drag ordering
+and reset. Visibility changes affect rendered cells, not underlying record
+values or queries. A visible horizontal track stays at the data viewport bottom
+and follows wheel, trackpad, pointer and keyboard scrolling. It also remains
+available for a successful empty read when the table is wider than the viewport.
+Host toolbar controls and pagination stay outside that scrolling region. The custom
+control is the sole horizontal scrollbar; its viewport keeps native vertical
+scrolling and forwards horizontal wheel input. Headers use a compact
+35px geometry; selection alone does not enlarge the header, and taller content
+can still increase its natural height.
+Header labels and one short resize separator share consistent spacing.
+
+### Group trees
+
+A group sidebar is a separate card beside the data region, not a table column.
+The shared `tree-view` renderer provides a divided heading, indented children,
+focus and selection states, and trailing counts when supplied by node data.
+Keep host-owned group actions outside the scrollable node list so they remain
+reachable while navigating categories. Node clicks retain `onNodeClick`.
+
 The layout system provides:
 
 - **AppShell** - Full application container with a top navbar, sidebar, and content areas
@@ -839,3 +871,5 @@ const navGroups: NavGroup[] = [
 ### AppShell geometry profile
 
 `AppShell` consumes host CSS custom properties `--ui-app-sidebar-width` and `--ui-app-topbar-height`. Their defaults remain `16rem` and `3.5rem`. The compact Console profile supplies a `240px` sidebar and a `68px` top bar at widths of `768px` and above; below `768px` it sets the top bar to `60px`. These dimensions belong to application chrome, independently of dialog summary columns and page content. Sidebar collapse and mobile behavior continue to use the native sidebar component.
+
+The shared presentation also preserves caller field permissions and native submit behavior. Column controls remain outside the data viewport; their eager payload is covered by the console component-chunk budget and the unchanged aggregate and regression-sensitivity checks.

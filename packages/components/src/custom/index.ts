@@ -42,3 +42,5 @@ export * from './view-states';
 export * from './mobile-dialog-content';
 export * from './composite-dialog';
 export * from './export-progress-dialog';
+
+export { PageMessage, type PageMessageProps } from "./page-message";

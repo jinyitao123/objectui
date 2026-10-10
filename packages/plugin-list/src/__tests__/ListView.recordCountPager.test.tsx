@@ -11,7 +11,6 @@ import { cleanup, render, screen, waitFor } from '@testing-library/react';
 import { ComponentRegistry } from '@object-ui/core';
 import { registerAllFields } from '@object-ui/fields';
 import { ActionProvider, SchemaRendererProvider } from '@object-ui/react';
-import { ObjectGridRenderer } from '../../../plugin-grid/src/index';
 import { ListView } from '../ListView';
 
 const PAGE_SIZE = 5;
@@ -74,9 +73,9 @@ beforeAll(() => {
   registerAllFields();
   previousGrid = ComponentRegistry.get('object-grid');
   previousKanban = ComponentRegistry.get('object-kanban');
-  ComponentRegistry.register('object-grid', ObjectGridRenderer, {
-    namespace: 'test', label: 'ObjectGrid', category: 'view',
-  });
+  // The heavy DOM setup registers the real grid before this test module loads.
+  // Keep the package test program from following sibling source into unfinished dist declarations.
+  expect(previousGrid).toBeDefined();
   ComponentRegistry.register('object-kanban', () => <div data-testid="kanban-surface" />, {
     namespace: 'test', label: 'Kanban', category: 'view',
   });
